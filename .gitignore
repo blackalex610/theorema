@@ -35,3 +35,10 @@ realtime-server/node_modules/
 # Temporary files
 *.tmp
 *.temp
+
+# Local SQLite database (contains real student data — never commit)
+mathlearning.db
+*.db
+*.sqlite
+*.sqlite3
+

@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import { getAIExercises, submitAnswer, type Exercise, type ExerciseSubmissionResponse } from '../services/curriculum';
 import { trackMissionProgress } from '../services/progress';
@@ -14,6 +13,7 @@ import { getLimitErrorDetail } from '../services/api';
 import { usePlan } from '../hooks/usePlan';
 import { usePlanPrompt } from '../hooks/usePlanPrompt';
 import { useXp } from '../context/XpContext';
+import { renderMathText } from '../components/MathRenderer';
 
 interface ExerciseState {
   exercise: Exercise;
@@ -65,8 +65,11 @@ const ExercisesPage: React.FC = () => {
           isPremium: planStatus.is_premium,
         });
       } else {
-        const message = err?.response?.data?.detail || 'Грешка при генериране на упражненията';
-        setError(typeof message === 'string' ? message : JSON.stringify(message));
+        const detail = err?.response?.data?.detail;
+        let message = 'Грешка при генериране на упражненията';
+        if (typeof detail === 'string') message = detail;
+        else if (detail?.message) message = detail.message;
+        setError(message);
       }
       console.error('Error fetching exercises:', err);
     } finally {
@@ -78,39 +81,6 @@ const ExercisesPage: React.FC = () => {
   useEffect(() => {
     loadExercises();
   }, [lessonId]);
-
-  const renderMath = (text: string): string => {
-    // Replace LaTeX delimiters and render math
-    let rendered = text;
-    
-    // Handle display math ($$...$$)
-    rendered = rendered.replace(/\$\$(.*?)\$\$/g, (match, latex) => {
-      try {
-        return katex.renderToString(latex, { displayMode: true, throwOnError: false });
-      } catch (e) {
-        return match;
-      }
-    });
-
-    // Handle inline math ($...$)
-    rendered = rendered.replace(/\$(.*?)\$/g, (match, latex) => {
-      try {
-        return katex.renderToString(latex, { displayMode: false, throwOnError: false });
-      } catch (e) {
-        return match;
-      }
-    });
-
-    return rendered;
-  };
-
-  const renderInlineMath = (latex: string): string => {
-    try {
-      return katex.renderToString(latex || '\\,', { displayMode: false, throwOnError: false });
-    } catch {
-      return latex;
-    }
-  };
 
   const latexToPlainAnswer = (input: string): string => {
     let normalized = input;
@@ -326,12 +296,9 @@ const ExercisesPage: React.FC = () => {
                 </div>
 
                 {/* Exercise Question */}
-                <div
-                  className="mb-6 text-lg text-gray-800 leading-relaxed"
-                  dangerouslySetInnerHTML={{
-                    __html: renderMath(state.exercise.question),
-                  }}
-                />
+                <div className="mb-6 text-lg text-gray-800 leading-relaxed">
+                  {renderMathText(state.exercise.question)}
+                </div>
 
                 {/* Answer Input */}
                 {!state.isSubmitted ? (
@@ -402,12 +369,9 @@ const ExercisesPage: React.FC = () => {
 
                     <div className="p-3 bg-gray-50 border border-gray-200 rounded-md dark:bg-slate-900 dark:border-slate-700">
                       <p className="text-xs font-medium text-gray-500 mb-2 dark:text-slate-400">Преглед:</p>
-                      <div
-                        className="text-gray-900 min-h-6 dark:text-slate-100"
-                        dangerouslySetInnerHTML={{
-                          __html: renderInlineMath(state.userAnswer),
-                        }}
-                      />
+                      <div className="text-gray-900 min-h-6 dark:text-slate-100">
+                        {renderMathText(state.userAnswer)}
+                      </div>
                     </div>
                     <button
                       onClick={() => handleSubmit(index)}
@@ -491,12 +455,9 @@ const ExercisesPage: React.FC = () => {
                         <h4 className="font-semibold text-blue-900 mb-2">
                           Решение:
                         </h4>
-                        <div
-                          className="text-gray-800 leading-relaxed"
-                          dangerouslySetInnerHTML={{
-                            __html: renderMath(state.submission.solution),
-                          }}
-                        />
+                        <div className="text-gray-800 leading-relaxed">
+                          {renderMathText(state.submission.solution)}
+                        </div>
                         <div className="mt-3 pt-3 border-t border-blue-100">
                           <FeedbackButtons
                             contentType="explanation"

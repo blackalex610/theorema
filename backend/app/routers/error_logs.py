@@ -3,10 +3,11 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal, Optional
 
-from fastapi import APIRouter, HTTPException, Request, Query
+from fastapi import APIRouter, HTTPException, Request, Query, Depends
 from pydantic import BaseModel, Field
 
 from app.services.error_logger import append_error_log, allow_log_for_key, read_recent_logs
+from app.auth.dependencies import require_admin
 
 
 router = APIRouter(tags=["error-logging"])
@@ -41,6 +42,9 @@ async def log_error(payload: ErrorLogPayload, request: Request):
 
 
 @router.get("/log-error/recent")
-async def get_recent_logs(limit: int = Query(default=50, ge=1, le=200)):
-    # NOTE: Add admin auth in production.
+async def get_recent_logs(
+    _admin=Depends(require_admin),
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    """Admin-only: recent error logs. Requires admin role."""
     return {"items": read_recent_logs(limit=limit)}

@@ -1,6 +1,7 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
 from datetime import datetime
-from app.database import engine, Base
+from app.database import engine, Base, ensure_user_usage_columns
+from app.auth.dependencies import require_admin
 
 router = APIRouter(tags=["Health"])
 
@@ -19,10 +20,16 @@ async def health_check():
 
 
 @router.post("/admin/migrate")
-async def run_migrations():
-    """Create all DB tables if they don't exist (idempotent). Call once after deploy."""
+async def run_migrations(_admin=Depends(require_admin)):
+    """Create all DB tables if they don't exist (idempotent). Call once after deploy.
+
+    SECURITY: previously had NO authentication and returned raw exception
+    strings (schema/connection leak). Now requires an admin role and never
+    leaks internals.
+    """
     try:
         Base.metadata.create_all(bind=engine)
+        ensure_user_usage_columns()
         return {"status": "ok", "message": "Tables created / verified successfully"}
-    except Exception as exc:
-        return {"status": "error", "message": str(exc)}
+    except Exception:
+        raise HTTPException(status_code=500, detail="Migration failed. Check server logs.")

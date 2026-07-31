@@ -518,7 +518,11 @@ async def get_nvo_questions() -> dict:
 
 
 @router.post("/submit", response_model=NVOExamSubmitResponse)
-async def submit_nvo_exam(payload: NVOExamSubmitRequest, db: Session = Depends(get_db)) -> NVOExamSubmitResponse:
+async def submit_nvo_exam(
+    payload: NVOExamSubmitRequest,
+    _user=Depends(require_nvo_exam),
+    db: Session = Depends(get_db),
+) -> NVOExamSubmitResponse:
     exam = GENERATED_EXAMS.get(payload.exam_id)
     if not exam:
         if payload.questions:

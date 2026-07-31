@@ -87,7 +87,10 @@ async def chat_with_ai(
 
 
 @router.post("/diagram", response_model=DiagramResponse)
-async def generate_diagram(payload: DiagramRequest):
+async def generate_diagram(
+    payload: DiagramRequest,
+    _user=Depends(require_ai_chat),
+):
     """Generate structured diagram JSON for a Bulgarian math problem."""
     try:
         diagram = generate_diagram_json(problem_text=payload.problem)

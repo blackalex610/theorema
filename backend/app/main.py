@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from app.config import settings
-from app.database import engine, Base
+from app.database import engine, Base, ensure_user_usage_columns
 from app.routers import health, curriculum, exercises, progress, ai_chat, nvo, mobile_uploads, auth, plan, error_logs
 from app.routers.bug_report import router as bug_report_router
 from app.routers.feedback import router as feedback_router
@@ -30,28 +30,36 @@ def _ensure_db_tables() -> None:
         return
     try:
         Base.metadata.create_all(bind=engine)
+        ensure_user_usage_columns()
         _db_initialized = True
         print("✅ DB tables verified/created")
     except Exception as exc:
         print(f"⚠️  DB create_all failed: {exc}")
 
-# Unconditionally inject CORS headers on every response (including 500 errors)
+# Unconditionally inject CORS headers on every response (including 500 errors).
+# SECURITY: previously stamped "*" on every response. Now we reflect only the
+# configured origins (never "*") and only when the request Origin is allow-listed,
+# so untrusted sites cannot call the API with a victim's credentials.
 @app.middleware("http")
 async def add_cors_headers(request: Request, call_next):
     _ensure_db_tables()
     response = await call_next(request)
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Methods"] = "*"
-    response.headers["Access-Control-Allow-Headers"] = "*"
+    origin = request.headers.get("origin")
+    allowed = settings.CORS_ORIGINS
+    if origin and origin in allowed:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
     return response
 
 # Also keep CORSMiddleware so OPTIONS pre-flight works
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 app.add_middleware(IPRateLimiterMiddleware)
 

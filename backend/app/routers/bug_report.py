@@ -7,8 +7,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal, Optional
 
-from fastapi import APIRouter, HTTPException, Request, Query
+from fastapi import APIRouter, HTTPException, Request, Query, Depends
 from pydantic import BaseModel, Field
+from app.auth.dependencies import require_admin
 
 router = APIRouter(tags=["bug-report"])
 
@@ -101,8 +102,11 @@ async def submit_bug_report(payload: BugReportPayload, request: Request):
 
 
 @router.get("/bug-report/recent")
-async def get_recent_bug_reports(limit: int = Query(default=50, ge=1, le=200)):
-    """Dev-only endpoint — add admin auth before making production-public."""
+async def get_recent_bug_reports(
+    _admin=Depends(require_admin),
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    """Admin-only. Returns recent bug reports (without raw screenshot blobs)."""
     if not _BUG_FILE.exists():
         return {"items": [], "total": 0}
 
@@ -112,7 +116,10 @@ async def get_recent_bug_reports(limit: int = Query(default=50, ge=1, le=200)):
     items: list[dict[str, Any]] = []
     for line in reversed(recent):
         try:
-            items.append(json.loads(line))
+            entry = json.loads(line)
+            # Strip large screenshot blobs — never return student screen data
+            entry.pop("screenshot_base64", None)
+            items.append(entry)
         except Exception:
             pass
 

@@ -32,6 +32,7 @@ async def plan_status(current_user: User = Depends(get_current_user)):
         "usage": {
             "ai_exercises":  _slot(current_user.ai_exercises_today,  "ai_exercises"),
             "ai_chat":       _slot(current_user.ai_chat_today,        "ai_chat"),
+            "ai_theory":     _slot(current_user.ai_theory_today,      "ai_theory"),
             "nvo_exams":     _slot(current_user.nvo_exams_today,      "nvo_exams"),
             "image_scans":   _slot(current_user.image_scans_today,    "image_scans"),
         },
@@ -43,8 +44,15 @@ async def upgrade_plan(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Placeholder upgrade endpoint — wire to payment provider later."""
-    # TODO: integrate Stripe / payment provider
-    current_user.plan = "premium"
-    db.commit()
-    return {"success": True, "plan": "premium", "message": "Планът е надграден до Premium."}
+    """Premium upgrade endpoint.
+
+    SECURITY: previously set plan="premium" unconditionally with no payment
+    check. That let any logged-in user grant themselves unlimited AI. Now the
+    endpoint requires a real payment integration before any plan change.
+    """
+    # TODO: integrate Stripe / payment provider, then upgrade only after a
+    # successful, verified payment event. Until then, reject the request.
+    raise HTTPException(
+        status_code=402,
+        detail="Премиум ъпгрейдът все още не е активен. Моля, опитайте по-късно.",
+    )

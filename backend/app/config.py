@@ -1,18 +1,21 @@
 from pydantic_settings import BaseSettings
 from typing import List
 import os
+import secrets
 
 
 class Settings(BaseSettings):
     # Application
     APP_NAME: str = "Math Learning Platform"
-    ENVIRONMENT: str = "development"
-    DEBUG: bool = True
-    
+    ENVIRONMENT: str = "production"
+    # DEBUG defaults OFF. It is only enabled when explicitly set via env, never
+    # in code, so a mis-set deploy env won't leak every SQL statement.
+    DEBUG: bool = False
+
     # Database
     DATABASE_URL: str = "sqlite:///./mathlearning.db"
-    # For PostgreSQL: "postgresql://postgres:postgres@localhost:5432/mathlearning"
-    
+    # For PostgreSQL: "postgresql://postgres:***@localhost:5432/mathlearning"
+
     # CORS
     CORS_ORIGINS: List[str] = [
         "http://localhost:5173",
@@ -24,9 +27,11 @@ class Settings(BaseSettings):
     ]
     # Allow any local network IP (192.168.x.x or 10.x.x.x) for mobile testing
     CORS_ALLOW_LOCAL_NETWORK: bool = True
-    
-    # JWT Authentication
-    SECRET_KEY: str = "your-secret-key-change-this-in-production"
+
+    # JWT Authentication — MUST be overridden via .env in any real deployment.
+    # A random, non-guessable key is generated at import time when none is set,
+    # so JWTs are never signed with the old public placeholder default.
+    SECRET_KEY: str = os.environ.get("SECRET_KEY", "") or secrets.token_hex(32)
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 

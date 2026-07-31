@@ -426,7 +426,10 @@ class MathAnalysisResponse(BaseModel):
 
 
 @router.post("/analyze-math", response_model=MathAnalysisResponse)
-async def analyze_math_image(payload: MathAnalysisRequest):
+async def analyze_math_image(
+    payload: MathAnalysisRequest,
+    _user=Depends(require_image_scan),
+):
     """Extract all mathematical content from an image using OpenAI vision."""
     if not settings.OPENAI_API_KEY:
         raise HTTPException(status_code=503, detail="OPENAI_API_KEY is not configured")

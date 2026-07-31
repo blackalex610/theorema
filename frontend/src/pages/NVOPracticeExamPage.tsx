@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createNVOGenerationJob, getGeneratedNVOExam, getNVOGenerationJob, submitNVOExam, awardNvoXpDetailed, type NVOExamSubmitResponse, type NVOAwardXpResponse } from '../services/nvo';
 import { useXp } from '../context/XpContext';
@@ -61,7 +61,7 @@ type ExamState = {
 type ExamHistoryEntry = {
   id: number;
   examId: string;
-  status: 'ready' | 'completed';
+  status: 'ready' | 'in_progress' | 'unfinished' | 'completed';
   createdAt: string;
   completedAt?: string;
   durationSec: number;
@@ -77,16 +77,21 @@ type ExamHistoryEntry = {
   answers: Record<number, AnswerValue>;
   answerImages: Record<number, string>;
   markedForReview: number[];
+  timeLeft?: number;
+  currentQuestion?: number;
 };
 
 type PreviousResult = {
   id: number;
   date: string;
+  status: 'completed' | 'unfinished';
   score: number;
   maxScore: number;
   durationMin: number;
   module1Percent: number;
   module2Percent: number;
+  answeredCount: number;
+  questionCount: number;
 };
 
 const STORAGE_KEY = 'nvo-practice-state-v1';
@@ -213,6 +218,156 @@ const formatTime = (secondsLeft: number) => {
 };
 
 const ITEMS_PER_PAGE = 5;
+const MAX_HISTORY_ATTEMPTS = 10;
+
+const normalizeHistoryEntry = (entry: Partial<ExamHistoryEntry>): ExamHistoryEntry => ({
+  id: entry.id ?? Date.now(),
+  examId: entry.examId ?? '',
+  status: entry.status ?? 'completed',
+  createdAt: entry.createdAt ?? entry.completedAt ?? new Date().toISOString(),
+  completedAt: entry.completedAt,
+  durationSec: entry.durationSec ?? 0,
+  score: entry.score ?? 0,
+  maxScore: entry.maxScore ?? 0,
+  scorePercent: entry.scorePercent ?? 0,
+  module1Percent: entry.module1Percent ?? 0,
+  module2Percent: entry.module2Percent ?? 0,
+  difficulty: entry.difficulty,
+  format: entry.format,
+  openResults: entry.openResults ?? [],
+  questions: entry.questions ?? [],
+  answers: entry.answers ?? {},
+  answerImages: entry.answerImages ?? {},
+  markedForReview: entry.markedForReview ?? [],
+  timeLeft: entry.timeLeft,
+  currentQuestion: entry.currentQuestion,
+});
+
+const trimHistory = (entries: ExamHistoryEntry[]): ExamHistoryEntry[] => {
+  const ready = entries.filter((e) => e.status === 'ready');
+  const inProgress = entries.filter((e) => e.status === 'in_progress');
+  const attempts = entries
+    .filter((e) => e.status === 'completed' || e.status === 'unfinished')
+    .sort((a, b) => b.id - a.id)
+    .slice(0, MAX_HISTORY_ATTEMPTS);
+  return [...ready, ...inProgress.slice(0, 1), ...attempts];
+};
+
+const upsertHistoryEntry = (prev: ExamHistoryEntry[], entry: ExamHistoryEntry): ExamHistoryEntry[] => {
+  const filtered = prev.filter((item) => item.examId !== entry.examId);
+  return trimHistory([entry, ...filtered]);
+};
+
+const countAnsweredQuestions = (
+  questions: ExamQuestion[],
+  answers: Record<number, AnswerValue>,
+  answerImages: Record<number, string> = {},
+) =>
+  questions.filter(
+    (q) => isQuestionAnswered(q, answers[q.id]) || (q.type === 'open' && Boolean(answerImages[q.id])),
+  ).length;
+
+const computeExamMetrics = (
+  questions: ExamQuestion[],
+  answers: Record<number, AnswerValue>,
+  examStartTimestamp: string | null,
+) => {
+  let score = 0;
+  let maxScore = 0;
+  questions.forEach((q) => {
+    if (q.type !== 'mcq' || typeof q.correctAnswer !== 'string') return;
+    maxScore += 1;
+    const selected = answers[q.id];
+    if (typeof selected === 'string' && normalizeOptionKey(selected) === normalizeOptionKey(q.correctAnswer)) {
+      score += 1;
+    }
+  });
+
+  const module1 = questions.filter((q) => q.module === 1);
+  const module2 = questions.filter((q) => q.module === 2);
+  const module1Answered = module1.filter((q) => isQuestionAnswered(q, answers[q.id])).length;
+  const module2Answered = module2.filter((q) => isQuestionAnswered(q, answers[q.id])).length;
+  const startedAt = examStartTimestamp ? new Date(examStartTimestamp).getTime() : Date.now();
+  const durationSec = Math.max(1, Math.floor((Date.now() - startedAt) / 1000));
+
+  return {
+    score,
+    maxScore,
+    scorePercent: maxScore > 0 ? Math.round((score / maxScore) * 100) : 0,
+    module1Percent: module1.length > 0 ? Math.round((module1Answered / module1.length) * 100) : 0,
+    module2Percent: module2.length > 0 ? Math.round((module2Answered / module2.length) * 100) : 0,
+    durationSec,
+  };
+};
+
+type ExamSnapshot = {
+  examId: string;
+  examQuestions: ExamQuestion[];
+  answers: Record<number, AnswerValue>;
+  answerImages: Record<number, string>;
+  markedForReview: number[];
+  timeLeft: number;
+  currentQuestion: number;
+  examStartTimestamp: string | null;
+  examDifficulty: NVODifficulty;
+  existingId?: number;
+  createdAt?: string;
+};
+
+const buildHistoryEntryFromSnapshot = (
+  snapshot: ExamSnapshot,
+  status: 'in_progress' | 'unfinished' | 'completed',
+): ExamHistoryEntry => {
+  const metrics = computeExamMetrics(
+    snapshot.examQuestions,
+    snapshot.answers,
+    snapshot.examStartTimestamp,
+  );
+
+  return {
+    id: snapshot.existingId ?? Date.now(),
+    examId: snapshot.examId,
+    status,
+    createdAt: snapshot.createdAt ?? new Date().toISOString(),
+    completedAt: status === 'completed' ? new Date().toISOString() : undefined,
+    durationSec: metrics.durationSec,
+    score: metrics.score,
+    maxScore: metrics.maxScore,
+    scorePercent: metrics.scorePercent,
+    module1Percent: metrics.module1Percent,
+    module2Percent: metrics.module2Percent,
+    difficulty: snapshot.examDifficulty,
+    questions: snapshot.examQuestions,
+    answers: snapshot.answers,
+    answerImages: snapshot.answerImages,
+    markedForReview: snapshot.markedForReview,
+    timeLeft: snapshot.timeLeft,
+    currentQuestion: snapshot.currentQuestion,
+  };
+};
+
+const persistUnfinishedEntry = (snapshot: ExamSnapshot) => {
+  if (!snapshot.examId || snapshot.examQuestions.length === 0) return;
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    const prev = Array.isArray(raw ? JSON.parse(raw) : null)
+      ? (JSON.parse(raw!) as Partial<ExamHistoryEntry>[]).map(normalizeHistoryEntry)
+      : [];
+    const existing = prev.find((item) => item.examId === snapshot.examId);
+    const entry = buildHistoryEntryFromSnapshot(
+      {
+        ...snapshot,
+        existingId: existing?.id,
+        createdAt: existing?.createdAt ?? existing?.completedAt,
+      },
+      'unfinished',
+    );
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(upsertHistoryEntry(prev, entry)));
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Ignore storage errors.
+  }
+};
 
 const NVOPracticeExamPage: React.FC = () => {
   const navigate = useNavigate();
@@ -250,6 +405,26 @@ const NVOPracticeExamPage: React.FC = () => {
   const [_examDuration, _setExamDuration] = useState(FULL_EXAM_DURATION_SECONDS);
   const [xpAwardResult, setXpAwardResult] = useState<NVOAwardXpResponse | null>(null);
   const [historyPage, setHistoryPage] = useState(0);
+  const examSnapshotRef = useRef<ExamSnapshot & {
+    examStarted: boolean;
+    examReady: boolean;
+    submitted: boolean;
+    isReviewMode: boolean;
+  }>({
+    examId: '',
+    examQuestions: [],
+    answers: {},
+    answerImages: {},
+    markedForReview: [],
+    timeLeft: EXAM_DURATION_SECONDS,
+    currentQuestion: 1,
+    examStartTimestamp: null,
+    examDifficulty: 'standard',
+    examStarted: false,
+    examReady: false,
+    submitted: false,
+    isReviewMode: false,
+  });
 
   const { status: planStatus } = usePlan();
   const { refreshXp } = useXp();
@@ -262,24 +437,15 @@ const NVOPracticeExamPage: React.FC = () => {
         const parsed = JSON.parse(rawHistory) as Partial<ExamHistoryEntry>[];
         if (Array.isArray(parsed)) {
           setHistory(
-            parsed.map((entry) => ({
-              id: entry.id ?? Date.now(),
-              examId: entry.examId ?? '',
-              status: entry.status ?? 'completed',
-              createdAt: entry.createdAt ?? entry.completedAt ?? new Date().toISOString(),
-              completedAt: entry.completedAt,
-              durationSec: entry.durationSec ?? 0,
-              score: entry.score ?? 0,
-              maxScore: entry.maxScore ?? 0,
-              scorePercent: entry.scorePercent ?? 0,
-              module1Percent: entry.module1Percent ?? 0,
-              module2Percent: entry.module2Percent ?? 0,
-              openResults: entry.openResults ?? [],
-              questions: entry.questions ?? [],
-              answers: entry.answers ?? {},
-              answerImages: entry.answerImages ?? {},
-              markedForReview: entry.markedForReview ?? [],
-            }))
+            trimHistory(
+              parsed.map((entry) => {
+                const normalized = normalizeHistoryEntry(entry);
+                if (normalized.status === 'in_progress') {
+                  return { ...normalized, status: 'unfinished' as const };
+                }
+                return normalized;
+              }),
+            ),
           );
         }
       }
@@ -297,7 +463,28 @@ const NVOPracticeExamPage: React.FC = () => {
           Array.isArray(saved.questions) &&
           saved.questions.length > 0 &&
           saved.questions[0]?.text !== 'Зареждане на задача...';
-        if (
+
+        if (saved.examStarted && hasQuestions && typeof saved.timeLeft === 'number' && saved.timeLeft <= 0) {
+          persistUnfinishedEntry({
+            examId: saved.examId ?? '',
+            examQuestions: saved.questions as ExamQuestion[],
+            answers: (saved.answers ?? {}) as Record<number, AnswerValue>,
+            answerImages: (saved.answerImages ?? {}) as Record<number, string>,
+            markedForReview: Array.isArray(saved.markedForReview) ? saved.markedForReview : [],
+            timeLeft: 0,
+            currentQuestion: typeof saved.currentQuestion === 'number' ? saved.currentQuestion : 1,
+            examStartTimestamp: null,
+            examDifficulty: 'standard',
+          });
+          localStorage.removeItem(storageKey);
+          const refreshedHistory = localStorage.getItem(historyKey);
+          if (refreshedHistory) {
+            const parsed = JSON.parse(refreshedHistory) as Partial<ExamHistoryEntry>[];
+            if (Array.isArray(parsed)) {
+              setHistory(trimHistory(parsed.map(normalizeHistoryEntry)));
+            }
+          }
+        } else if (
           saved.examStarted &&
           hasQuestions &&
           typeof saved.timeLeft === 'number' &&
@@ -355,6 +542,87 @@ const NVOPracticeExamPage: React.FC = () => {
   }, [history, historyKey]);
 
   useEffect(() => {
+    examSnapshotRef.current = {
+      examId,
+      examQuestions,
+      answers,
+      answerImages,
+      markedForReview,
+      timeLeft,
+      currentQuestion,
+      examStartTimestamp,
+      examDifficulty,
+      examStarted,
+      examReady,
+      submitted,
+      isReviewMode,
+    };
+  }, [
+    examId,
+    examQuestions,
+    answers,
+    answerImages,
+    markedForReview,
+    timeLeft,
+    currentQuestion,
+    examStartTimestamp,
+    examDifficulty,
+    examStarted,
+    examReady,
+    submitted,
+    isReviewMode,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      const snapshot = examSnapshotRef.current;
+      if (!snapshot.examStarted || !snapshot.examReady || snapshot.submitted || snapshot.isReviewMode || !snapshot.examId) {
+        return;
+      }
+      persistUnfinishedEntry(snapshot);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!examStarted || !examReady || submitted || isReviewMode || !examId || examQuestions.length === 0) return;
+
+    setHistory((prev) => {
+      const existing = prev.find((item) => item.examId === examId);
+      const entry = buildHistoryEntryFromSnapshot(
+        {
+          examId,
+          examQuestions,
+          answers,
+          answerImages,
+          markedForReview,
+          timeLeft,
+          currentQuestion,
+          examStartTimestamp,
+          examDifficulty,
+          existingId: existing?.id,
+          createdAt: existing?.createdAt,
+        },
+        'in_progress',
+      );
+      return upsertHistoryEntry(prev, entry);
+    });
+  }, [
+    examStarted,
+    examReady,
+    submitted,
+    isReviewMode,
+    examId,
+    examQuestions,
+    answers,
+    answerImages,
+    markedForReview,
+    timeLeft,
+    currentQuestion,
+    examStartTimestamp,
+    examDifficulty,
+  ]);
+
+  useEffect(() => {
     if (!generationJobId) return;
 
     let cancelled = false;
@@ -388,7 +656,7 @@ const NVOPracticeExamPage: React.FC = () => {
             markedForReview: [],
           };
 
-          setHistory((prev) => [readyEntry, ...prev].slice(0, 20));
+          setHistory((prev) => upsertHistoryEntry(prev, readyEntry));
           setGenerationJobId(null);
           setGenerationProgress(100);
           setGenerationMessage('Тестът е готов за старт');
@@ -511,18 +779,24 @@ const NVOPracticeExamPage: React.FC = () => {
 
   const completedHistory = history.filter((entry) => entry.status === 'completed');
   const readyHistory = history.filter((entry) => entry.status === 'ready');
-
-  const previousResults: PreviousResult[] = completedHistory
+  const attemptHistory: PreviousResult[] = history
+    .filter((entry) => entry.status === 'completed' || entry.status === 'unfinished')
+    .sort((a, b) => b.id - a.id)
+    .slice(0, MAX_HISTORY_ATTEMPTS)
     .map((h) => ({
       id: h.id,
       date: formatBgDateTime(h.completedAt ?? h.createdAt),
+      status: h.status as 'completed' | 'unfinished',
       score: h.scorePercent,
       maxScore: 100,
       durationMin: Math.round(h.durationSec / 60),
       module1Percent: h.module1Percent,
       module2Percent: h.module2Percent,
-    }))
-    .sort((a, b) => b.id - a.id);
+      answeredCount: countAnsweredQuestions(h.questions, h.answers, h.answerImages),
+      questionCount: h.questions.length,
+    }));
+
+  const previousResults = attemptHistory;
 
   const latestReadyExam = readyHistory.length > 0 ? readyHistory[0] : null;
 
@@ -587,37 +861,53 @@ const NVOPracticeExamPage: React.FC = () => {
   };
 
   const saveHistoryEntry = () => {
-    const { score, maxScore } = scoreCurrentExam();
-    const module1 = examQuestions.filter((q) => q.module === 1);
-    const module2 = examQuestions.filter((q) => q.module === 2);
-    const module1Answered = module1.filter((q) => isQuestionAnswered(q, answers[q.id])).length;
-    const module2Answered = module2.filter((q) => isQuestionAnswered(q, answers[q.id])).length;
-
-    const startedAt = examStartTimestamp ? new Date(examStartTimestamp).getTime() : Date.now();
-    const durationSec = Math.max(1, Math.floor((Date.now() - startedAt) / 1000));
-
-    const entry: ExamHistoryEntry = {
-      id: Date.now(),
-      examId,
-      status: 'completed',
-      createdAt: new Date().toISOString(),
-      completedAt: new Date().toISOString(),
-      durationSec,
-      score,
-      maxScore,
-      scorePercent: maxScore > 0 ? Math.round((score / maxScore) * 100) : 0,
-      module1Percent: module1.length > 0 ? Math.round((module1Answered / module1.length) * 100) : 0,
-      module2Percent: module2.length > 0 ? Math.round((module2Answered / module2.length) * 100) : 0,
-      questions: examQuestions,
-      answers,
-      answerImages,
-      markedForReview,
-    };
-
+    if (!examId) return;
     setHistory((prev) => {
-      const withoutCurrentReady = prev.filter((item) => !(item.examId === examId && item.status === 'ready'));
-      return [entry, ...withoutCurrentReady].slice(0, 20);
+      const existing = prev.find((item) => item.examId === examId);
+      const entry = buildHistoryEntryFromSnapshot(
+        {
+          examId,
+          examQuestions,
+          answers,
+          answerImages,
+          markedForReview,
+          timeLeft,
+          currentQuestion,
+          examStartTimestamp,
+          examDifficulty,
+          existingId: existing?.id,
+          createdAt: existing?.createdAt,
+        },
+        'completed',
+      );
+      return upsertHistoryEntry(prev, entry);
     });
+    localStorage.removeItem(storageKey);
+  };
+
+  const saveUnfinishedEntry = () => {
+    if (!examId || examQuestions.length === 0) return;
+    setHistory((prev) => {
+      const existing = prev.find((item) => item.examId === examId);
+      const entry = buildHistoryEntryFromSnapshot(
+        {
+          examId,
+          examQuestions,
+          answers,
+          answerImages,
+          markedForReview,
+          timeLeft,
+          currentQuestion,
+          examStartTimestamp,
+          examDifficulty,
+          existingId: existing?.id,
+          createdAt: existing?.createdAt,
+        },
+        'unfinished',
+      );
+      return upsertHistoryEntry(prev, entry);
+    });
+    localStorage.removeItem(storageKey);
   };
 
   const startNewExam = async (difficulty?: NVODifficulty) => {
@@ -651,7 +941,7 @@ const NVOPracticeExamPage: React.FC = () => {
           answerImages: {},
           markedForReview: [],
         };
-        setHistory((prev) => [readyEntry, ...prev].slice(0, 20));
+        setHistory((prev) => upsertHistoryEntry(prev, readyEntry));
         setGenerationProgress(100);
         setGenerationMessage('Тестът е готов за старт');
         setLoadingExam(false);
@@ -686,9 +976,13 @@ const NVOPracticeExamPage: React.FC = () => {
     setAnswers(entry.answers);
     setAnswerImages(entry.answerImages ?? {});
     setMarkedForReview(entry.markedForReview);
-    setCurrentQuestion(1);
-    setTimeLeft(EXAM_DURATION_SECONDS);
-    setExamStartTimestamp(new Date().toISOString());
+    setCurrentQuestion(entry.currentQuestion ?? 1);
+    setTimeLeft(entry.timeLeft ?? EXAM_DURATION_SECONDS);
+    setExamStartTimestamp(
+      entry.timeLeft != null && entry.timeLeft < EXAM_DURATION_SECONDS
+        ? new Date(Date.now() - (EXAM_DURATION_SECONDS - entry.timeLeft) * 1000).toISOString()
+        : new Date().toISOString(),
+    );
     setSubmitted(false);
     setExamStarted(true);
     setExamReady(entry.questions.length > 0);
@@ -703,12 +997,13 @@ const NVOPracticeExamPage: React.FC = () => {
     setAnswers(entry.answers);
     setAnswerImages(entry.answerImages ?? {});
     setMarkedForReview(entry.markedForReview);
-    setCurrentQuestion(1);
-    setTimeLeft(EXAM_DURATION_SECONDS);
+    setCurrentQuestion(entry.currentQuestion ?? 1);
+    setTimeLeft(entry.timeLeft ?? EXAM_DURATION_SECONDS);
     setExamStartTimestamp(null);
     setSubmitted(false);
     setExamStarted(true);
     setExamReady(true);
+    setExamDifficulty(entry.difficulty || 'standard');
     setIsReviewMode(true);
     setShowUnansweredWarning(false);
   };
@@ -821,6 +1116,9 @@ const NVOPracticeExamPage: React.FC = () => {
   };
 
   const restartExam = () => {
+    if (examStarted && examReady && !submitted && !isReviewMode && examId) {
+      saveUnfinishedEntry();
+    }
     setExamId('');
     setAnswers({});
     setAnswerImages({});
@@ -837,13 +1135,44 @@ const NVOPracticeExamPage: React.FC = () => {
     localStorage.removeItem(storageKey);
   };
 
-  const avgScore = previousResults.length > 0
-    ? Math.round(previousResults.reduce((sum, item) => sum + item.score, 0) / previousResults.length)
+  const exitToDashboard = () => {
+    if (isReviewMode) {
+      setExamStarted(false);
+      setIsReviewMode(false);
+      return;
+    }
+    if (examStarted && examReady && !submitted && examId) {
+      saveUnfinishedEntry();
+    }
+    setExamId('');
+    setAnswers({});
+    setAnswerImages({});
+    setMarkedForReview([]);
+    setCurrentQuestion(1);
+    setTimeLeft(EXAM_DURATION_SECONDS);
+    setExamReady(false);
+    setExamQuestions([]);
+    setExamStartTimestamp(null);
+    setIsReviewMode(false);
+    setSubmitted(false);
+    setShowUnansweredWarning(false);
+    localStorage.removeItem(storageKey);
+    setExamStarted(false);
+  };
+
+  const avgScore = previousResults.filter((item) => item.status === 'completed').length > 0
+    ? Math.round(
+        previousResults
+          .filter((item) => item.status === 'completed')
+          .reduce((sum, item) => sum + item.score, 0) /
+          previousResults.filter((item) => item.status === 'completed').length,
+      )
     : 0;
-  const bestScore = previousResults.length > 0
-    ? Math.max(...previousResults.map((item) => item.score))
+  const bestScore = previousResults.filter((item) => item.status === 'completed').length > 0
+    ? Math.max(...previousResults.filter((item) => item.status === 'completed').map((item) => item.score))
     : 0;
-  const lastScore = previousResults[0]?.score ?? 0;
+  const lastCompleted = previousResults.find((item) => item.status === 'completed');
+  const lastScore = lastCompleted?.score ?? 0;
 
   const [showDemoMetrics, setShowDemoMetrics] = useState(false);
 
@@ -868,7 +1197,7 @@ const NVOPracticeExamPage: React.FC = () => {
 
   if (!examStarted) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-orange-50">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-orange-50 dark:from-transparent dark:to-transparent">
         <AppNavbar backTo="/dashboard" />
 
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -902,15 +1231,15 @@ const NVOPracticeExamPage: React.FC = () => {
           </section>
 
           {(loadingExam || generationJobId || generationMessage) && (
-            <section className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm mb-8">
+            <section className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm mb-8 dark:border-slate-700/60 dark:bg-slate-800/60">
               <div className="flex items-center justify-between gap-4 mb-3">
                 <div>
-                  <h2 className="text-lg font-bold text-gray-900">Генериране на ново НВО</h2>
-                  <p className="text-sm text-gray-600">{generationMessage || 'Подготовка...'}</p>
+                  <h2 className="text-lg font-bold text-gray-900 dark:text-slate-100">Генериране на ново НВО</h2>
+                  <p className="text-sm text-gray-600 dark:text-slate-400">{generationMessage || 'Подготовка...'}</p>
                 </div>
-                <span className="text-sm font-semibold text-blue-700">{Math.round(smoothProgress)}%</span>
+                <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">{Math.round(smoothProgress)}%</span>
               </div>
-              <div className="w-full h-3 rounded-full bg-slate-100 overflow-hidden">
+              <div className="w-full h-3 rounded-full bg-slate-100 dark:bg-slate-700/60 overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-blue-500 to-orange-500"
                   style={{ width: `${smoothProgress}%`, transition: 'width 60ms linear' }}
@@ -918,7 +1247,7 @@ const NVOPracticeExamPage: React.FC = () => {
               </div>
               {!generationJobId && generationProgress === 100 && latestReadyExam && (
                 <div className="mt-3 flex items-center justify-between gap-3">
-                  <p className="text-sm text-emerald-700">Тестът е готов. Може да го стартирате веднага.</p>
+                  <p className="text-sm text-emerald-700 dark:text-emerald-300">Тестът е готов. Може да го стартирате веднага.</p>
                   <button
                     onClick={() => startStoredExam(latestReadyExam)}
                     className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700"
@@ -930,10 +1259,10 @@ const NVOPracticeExamPage: React.FC = () => {
             </section>
           )}
 
-          <div className="mb-6 rounded-2xl border border-blue-200 bg-blue-50 px-5 py-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="mb-6 rounded-2xl border border-blue-200 bg-blue-50 px-5 py-4 flex flex-wrap items-center justify-between gap-3 dark:border-blue-800/40 dark:bg-blue-950/30">
             <div>
-              <p className="text-sm font-bold text-blue-900">📱 Свържи телефона си</p>
-              <p className="text-xs text-blue-700 mt-0.5">За задачи с отворен отговор (21–23) можеш да качиш снимка от телефона си в реално време.</p>
+              <p className="text-sm font-bold text-blue-900 dark:text-blue-200">📱 Свържи телефона си</p>
+              <p className="text-xs text-blue-700 dark:text-blue-300/80 mt-0.5">За задачи с отворен отговор (21–23) можеш да качиш снимка от телефона си в реално време.</p>
             </div>
             <a
               href="/controller"
@@ -946,34 +1275,34 @@ const NVOPracticeExamPage: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm">
-              <p className="text-sm text-gray-500">Общо тренировки</p>
-              <p className="text-3xl font-black text-gray-900">{showDemoMetrics ? DEMO_METRICS.totalSessions : previousResults.length}</p>
+            <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm dark:border-slate-700/60 dark:bg-slate-800/60">
+              <p className="text-sm text-gray-500 dark:text-slate-400">Общо тренировки</p>
+              <p className="text-3xl font-black text-gray-900 dark:text-slate-100">{showDemoMetrics ? DEMO_METRICS.totalSessions : previousResults.length}</p>
             </div>
-            <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm">
-              <p className="text-sm text-gray-500">Най-добър резултат</p>
-              <p className="text-3xl font-black text-emerald-600">{showDemoMetrics ? DEMO_METRICS.bestScore : bestScore}%</p>
+            <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm dark:border-slate-700/60 dark:bg-slate-800/60">
+              <p className="text-sm text-gray-500 dark:text-slate-400">Най-добър резултат</p>
+              <p className="text-3xl font-black text-emerald-600 dark:text-emerald-400">{showDemoMetrics ? DEMO_METRICS.bestScore : bestScore}%</p>
             </div>
-            <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm">
-              <p className="text-sm text-gray-500">Среден резултат</p>
-              <p className="text-3xl font-black text-blue-600">{showDemoMetrics ? DEMO_METRICS.avgScore : avgScore}%</p>
+            <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm dark:border-slate-700/60 dark:bg-slate-800/60">
+              <p className="text-sm text-gray-500 dark:text-slate-400">Среден резултат</p>
+              <p className="text-3xl font-black text-blue-600 dark:text-blue-400">{showDemoMetrics ? DEMO_METRICS.avgScore : avgScore}%</p>
             </div>
-            <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm">
-              <p className="text-sm text-gray-500">Последен резултат</p>
-              <p className="text-3xl font-black text-orange-600">{showDemoMetrics ? DEMO_METRICS.lastScore : lastScore}%</p>
+            <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm dark:border-slate-700/60 dark:bg-slate-800/60">
+              <p className="text-sm text-gray-500 dark:text-slate-400">Последен резултат</p>
+              <p className="text-3xl font-black text-orange-600 dark:text-orange-400">{showDemoMetrics ? DEMO_METRICS.lastScore : lastScore}%</p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <section className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Готови за старт тестове</h2>
+            <section className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm dark:border-slate-700/60 dark:bg-slate-800/60">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-slate-100 mb-4">Готови за старт тестове</h2>
               {readyHistory.length > 0 ? (
                 <div className="space-y-3 mb-6">
                   {readyHistory.map((entry) => (
-                    <div key={entry.id} className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                    <div key={entry.id} className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-700/40 dark:bg-emerald-900/20">
                       <div className="flex items-center justify-between gap-3 mb-2">
-                        <p className="font-semibold text-gray-900">Готов тест • {formatBgDateTime(entry.createdAt)}</p>
-                        <span className="text-xs font-bold text-emerald-700">Готов за старт</span>
+                        <p className="font-semibold text-gray-900 dark:text-slate-100">Готов тест • {formatBgDateTime(entry.createdAt)}</p>
+                        <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300">Готов за старт</span>
                       </div>
                       <button
                         onClick={() => startStoredExam(entry)}
@@ -985,29 +1314,29 @@ const NVOPracticeExamPage: React.FC = () => {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-gray-500 mb-6">Няма готови, но нестартирани тестове.</p>
+                <p className="text-sm text-gray-500 dark:text-slate-400 mb-6">Няма готови, но нестартирани тестове.</p>
               )}
 
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-gray-900">Последни резултати</h2>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-slate-100">Последни резултати</h2>
                 {!showDemoMetrics && previousResults.length > ITEMS_PER_PAGE && (
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setHistoryPage((p) => Math.max(0, p - 1))}
                       disabled={historyPage === 0}
-                      className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                      className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/50 disabled:opacity-30 disabled:cursor-not-allowed"
                     >
                       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                       </svg>
                     </button>
-                    <span className="text-sm text-gray-600">
+                    <span className="text-sm text-gray-600 dark:text-slate-400">
                       {historyPage + 1} / {Math.ceil(previousResults.length / ITEMS_PER_PAGE)}
                     </span>
                     <button
                       onClick={() => setHistoryPage((p) => Math.min(Math.ceil(previousResults.length / ITEMS_PER_PAGE) - 1, p + 1))}
                       disabled={historyPage >= Math.ceil(previousResults.length / ITEMS_PER_PAGE) - 1}
-                      className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                      className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/50 disabled:opacity-30 disabled:cursor-not-allowed"
                     >
                       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -1021,12 +1350,12 @@ const NVOPracticeExamPage: React.FC = () => {
                   {(showDemoMetrics ? DEMO_METRICS.history : previousResults.slice(historyPage * ITEMS_PER_PAGE, (historyPage + 1) * ITEMS_PER_PAGE)).map((result: any, i: number) => {
                     if (showDemoMetrics) {
                       return (
-                        <div key={i} className="rounded-xl border border-gray-200 p-4">
+                        <div key={i} className="rounded-xl border border-gray-200 p-4 dark:border-slate-700/60 dark:bg-slate-900/40">
                           <div className="flex items-center justify-between mb-2 gap-2">
-                            <p className="font-semibold text-gray-900">{result.date}</p>
-                            <span className="text-sm font-bold text-blue-600">{result.score}/{result.maxScore}</span>
+                            <p className="font-semibold text-gray-900 dark:text-slate-100">{result.date}</p>
+                            <span className="text-sm font-bold text-blue-600 dark:text-blue-400">{result.score}/{result.maxScore}</span>
                           </div>
-                          <div className="grid grid-cols-3 gap-2 text-xs text-gray-600">
+                          <div className="grid grid-cols-3 gap-2 text-xs text-gray-600 dark:text-slate-400">
                             <span>Модул 1: {result.mod1}%</span>
                             <span>Модул 2: {result.mod2}%</span>
                             <span>Време: {result.duration} мин</span>
@@ -1034,51 +1363,84 @@ const NVOPracticeExamPage: React.FC = () => {
                         </div>
                       );
                     }
-                    const source = completedHistory.find((h) => h.id === result.id);
+                    const source = history.find((h) => h.id === result.id);
+                    const isUnfinished = result.status === 'unfinished';
                     return (
-                      <div key={result.id} className="rounded-xl border border-gray-200 p-4">
+                      <div
+                        key={result.id}
+                        className={`rounded-xl border p-4 dark:bg-slate-900/40 ${
+                          isUnfinished
+                            ? 'border-amber-200 bg-amber-50/50 dark:border-amber-700/50 dark:bg-amber-950/20'
+                            : 'border-gray-200 dark:border-slate-700/60'
+                        }`}
+                      >
                         <div className="flex items-center justify-between mb-2 gap-2">
-                          <p className="font-semibold text-gray-900">{result.date}</p>
-                          <span className="text-sm font-bold text-blue-600">{result.score}/{result.maxScore}</span>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <p className="font-semibold text-gray-900 dark:text-slate-100 truncate">{result.date}</p>
+                            {isUnfinished && (
+                              <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800 dark:bg-amber-900/50 dark:text-amber-300">
+                                Недовършен
+                              </span>
+                            )}
+                          </div>
+                          {isUnfinished ? (
+                            <span className="text-sm font-bold text-amber-700 dark:text-amber-300 shrink-0">
+                              {result.answeredCount}/{result.questionCount}
+                            </span>
+                          ) : (
+                            <span className="text-sm font-bold text-blue-600 dark:text-blue-400 shrink-0">
+                              {result.score}/{result.maxScore}
+                            </span>
+                          )}
                         </div>
-                        <div className="grid grid-cols-3 gap-2 text-xs text-gray-600 mb-3">
+                        <div className="grid grid-cols-3 gap-2 text-xs text-gray-600 dark:text-slate-400 mb-3">
                           <span>Модул 1: {result.module1Percent}%</span>
                           <span>Модул 2: {result.module2Percent}%</span>
                           <span>Време: {result.durationMin} мин</span>
                         </div>
                         {source && (
-                          <button
-                            onClick={() => revisitExam(source)}
-                            className="text-sm px-3 py-1.5 rounded-lg border border-blue-200 text-blue-700 hover:bg-blue-50"
-                          >
-                            Преглед на теста
-                          </button>
+                          <div className="flex flex-wrap gap-2">
+                            {isUnfinished && (
+                              <button
+                                onClick={() => startStoredExam(source)}
+                                className="text-sm px-3 py-1.5 rounded-lg bg-amber-600 text-white hover:bg-amber-700"
+                              >
+                                Продължи
+                              </button>
+                            )}
+                            <button
+                              onClick={() => revisitExam(source)}
+                              className="text-sm px-3 py-1.5 rounded-lg border border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-700/50 dark:text-blue-300 dark:hover:bg-blue-900/30"
+                            >
+                              Преглед на теста
+                            </button>
+                          </div>
                         )}
                       </div>
                     );
                   })}
                 </div>
               ) : (
-                <p className="text-sm text-gray-500">Все още няма завършени тренировки.</p>
+                <p className="text-sm text-gray-500 dark:text-slate-400">Все още няма завършени или недовършени тренировки.</p>
               )}
             </section>
 
-            <section className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Слаби места</h2>
+            <section className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm dark:border-slate-700/60 dark:bg-slate-800/60">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-slate-100 mb-4">Слаби места</h2>
               {(showDemoMetrics ? DEMO_METRICS.weakSpots : weakPoints).length > 0 ? (
                 <div className="space-y-3">
                   {(showDemoMetrics ? DEMO_METRICS.weakSpots : weakPoints).map((point) => (
-                    <div key={point.topic} className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-                      <div className="flex items-center justify-between">
-                        <p className="font-semibold text-gray-900 capitalize">{point.topic}</p>
-                        <span className="text-amber-700 font-bold text-sm">{point.accuracy}%</span>
+                    <div key={point.topic} className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-700/40 dark:bg-amber-900/20">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-semibold text-gray-900 dark:text-slate-100 capitalize">{point.topic}</p>
+                        <span className="shrink-0 text-amber-700 dark:text-amber-300 font-bold text-sm">{point.accuracy}%</span>
                       </div>
-                      <p className="text-sm text-gray-600 mt-1">{point.note}</p>
+                      <p className="text-sm text-gray-600 dark:text-slate-400 mt-1">{point.note}</p>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-gray-500">Няма достатъчно данни за анализ на слаби места.</p>
+                <p className="text-sm text-gray-500 dark:text-slate-400">Няма достатъчно данни за анализ на слаби места.</p>
               )}
               <button
                 onClick={() => setShowDifficultySelector(true)}
@@ -1094,7 +1456,7 @@ const NVOPracticeExamPage: React.FC = () => {
         {/* Difficulty Selector Modal */}
         {showDifficultySelector && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
-            <div className="w-full max-w-2xl rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl">
+            <div className="w-full max-w-2xl rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
               <NVODifficultySelector
                 selected={selectedDifficulty}
                 onSelect={setSelectedDifficulty}
@@ -1104,7 +1466,7 @@ const NVOPracticeExamPage: React.FC = () => {
                 <button
                   onClick={() => setShowDifficultySelector(false)}
                   disabled={loadingExam}
-                  className="px-4 py-2 rounded-xl border border-gray-200 text-gray-700 font-semibold hover:bg-gray-50"
+                  className="px-4 py-2 rounded-xl border border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
                 >
                   Отказ
                 </button>
@@ -1114,7 +1476,7 @@ const NVOPracticeExamPage: React.FC = () => {
                     startNewExam(selectedDifficulty);
                   }}
                   disabled={loadingExam}
-                  className="px-4 py-2 rounded-xl bg-orange-600 text-white font-semibold hover:bg-orange-700"
+                  className="px-4 py-2 rounded-xl bg-orange-600 text-white font-semibold hover:bg-orange-700 disabled:opacity-50"
                 >
                   {loadingExam ? 'Генериране...' : 'Продължи'}
                 </button>
@@ -1150,6 +1512,13 @@ const NVOPracticeExamPage: React.FC = () => {
             <div className="hidden sm:block px-3 py-2 rounded-lg bg-blue-50 text-blue-700 text-sm font-semibold">
               {answeredCount}/{examQuestions.length} отговорени
             </div>
+            <button
+              onClick={exitToDashboard}
+              disabled={isSubmittingExam}
+              className="px-3 py-2 rounded-lg border border-gray-300 text-gray-700 text-sm font-semibold hover:bg-gray-50 disabled:opacity-60 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              Към таблото
+            </button>
             <button
               onClick={trySubmit}
               disabled={isReviewMode || !examReady || isSubmittingExam}
@@ -1448,7 +1817,10 @@ const NVOPracticeExamPage: React.FC = () => {
               </div>
               <div className="flex justify-center gap-3">
                 <button
-                  onClick={() => setExamStarted(false)}
+                  onClick={() => {
+                    setSubmitted(false);
+                    setExamStarted(false);
+                  }}
                   className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700"
                 >
                   Към НВО таблото
