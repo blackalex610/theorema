@@ -50,6 +50,11 @@ def test_problem_round_trip(db):
     assert fetched.quality_score == 1.0
     assert fetched.content_version == 1
 
+    db.query(NvoProblem).filter_by(id=fetched.id).delete()
+    db.query(NvoTopic).filter_by(id=topic.id).delete()
+    db.query(NvoSourceExam).filter_by(id=source.id).delete()
+    db.commit()
+
 
 def test_slot_and_external_ref_must_be_unique_together(db):
     topic = NvoTopic(code="dup_topic", name="Dup")
@@ -70,6 +75,10 @@ def test_slot_and_external_ref_must_be_unique_together(db):
         db.commit()
     db.rollback()
 
+    db.query(NvoProblem).filter_by(topic_id=topic.id).delete()
+    db.query(NvoTopic).filter_by(id=topic.id).delete()
+    db.commit()
+
 
 def test_problem_skill_join_round_trip(db):
     topic = NvoTopic(code="t", name="T")
@@ -89,3 +98,9 @@ def test_problem_skill_join_round_trip(db):
     link = db.query(NvoProblemSkill).one()
     assert link.problem_id == problem.id
     assert link.weight == 0.7
+
+    db.query(NvoProblemSkill).filter_by(problem_id=problem.id).delete()
+    db.query(NvoProblem).filter_by(id=problem.id).delete()
+    db.query(NvoSkill).filter_by(id=skill.id).delete()
+    db.query(NvoTopic).filter_by(id=topic.id).delete()
+    db.commit()
