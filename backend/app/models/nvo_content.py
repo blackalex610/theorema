@@ -102,3 +102,20 @@ class NvoProblemSkill(Base):
     problem_id = Column(Integer, ForeignKey("nvo_problems.id"), primary_key=True)
     skill_id = Column(Integer, ForeignKey("nvo_skills.id"), primary_key=True)
     weight = Column(Float, nullable=False, default=1.0)
+
+
+class NvoGenerationRun(Base):
+    """Audit trail: which corpus (DB or file catalog) fed one generation call."""
+
+    __tablename__ = "nvo_generation_runs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    requested_profile_json = Column(Text, nullable=False)
+    selected_problem_ids_json = Column(Text, nullable=True)
+    source = Column(String(16), nullable=False)  # 'db' | 'file_catalog'
+    prompt_hash = Column(String(64), nullable=True)
+    model = Column(String(64), nullable=True)
+    status = Column(String(16), nullable=False, default="pending")
+    output_json = Column(Text, nullable=True)
+    validation_report_json = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

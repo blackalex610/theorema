@@ -104,3 +104,20 @@ def test_problem_skill_join_round_trip(db):
     db.query(NvoSkill).filter_by(id=skill.id).delete()
     db.query(NvoTopic).filter_by(id=topic.id).delete()
     db.commit()
+
+
+def test_generation_run_round_trip(db):
+    from app.models.nvo_content import NvoGenerationRun
+
+    run = NvoGenerationRun(
+        requested_profile_json=json.dumps({"format": "full", "difficulty": "standard"}),
+        source="file_catalog",
+        status="completed",
+    )
+    db.add(run)
+    db.commit()
+
+    fetched = db.query(NvoGenerationRun).one()
+    assert fetched.source == "file_catalog"
+    assert fetched.status == "completed"
+    assert fetched.selected_problem_ids_json is None
