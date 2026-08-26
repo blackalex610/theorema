@@ -13,7 +13,8 @@ from openai import OpenAI
 from pydantic import BaseModel
 from starlette.responses import StreamingResponse
 from app.config import settings
-from app.auth.dependencies import require_image_scan
+from app.auth.dependencies import get_current_user, require_image_scan
+from app.services.media_tokens import build_media_url
 from app.database import get_db
 from sqlalchemy.orm import Session
 
@@ -308,7 +309,8 @@ async def upload_mobile_photo(
     target_path.write_bytes(data)
 
     base_url = str(request.base_url).rstrip("/")
-    file_url = f"{base_url}/media/{filename}"
+    # Signed + expiring: /media refuses unsigned reads (see media_tokens.py).
+    file_url = build_media_url(filename, base_url)
 
     event = UploadEvent(
         channel_id=channel_id,
@@ -350,7 +352,13 @@ async def get_latest_uploads(
 
 
 @router.post("/tasks/context", response_model=TaskContext)
-async def set_task_context(payload: TaskContext):
+async def set_task_context(payload: TaskContext, _user=Depends(get_current_user)):
+    """Store the problem statement/answer key a later grade call will use.
+
+    SECURITY: unauthenticated writes here let anyone plant an arbitrary
+    `statement` that /tasks/grade then interpolates straight into an OpenAI
+    prompt — unauthenticated prompt injection against our key.
+    """
     channel_id = _validate_channel_id(payload.channel_id)
     problem_number = _validate_problem_number(payload.problem_number)
     context = TaskContext(
@@ -374,7 +382,15 @@ async def get_task_contexts(channel_id: str = Query(...)):
 
 
 @router.post("/tasks/grade", response_model=TaskGradeResponse)
-async def grade_task_submission(payload: TaskGradeRequest):
+async def grade_task_submission(payload: TaskGradeRequest, _user=Depends(get_current_user)):
+    """Grade a typed answer (OpenAI when a statement is known).
+
+    SECURITY: this reaches OpenAI with attacker-influenced text, so it must not
+    be callable anonymously. No extra daily credit is charged — the photo/scan
+    credit is already spent upstream at /mobile/uploads, and charging twice
+    would make the free tier's 2 scans/day impossible to finish. Burst abuse is
+    bounded by the per-IP limiter on /mobile/.
+    """
     channel_id = _validate_channel_id(payload.channel_id)
     problem_number = _validate_problem_number(payload.problem_number)
     context = task_contexts.get(channel_id, {}).get(problem_number)
@@ -390,7 +406,13 @@ async def grade_task_submission(payload: TaskGradeRequest):
 
 
 @router.post("/tasks/grade-photo", response_model=TaskGradeResponse)
-async def grade_task_from_photo(payload: TaskPhotoGradeRequest):
+async def grade_task_from_photo(payload: TaskPhotoGradeRequest, _user=Depends(get_current_user)):
+    """Grade an already-uploaded photo with OpenAI vision.
+
+    SECURITY: was unauthenticated, i.e. free gpt-4o vision inference for
+    anyone. Auth is mandatory; the image_scans credit was charged when the
+    photo was uploaded, so it is deliberately not charged again here.
+    """
     channel_id = _validate_channel_id(payload.channel_id)
     problem_number = _validate_problem_number(payload.problem_number)
     context = task_contexts.get(channel_id, {}).get(problem_number)
@@ -410,8 +432,8 @@ async def grade_task_from_photo(payload: TaskPhotoGradeRequest):
         feedback=feedback,
         graded_at=datetime.now(timezone.utc).isoformat(),
     )
-    # Attach the file_name so the desktop can construct the media URL from the grade event.
-    response.file_url = file_name
+    # Attach a signed, site-relative media URL the desktop can render directly.
+    response.file_url = build_media_url(file_name)
     _broadcast_stream_event(channel_id, "grade", response.model_dump())
     return response
 

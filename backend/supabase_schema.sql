@@ -42,17 +42,25 @@ CREATE TABLE IF NOT EXISTS generated_lesson_content (
 
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
-    google_sub TEXT UNIQUE NOT NULL,
-    email TEXT UNIQUE NOT NULL,
+    -- Nullable: a guest user (is_guest = true) has neither. Postgres treats
+    -- NULLs as distinct in a UNIQUE index, so any number of guest rows can
+    -- coexist under these constraints.
+    google_sub TEXT UNIQUE,
+    email TEXT UNIQUE,
     name TEXT,
     picture TEXT,
     plan TEXT NOT NULL DEFAULT 'free',
+    is_admin INTEGER NOT NULL DEFAULT 0,
+    is_guest BOOLEAN NOT NULL DEFAULT FALSE,
+    upgraded_at TIMESTAMP,
     ai_exercises_today INTEGER NOT NULL DEFAULT 0,
     ai_chat_today INTEGER NOT NULL DEFAULT 0,
+    ai_theory_today INTEGER NOT NULL DEFAULT 0,
     nvo_exams_today INTEGER NOT NULL DEFAULT 0,
     image_scans_today INTEGER NOT NULL DEFAULT 0,
     usage_reset_date DATE,
     last_ai_chat_at TIMESTAMP,
+    last_ai_theory_at TIMESTAMP,
     last_login_ip TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
@@ -148,14 +156,60 @@ CREATE TABLE IF NOT EXISTS user_mission_exercises (
     CONSTRAINT uq_mission_exercise UNIQUE (mission_id, exercise_id)
 );
 
+-- Disposable cache entries (explicit expires_at), not long-lived user data.
+-- See app/services/nvo_exam_store.py for the read/write/purge path.
+CREATE TABLE IF NOT EXISTS generated_exams (
+    exam_id TEXT PRIMARY KEY,
+    questions_json TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMP NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS nvo_generation_jobs (
+    job_id TEXT PRIMARY KEY,
+    status TEXT NOT NULL,
+    progress INTEGER NOT NULL DEFAULT 0,
+    message TEXT NOT NULL DEFAULT '',
+    exam_id TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMP NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS companion_sessions (
+    id SERIAL PRIMARY KEY,
+    session_id TEXT UNIQUE NOT NULL,
+    pairing_code TEXT NOT NULL,
+    exam_id TEXT,
+    question_ids JSONB NOT NULL DEFAULT '[]',
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    pairing_expires_at TIMESTAMP NOT NULL,
+    session_expires_at TIMESTAMP NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS companion_devices (
+    id SERIAL PRIMARY KEY,
+    device_id TEXT UNIQUE NOT NULL,
+    session_fk INTEGER NOT NULL REFERENCES companion_sessions(id) ON DELETE CASCADE,
+    device_label TEXT,
+    paired_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    last_seen_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
 CREATE INDEX IF NOT EXISTS ix_users_google_sub ON users(google_sub);
 CREATE INDEX IF NOT EXISTS ix_users_email ON users(email);
+-- Serves both the per-IP guest-flood cap and the stale-guest reaper.
+CREATE INDEX IF NOT EXISTS ix_users_guest_ip_created ON users(is_guest, last_login_ip, created_at);
 CREATE INDEX IF NOT EXISTS ix_exercises_lesson_id ON exercises(lesson_id);
 CREATE INDEX IF NOT EXISTS ix_exercise_attempts_user_id ON exercise_attempts(user_id);
 CREATE INDEX IF NOT EXISTS ix_user_progress_user_id ON user_progress(user_id);
 CREATE INDEX IF NOT EXISTS ix_lesson_progress_user_id ON lesson_progress(user_id);
 CREATE INDEX IF NOT EXISTS ix_xp_events_user_id ON xp_events(user_id);
 CREATE INDEX IF NOT EXISTS ix_generated_lesson_content_lesson_id ON generated_lesson_content(lesson_id);
+CREATE INDEX IF NOT EXISTS ix_generated_exams_expires_at ON generated_exams(expires_at);
+CREATE INDEX IF NOT EXISTS ix_nvo_generation_jobs_expires_at ON nvo_generation_jobs(expires_at);
+CREATE INDEX IF NOT EXISTS ix_companion_sessions_pairing_code ON companion_sessions(pairing_code);
+CREATE INDEX IF NOT EXISTS ix_companion_devices_session_fk ON companion_devices(session_fk);
 
 -- Enable Row Level Security on all application tables
 ALTER TABLE grades ENABLE ROW LEVEL SECURITY;
@@ -172,6 +226,10 @@ ALTER TABLE xp_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_badges ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_daily_missions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_mission_exercises ENABLE ROW LEVEL SECURITY;
+ALTER TABLE generated_exams ENABLE ROW LEVEL SECURITY;
+ALTER TABLE nvo_generation_jobs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE companion_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE companion_devices ENABLE ROW LEVEL SECURITY;
 
 -- Locked-down default policies: only service_role can access via Supabase API
 -- Non-destructive pattern: create policy only when missing.
@@ -270,5 +328,33 @@ DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'user_mission_exercises' AND policyname = 'user_mission_exercises_service_role_all') THEN
         CREATE POLICY user_mission_exercises_service_role_all ON user_mission_exercises FOR ALL TO service_role USING (true) WITH CHECK (true);
+    END IF;
+END $$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'generated_exams' AND policyname = 'generated_exams_service_role_all') THEN
+        CREATE POLICY generated_exams_service_role_all ON generated_exams FOR ALL TO service_role USING (true) WITH CHECK (true);
+    END IF;
+END $$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'nvo_generation_jobs' AND policyname = 'nvo_generation_jobs_service_role_all') THEN
+        CREATE POLICY nvo_generation_jobs_service_role_all ON nvo_generation_jobs FOR ALL TO service_role USING (true) WITH CHECK (true);
+    END IF;
+END $$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'companion_sessions' AND policyname = 'companion_sessions_service_role_all') THEN
+        CREATE POLICY companion_sessions_service_role_all ON companion_sessions FOR ALL TO service_role USING (true) WITH CHECK (true);
+    END IF;
+END $$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'companion_devices' AND policyname = 'companion_devices_service_role_all') THEN
+        CREATE POLICY companion_devices_service_role_all ON companion_devices FOR ALL TO service_role USING (true) WITH CHECK (true);
     END IF;
 END $$;

@@ -5,7 +5,7 @@ import hashlib
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional, cast
-from app.auth.dependencies import get_optional_user
+from app.auth.dependencies import get_optional_user, require_admin
 from app.database import get_db
 from app.models.curriculum import DifficultyLevel, Exercise, Lesson, Topic
 from app.models.progress import UserDailyMission, UserMissionExercise, UserXpProfile, XpEvent
@@ -508,9 +508,15 @@ async def get_user_limits(
 
 @router.post("/admin/reset-all-xp")
 async def reset_all_xp_admin(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
 ):
-    """Admin endpoint to reset XP for all users."""
+    """Admin endpoint to reset XP for all users.
+
+    SECURITY: this used to have no auth dependency at all — any anonymous
+    caller could wipe every user's XP profile and delete the entire
+    xp_events table with one unauthenticated request.
+    """
     try:
         # Reset all UserXpProfile records
         profiles = db.query(UserXpProfile).all()

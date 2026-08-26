@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.exc import IntegrityError
+import logging
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Header
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy import text as sa_text
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from typing import cast
 from openai import APIError
 from app.database import get_db
@@ -10,7 +12,15 @@ import json
 from app.models.curriculum import Grade as GradeModel, Topic as TopicModel, Lesson as LessonModel, Exercise as ExerciseModel, GeneratedLessonContent as GeneratedLessonContentModel
 from app.schemas.curriculum import Grade, GradeWithTopics, Topic, TopicWithLessons, Lesson, LessonWithExercises, ExercisePublic, GeneratedTheoryResponse, VideoSearchQueriesResponse, GeneratedExamplesResponse, GeneratedExampleItem, DifficultyLevel as SchemaDifficultyLevel, ExerciseType as SchemaExerciseType
 from app.models.progress import LessonProgress, UserProgress
-from app.auth.dependencies import require_ai_exercise
+from app.auth.dependencies import (
+    enforce_ai_examples_generation,
+    enforce_ai_exercise_generation,
+    enforce_ai_theory_generation,
+    get_current_user,
+    require_admin,
+    update_last_theory_at,
+)
+from app.models.user import User
 from app.models.curriculum import ExerciseAttempt as ExerciseAttemptModel
 from app.services.ai_theory_service import (
     generate_theory_content,
@@ -22,6 +32,8 @@ from app.services.ai_theory_service import (
     AIConfigurationError,
     AIServiceError,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/curriculum", tags=["Curriculum"])
 
@@ -182,7 +194,18 @@ def _store_generated_content(
     try:
         db.commit()
     except IntegrityError:
+        # Benign: another request cached the same (lesson_id, detail_level)
+        # first. Roll back so the session stays usable and keep their row.
         db.rollback()
+    except SQLAlchemyError:
+        # Anything else is a real storage failure. Don't fail the request the
+        # caller already paid an AI generation for, but never swallow it
+        # silently — a permanently unwritable cache means unbounded AI spend.
+        db.rollback()
+        logger.exception(
+            "Failed to cache generated content lesson_id=%s detail_level=%s",
+            lesson_id, detail_level,
+        )
 
 
 @router.get("/grades", response_model=List[Grade])
@@ -296,17 +319,20 @@ async def get_generated_theory(
     lesson_id: int,
     detail_level: str = Query(default="standard", pattern="^(concise|standard|detailed)$"),
     db: Session = Depends(get_db),
+    authorization: Optional[str] = Header(default=None),
 ):
     """Return cached theory if available; otherwise generate, store, and return.
 
     detail_level: "concise" | "standard" (default) | "detailed"
     When generating concise/detailed, uses cached standard as base if available.
+
+    Uncached generations require authentication and count against the daily ai_theory limit.
     """
     lesson = db.query(LessonModel).filter(LessonModel.id == lesson_id).first()
     if not lesson:
         raise HTTPException(status_code=404, detail="Lesson not found")
 
-    # Check cache first
+    # Check cache first — no rate limit for cached content
     cached = db.query(GeneratedLessonContentModel).filter(
         GeneratedLessonContentModel.lesson_id == lesson_id,
         GeneratedLessonContentModel.detail_level == detail_level,
@@ -317,6 +343,8 @@ async def get_generated_theory(
             title=cast(str, lesson.title),
             content=cast(str, cached.content),
         )
+
+    theory_user = enforce_ai_theory_generation(authorization=authorization, db=db)
 
     topic = db.query(TopicModel).filter(TopicModel.id == lesson.topic_id).first()
     if not topic:
@@ -368,6 +396,7 @@ async def get_generated_theory(
         detail_level=detail_level,
         content=content,
     )
+    update_last_theory_at(theory_user, db)
 
     return GeneratedTheoryResponse(
         lesson_id=cast(int, lesson.id),
@@ -377,8 +406,19 @@ async def get_generated_theory(
 
 
 @router.get("/lessons/{lesson_id}/video-search-queries", response_model=VideoSearchQueriesResponse)
-async def get_video_search_queries(lesson_id: int, db: Session = Depends(get_db)):
-    """Get AI-rephrased queries for YouTube search fallback."""
+async def get_video_search_queries(
+    lesson_id: int,
+    db: Session = Depends(get_db),
+    _user=Depends(get_current_user),
+):
+    """Get AI-rephrased queries for YouTube search fallback.
+
+    SECURITY: this hits OpenAI on *every* call with no cache of any kind, so
+    anonymous access meant unbounded spend against our key. No daily credit is
+    charged — it is an incidental helper fired on lesson open, and 429-ing it
+    would break the page for a user who legitimately spent their theory quota.
+    Burst abuse is bounded by the per-IP limiter on /curriculum/lessons/.
+    """
     lesson = db.query(LessonModel).filter(LessonModel.id == lesson_id).first()
     if not lesson:
         raise HTTPException(status_code=404, detail="Lesson not found")
@@ -421,8 +461,17 @@ async def get_video_search_queries(lesson_id: int, db: Session = Depends(get_db)
 
 
 @router.get("/lessons/{lesson_id}/generated-examples", response_model=GeneratedExamplesResponse)
-async def get_generated_examples(lesson_id: int, db: Session = Depends(get_db)):
-    """Return cached examples if available; otherwise generate, store, and return."""
+async def get_generated_examples(
+    lesson_id: int,
+    db: Session = Depends(get_db),
+    authorization: Optional[str] = Header(default=None),
+):
+    """Return cached examples if available; otherwise generate, store, and return.
+
+    Cached examples are served to anyone. An uncached generation requires
+    authentication and costs one ai_theory credit — previously it was an
+    unauthenticated, unmetered OpenAI call.
+    """
     lesson = db.query(LessonModel).filter(LessonModel.id == lesson_id).first()
     if not lesson:
         raise HTTPException(status_code=404, detail="Lesson not found")
@@ -441,7 +490,16 @@ async def get_generated_examples(lesson_id: int, db: Session = Depends(get_db)):
                 examples=[GeneratedExampleItem(**e) for e in examples_data],
             )
         except Exception:
-            pass  # If cache is corrupted, fall through to regenerate
+            # Corrupt cache row: evict it, otherwise every future request pays
+            # for a fresh AI generation while the bad row sits there forever.
+            logger.warning(
+                "Evicting corrupt generated-content cache row id=%s lesson_id=%s level=examples",
+                cached.id, lesson_id,
+            )
+            db.delete(cached)
+            db.commit()
+
+    enforce_ai_examples_generation(authorization=authorization, db=db)
 
     topic = db.query(TopicModel).filter(TopicModel.id == lesson.topic_id).first()
     if not topic:
@@ -493,15 +551,26 @@ async def get_generated_examples(lesson_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/lessons/{lesson_id}/ai-exercises", response_model=List[ExercisePublic])
-async def get_ai_exercises(lesson_id: int, regenerate: bool = False, db: Session = Depends(get_db), _user=Depends(require_ai_exercise)):
-    """Return cached AI-generated exercises for a lesson; generate & save them if none exist."""
+async def get_ai_exercises(
+    lesson_id: int,
+    regenerate: bool = False,
+    db: Session = Depends(get_db),
+    authorization: Optional[str] = Header(default=None),
+):
+    """Return cached AI-generated exercises for a lesson; generate & save them if none exist.
+
+    Cached exercises are served without auth. New AI generation requires login and
+    counts against the daily ai_exercises limit.
+    """
     lesson = db.query(LessonModel).filter(LessonModel.id == lesson_id).first()
     if not lesson:
         raise HTTPException(status_code=404, detail="Lesson not found")
 
     existing = _load_exercises_public_for_lesson(db, lesson_id)
     if existing and not regenerate:
-        return _load_exercises_public_for_lesson(db, lesson_id)
+        return existing
+
+    enforce_ai_exercise_generation(authorization=authorization, db=db)
 
     # Delete old exercises (and their attempts) then generate fresh ones
     if existing:
@@ -563,8 +632,17 @@ async def get_ai_exercises(lesson_id: int, regenerate: bool = False, db: Session
 
 
 @router.delete("/lessons/{lesson_id}/exercises/reset", status_code=204)
-async def reset_lesson_exercises(lesson_id: int, db: Session = Depends(get_db)):
-    """Delete all exercises and progress for a lesson so AI can regenerate them."""
+async def reset_lesson_exercises(
+    lesson_id: int,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    """Delete all exercises and progress for a lesson so AI can regenerate them.
+
+    SECURITY: this used to have no auth dependency at all — any anonymous
+    caller could destroy every user's exercise attempts and progress for a
+    lesson with one unauthenticated request.
+    """
     lesson = db.query(LessonModel).filter(LessonModel.id == lesson_id).first()
     if not lesson:
         raise HTTPException(status_code=404, detail="Lesson not found")

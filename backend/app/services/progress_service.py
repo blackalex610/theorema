@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, cast as sql_cast, Integer
 from sqlalchemy.exc import SQLAlchemyError
 from typing import Dict, List, Tuple, cast
-from app.models.curriculum import Exercise, Lesson, Topic, ExerciseAttempt
+from app.models.curriculum import Exercise, Grade, Lesson, Topic, ExerciseAttempt
 from app.models.progress import UserProgress, LessonProgress, UserXpProfile, XpEvent, UserBadge
 
 
@@ -228,13 +228,18 @@ class ProgressService:
         level_span = max(1, next_level_xp - current_level_xp)
         xp_to_next_level = max(0, next_level_xp - total_xp)
 
+        # Past the last threshold there is no real next level, so `next_level_xp`
+        # is a placeholder 1000 XP above the top. Without the clamp a maxed-out
+        # player's progress bar renders as tens of thousands of percent.
+        progress_percentage = min(100.0, round((xp_into_level / level_span) * 100, 1))
+
         return {
             "level": level,
             "current_level_xp": current_level_xp,
             "next_level_xp": next_level_xp,
             "xp_into_level": xp_into_level,
             "xp_to_next_level": xp_to_next_level,
-            "progress_percentage": round((xp_into_level / level_span) * 100, 1),
+            "progress_percentage": progress_percentage,
         }
 
     def update_streak(self, user_id: int) -> Dict:
@@ -786,20 +791,61 @@ class ProgressService:
             "recent_activity": []  # Can be enhanced later
         }
     
-    def get_topic_progress_list(self, user_id: int) -> List[Dict]:
-        """Get progress for all topics"""
-        topics = self.db.query(Topic).all()
-        result = []
-        
-        for topic in topics:
-            # Get or calculate progress
-            progress_obj = self.db.query(UserProgress).filter(
+    def _topic_progress_by_topic(self, user_id: int) -> Dict[int, UserProgress]:
+        rows = self.db.query(UserProgress).filter(UserProgress.user_id == user_id).all()
+        return {int(row.topic_id): row for row in rows}  # type: ignore
+
+    def _lesson_counts_by_topic(self) -> Dict[int, int]:
+        rows = (
+            self.db.query(Lesson.topic_id, func.count(Lesson.id))
+            .group_by(Lesson.topic_id)
+            .all()
+        )
+        return {int(topic_id): int(count) for topic_id, count in rows}
+
+    def _completed_lesson_counts_by_topic(self, user_id: int) -> Dict[int, int]:
+        rows = (
+            self.db.query(Lesson.topic_id, func.count(LessonProgress.id))
+            .join(LessonProgress, LessonProgress.lesson_id == Lesson.id)
+            .filter(
                 and_(
-                    UserProgress.user_id == user_id,
-                    UserProgress.topic_id == topic.id
+                    LessonProgress.user_id == user_id,
+                    LessonProgress.completed == True,  # noqa: E712 - SQL boolean
                 )
-            ).first()
-            
+            )
+            .group_by(Lesson.topic_id)
+            .all()
+        )
+        return {int(topic_id): int(count) for topic_id, count in rows}
+
+    def _grade_number_by_topic(self) -> Dict[int, int]:
+        rows = (
+            self.db.query(Topic.id, Grade.grade_number)
+            .join(Grade, Grade.id == Topic.grade_id)
+            .all()
+        )
+        return {int(topic_id): int(grade_number) for topic_id, grade_number in rows}
+
+    def get_topic_progress_list(self, user_id: int) -> List[Dict]:
+        """Get progress for all topics.
+
+        The per-topic lookups this used to do (progress row, lesson count,
+        completed-lesson count, and a re-fetch of the topic just to read its
+        grade) were five queries per topic — ~100 round trips on a full
+        curriculum. They are now four batched queries, resolved from dicts in
+        the loop. Only the cold path, where a topic has no progress row yet,
+        still queries per topic, and that path writes.
+        """
+        topics = self.db.query(Topic).all()
+        progress_by_topic = self._topic_progress_by_topic(user_id)
+        lessons_by_topic = self._lesson_counts_by_topic()
+        completed_by_topic = self._completed_lesson_counts_by_topic(user_id)
+        grade_by_topic = self._grade_number_by_topic()
+        result = []
+
+        for topic in topics:
+            progress_obj = progress_by_topic.get(int(topic.id))  # type: ignore
+
             if not progress_obj:
                 # Calculate on the fly if not exists
                 progress_obj = self._update_topic_progress(user_id, int(topic.id))  # type: ignore
@@ -810,25 +856,10 @@ class ProgressService:
             accuracy = float(progress_obj.accuracy_percentage) if progress_obj.accuracy_percentage is not None else 0.0  # type: ignore
             progress_pct = (completed_ex / total_ex * 100) if total_ex > 0 else 0.0
             
-            # Count lessons in topic
-            total_lessons = self.db.query(func.count(Lesson.id)).filter(
-                Lesson.topic_id == topic.id
-            ).scalar() or 0
-            
-            lessons_completed = self.db.query(func.count(LessonProgress.id)).filter(
-                and_(
-                    LessonProgress.user_id == user_id,
-                    LessonProgress.completed == True,
-                    LessonProgress.lesson_id.in_(
-                        self.db.query(Lesson.id).filter(Lesson.topic_id == topic.id)
-                    )
-                )
-            ).scalar() or 0
-            
-            # Get grade number
-            topic_with_grade = self.db.query(Topic).filter(Topic.id == topic.id).first()
-            grade_num = int(topic_with_grade.grade.grade_number) if topic_with_grade and topic_with_grade.grade else 0  # type: ignore
-            
+            total_lessons = lessons_by_topic.get(int(topic.id), 0)  # type: ignore
+            lessons_completed = completed_by_topic.get(int(topic.id), 0)  # type: ignore
+            grade_num = grade_by_topic.get(int(topic.id), 0)  # type: ignore
+
             needs_practice = accuracy < 60.0 and completed_ex > 0
             
             result.append({
@@ -847,19 +878,36 @@ class ProgressService:
         
         return result
     
-    def get_lesson_progress_list(self, user_id: int, topic_id: int) -> List[Dict]:
-        """Get progress for all lessons in a topic"""
-        lessons = self.db.query(Lesson).filter(Lesson.topic_id == topic_id).all()
-        result = []
-        
-        for lesson in lessons:
-            progress_obj = self.db.query(LessonProgress).filter(
+    def _lesson_progress_by_lesson(self, user_id: int, lesson_ids: List[int]) -> Dict[int, LessonProgress]:
+        if not lesson_ids:
+            return {}
+        rows = (
+            self.db.query(LessonProgress)
+            .filter(
                 and_(
                     LessonProgress.user_id == user_id,
-                    LessonProgress.lesson_id == lesson.id
+                    LessonProgress.lesson_id.in_(lesson_ids),
                 )
-            ).first()
-            
+            )
+            .all()
+        )
+        return {int(row.lesson_id): row for row in rows}  # type: ignore
+
+    def get_lesson_progress_list(self, user_id: int, topic_id: int) -> List[Dict]:
+        """Get progress for all lessons in a topic.
+
+        The progress row for every lesson is fetched in one IN-query instead of
+        one query per lesson.
+        """
+        lessons = self.db.query(Lesson).filter(Lesson.topic_id == topic_id).all()
+        progress_by_lesson = self._lesson_progress_by_lesson(
+            user_id, [int(lesson.id) for lesson in lessons]  # type: ignore
+        )
+        result = []
+
+        for lesson in lessons:
+            progress_obj = progress_by_lesson.get(int(lesson.id))  # type: ignore
+
             if not progress_obj:
                 # Calculate on the fly
                 progress_obj = self._update_lesson_progress(user_id, int(lesson.id))  # type: ignore

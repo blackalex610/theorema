@@ -140,16 +140,19 @@ def _check_and_increment(user: User, db: Session, feature: str) -> User:
     return user
 
 
-def _optional_limit_check(
+def _require_auth_and_limit(
     authorization: str = Header(None),
     db: Session = Depends(get_db),
     feature: str = "",
 ) -> User:
-    """Enforce limits for any caller. No valid JWT -> 401, never free pass.
+    """Enforce auth + the per-feature daily limit. No valid JWT -> 401.
 
-    SECURITY: previously returned None when no Authorization header was sent,
-    which let anyone bypass every plan limit. Now a missing/invalid token is a
-    hard 401 so the monetization gating cannot be skipped.
+    SECURITY: this used to be `_optional_limit_check`, which returned None when
+    no Authorization header was sent and thereby let anyone bypass every plan
+    limit. A missing/invalid token is now a hard 401 and the credit is always
+    metered, so the monetization gating cannot be skipped. There is deliberately
+    no "skip limit" path here: any endpoint that must bypass metering has to opt
+    out explicitly by depending on something other than this helper.
     """
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(
@@ -211,25 +214,48 @@ def enforce_ai_exercise_generation(
     return _check_and_increment(user, db, "ai_exercises")
 
 
+def enforce_ai_examples_generation(
+    authorization: Optional[str],
+    db: Session,
+) -> User:
+    """Require auth + daily limit before generating uncached AI example problems.
+
+    Shares the ai_theory budget (examples are lesson content), but deliberately
+    skips check_theory_cooldown: the lesson page fires the theory and examples
+    requests concurrently, so applying the theory cooldown here would 429 the
+    examples request every time a lesson is opened.
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=401,
+            detail={
+                "code": "AUTH_REQUIRED",
+                "message": "Влезте в профил, за да генерирате AI примери.",
+            },
+        )
+    user = get_current_user(authorization=authorization, db=db)
+    return _check_and_increment(user, db, "ai_theory")
+
+
 def require_ai_chat(
     authorization: Optional[str] = Header(default=None),
     db: Session = Depends(get_db),
-) -> Optional[User]:
-    return _optional_limit_check(authorization, db, "ai_chat")
+) -> User:
+    return _require_auth_and_limit(authorization, db, "ai_chat")
 
 
 def require_nvo_exam(
     authorization: Optional[str] = Header(default=None),
     db: Session = Depends(get_db),
-) -> Optional[User]:
-    return _optional_limit_check(authorization, db, "nvo_exams")
+) -> User:
+    return _require_auth_and_limit(authorization, db, "nvo_exams")
 
 
 def require_image_scan(
     authorization: Optional[str] = Header(default=None),
     db: Session = Depends(get_db),
-) -> Optional[User]:
-    return _optional_limit_check(authorization, db, "image_scans")
+) -> User:
+    return _require_auth_and_limit(authorization, db, "image_scans")
 
 
 def enforce_ai_theory_generation(
