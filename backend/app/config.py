@@ -51,7 +51,15 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
     OPENAI_MODEL: str = "gpt-4o-mini"
     OPENAI_NVO_MODEL: str = "gpt-4.1"
-    
+
+    # NVO content architecture (see NVO_CONTENT_ARCHITECTURE_PLAN.md).
+    # Both default off: the DB tables may be empty (no backfill run yet) and
+    # generation must keep working from the file catalog until an operator
+    # opts in deliberately after running the backfill.
+    NVO_USE_DB_RETRIEVAL: bool = False
+    NVO_USE_EMBEDDING_RETRIEVAL: bool = False
+    OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
+
     class Config:
         env_file = ".env"
         case_sensitive = True
