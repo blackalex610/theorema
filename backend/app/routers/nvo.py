@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from typing import Callable, List, Union, cast
 import asyncio
 import json
+import logging
 import os
 import re
 from pathlib import Path
@@ -12,11 +13,12 @@ from openai import APIError, OpenAI
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.database import get_db
+from app.database import get_db, SessionLocal
 from app.services.playground_problems import select_playground_problems
 from app.routers.mobile_uploads import _ai_grade
 from app.services.progress_service import ProgressService
 from app.services import nvo_exam_store
+from app.services.nvo_content_retrieval import build_slot_pool, slot_pool_to_catalog
 from app.auth.dependencies import (
     get_current_user,
     get_optional_user,
@@ -24,8 +26,11 @@ from app.auth.dependencies import (
     require_nvo_exam,
 )
 from app.models.user import User
+from app.models.nvo_content import NvoGenerationRun
 
 router = APIRouter(prefix="/nvo", tags=["nvo"])
+
+logger = logging.getLogger(__name__)
 
 
 class NVOQuestion(BaseModel):
@@ -129,6 +134,46 @@ def load_nvo_catalog() -> dict:
         raise HTTPException(status_code=404, detail="NVO question catalog not found")
     except json.JSONDecodeError:
         raise HTTPException(status_code=500, detail="Invalid NVO question catalog format")
+
+
+def _load_catalog_or_db() -> tuple[dict, str]:
+    """Return a catalog-shaped dict plus its source tag ('db' or 'file_catalog').
+
+    DB retrieval is tried first only when the feature flag is on; any
+    exception, or a corpus missing any of the 23 slots, falls back to the
+    file catalog so generation never breaks because of this.
+    """
+    if settings.NVO_USE_DB_RETRIEVAL:
+        db = SessionLocal()
+        try:
+            pool = build_slot_pool(db, list(range(1, 24)))
+            if pool is not None:
+                return slot_pool_to_catalog(db, pool), "db"
+        except Exception:
+            logger.exception("NVO DB retrieval failed; falling back to file catalog")
+        finally:
+            db.close()
+    return load_nvo_catalog(), "file_catalog"
+
+
+def _record_generation_run(*, profile: dict, source: str, exam: "NVOExam", model: str | None) -> None:
+    """Best-effort audit row. Never blocks or fails a generation on write error."""
+    db = SessionLocal()
+    try:
+        db.add(
+            NvoGenerationRun(
+                requested_profile_json=json.dumps(profile, ensure_ascii=False),
+                source=source,
+                model=model,
+                status="completed",
+            )
+        )
+        db.commit()
+    except Exception:
+        logger.exception("Failed to record NVO generation run (non-fatal)")
+        db.rollback()
+    finally:
+        db.close()
 
 
 def _strip_json_fences(raw: str) -> str:
@@ -283,7 +328,7 @@ def _fallback_generate_from_pool(
     if progress_callback:
         progress_callback(10, "Зареждане на каталог с НВО задачи")
 
-    catalog = load_nvo_catalog()
+    catalog, _source = _load_catalog_or_db()
     slots = catalog.get("slots", {})
 
     if len(slots) != 23:
@@ -347,7 +392,9 @@ def _fallback_generate_from_pool(
     if progress_callback:
         progress_callback(95, "Локалният тест е готов")
 
-    return NVOExam(exam_id=str(uuid.uuid4())[:8], questions=normalized)
+    exam = NVOExam(exam_id=str(uuid.uuid4())[:8], questions=normalized)
+    _record_generation_run(profile={"format": format, "path": "fallback_pool"}, source=_source, exam=exam, model=None)
+    return exam
 
 
 def _get_difficulty_instructions(difficulty: str | None) -> str:
@@ -393,7 +440,7 @@ def _generate_via_openai(
     if progress_callback:
         progress_callback(10, "Зареждане на референтен набор")
 
-    catalog = load_nvo_catalog()
+    catalog, _source = _load_catalog_or_db()
     slots = catalog.get("slots", {})
 
     # The prompt must describe the format actually being asked for. It used to
@@ -502,7 +549,14 @@ Per-slot topic guide and style examples:
     if progress_callback:
         progress_callback(98, "НВО тестът е готов")
 
-    return NVOExam(exam_id=str(uuid.uuid4())[:8], questions=validated)
+    exam = NVOExam(exam_id=str(uuid.uuid4())[:8], questions=validated)
+    _record_generation_run(
+        profile={"format": format, "difficulty": difficulty, "path": "openai"},
+        source=_source,
+        exam=exam,
+        model=settings.OPENAI_NVO_MODEL,
+    )
+    return exam
 
 
 def _run_generation_job(job_id: str, difficulty: str | None = None, format: str | None = None) -> None:
@@ -754,4 +808,37 @@ async def reset_all_xp(
         "success": True,
         "message": f"Global XP reset completed. {affected_count} user profiles reset to 0 XP.",
         "affected_users": affected_count,
+    }
+
+
+@router.get("/generation-runs/{run_id}")
+async def get_nvo_generation_run(
+    run_id: int,
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict:
+    run = db.query(NvoGenerationRun).filter_by(id=run_id).one_or_none()
+    if not run:
+        raise HTTPException(status_code=404, detail="Generation run not found")
+    return {
+        "id": run.id,
+        "requested_profile": json.loads(run.requested_profile_json),
+        "source": run.source,
+        "model": run.model,
+        "status": run.status,
+        "created_at": run.created_at.isoformat(),
+    }
+
+
+@router.get("/retrieval/preview")
+async def preview_nvo_retrieval(
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Admin-only: report whether the DB corpus is generation-ready right now."""
+    pool = build_slot_pool(db, list(range(1, 24)))
+    return {
+        "use_db_retrieval_flag": settings.NVO_USE_DB_RETRIEVAL,
+        "db_corpus_ready": pool is not None,
+        "slots_with_candidates": sorted(pool.keys()) if pool else [],
     }
