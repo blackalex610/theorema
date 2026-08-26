@@ -30,6 +30,7 @@ def _schema():
     import app.models.progress  # noqa: F401
     import app.models.companion  # noqa: F401
     import app.models.nvo_exam  # noqa: F401
+    import app.models.nvo_content  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
     yield
@@ -45,6 +46,23 @@ def db():
     finally:
         session.rollback()
         session.close()
+
+
+@pytest.fixture
+def nvo_db(db):
+    """Database fixture for NVO tests with proper table cleanup.
+
+    Clears NVO tables after each test to ensure proper test isolation.
+    """
+    yield db
+    # Clear NVO tables after test to prevent data leakage between tests
+    from app.models.nvo_content import NvoProblemSkill, NvoProblem, NvoSkill, NvoTopic, NvoSourceExam
+    db.query(NvoProblemSkill).delete()
+    db.query(NvoProblem).delete()
+    db.query(NvoSkill).delete()
+    db.query(NvoTopic).delete()
+    db.query(NvoSourceExam).delete()
+    db.commit()
 
 
 @pytest.fixture

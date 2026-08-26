@@ -33,6 +33,7 @@ import app.models.progress    # noqa
 import app.models.user        # noqa
 import app.models.companion   # noqa
 import app.models.nvo_exam    # noqa
+import app.models.nvo_content # noqa
 from app.database import Base
 
 target_metadata = Base.metadata
