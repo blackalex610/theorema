@@ -26,24 +26,25 @@ def test_benchmark_reports_readiness_and_latency(db):
         problem_ids.append(problem.id)
     db.commit()
 
-    report = benchmark_retrieval(db, iterations=3)
+    try:
+        report = benchmark_retrieval(db, iterations=3)
 
-    assert report["corpus_ready"] is True
-    assert report["missing_slots"] == []
-    assert "p50" in report["latency_ms"]
-    assert "p95" in report["latency_ms"]
-    assert report["latency_ms"]["p50"] >= 0
-
-    # Cleanup: delete the problems and topics created in this test
-    for problem_id in problem_ids:
-        problem = db.query(NvoProblem).filter(NvoProblem.id == problem_id).first()
-        if problem:
-            db.delete(problem)
-    for topic_id in topic_ids:
-        topic = db.query(NvoTopic).filter(NvoTopic.id == topic_id).first()
-        if topic:
-            db.delete(topic)
-    db.commit()
+        assert report["corpus_ready"] is True
+        assert report["missing_slots"] == []
+        assert "p50" in report["latency_ms"]
+        assert "p95" in report["latency_ms"]
+        assert report["latency_ms"]["p50"] >= 0
+    finally:
+        # Cleanup: delete the problems and topics created in this test
+        for problem_id in problem_ids:
+            problem = db.query(NvoProblem).filter(NvoProblem.id == problem_id).first()
+            if problem:
+                db.delete(problem)
+        for topic_id in topic_ids:
+            topic = db.query(NvoTopic).filter(NvoTopic.id == topic_id).first()
+            if topic:
+                db.delete(topic)
+        db.commit()
 
 
 def test_benchmark_flags_incomplete_corpus(db):

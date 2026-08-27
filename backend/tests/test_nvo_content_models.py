@@ -44,16 +44,17 @@ def test_problem_round_trip(db):
     db.add(problem)
     db.commit()
 
-    fetched = db.query(NvoProblem).filter_by(external_ref="2024_v1", slot_number=1).one()
-    assert fetched.topic_id == topic.id
-    assert fetched.is_active is True
-    assert fetched.quality_score == 1.0
-    assert fetched.content_version == 1
-
-    db.query(NvoProblem).filter_by(id=fetched.id).delete()
-    db.query(NvoTopic).filter_by(id=topic.id).delete()
-    db.query(NvoSourceExam).filter_by(id=source.id).delete()
-    db.commit()
+    try:
+        fetched = db.query(NvoProblem).filter_by(external_ref="2024_v1", slot_number=1).one()
+        assert fetched.topic_id == topic.id
+        assert fetched.is_active is True
+        assert fetched.quality_score == 1.0
+        assert fetched.content_version == 1
+    finally:
+        db.query(NvoProblem).filter_by(id=problem.id).delete()
+        db.query(NvoTopic).filter_by(id=topic.id).delete()
+        db.query(NvoSourceExam).filter_by(id=source.id).delete()
+        db.commit()
 
 
 def test_slot_and_external_ref_must_be_unique_together(db):
@@ -67,17 +68,18 @@ def test_slot_and_external_ref_must_be_unique_together(db):
     ))
     db.commit()
 
-    db.add(NvoProblem(
-        topic_id=topic.id, external_ref="dup-ref", slot_number=1,
-        answer_format="mcq", statement="b", correct_answer_json=json.dumps("Б"),
-    ))
-    with pytest.raises(Exception):
+    try:
+        db.add(NvoProblem(
+            topic_id=topic.id, external_ref="dup-ref", slot_number=1,
+            answer_format="mcq", statement="b", correct_answer_json=json.dumps("Б"),
+        ))
+        with pytest.raises(Exception):
+            db.commit()
+        db.rollback()
+    finally:
+        db.query(NvoProblem).filter_by(topic_id=topic.id).delete()
+        db.query(NvoTopic).filter_by(id=topic.id).delete()
         db.commit()
-    db.rollback()
-
-    db.query(NvoProblem).filter_by(topic_id=topic.id).delete()
-    db.query(NvoTopic).filter_by(id=topic.id).delete()
-    db.commit()
 
 
 def test_problem_skill_join_round_trip(db):
@@ -95,15 +97,16 @@ def test_problem_skill_join_round_trip(db):
     db.add(NvoProblemSkill(problem_id=problem.id, skill_id=skill.id, weight=0.7))
     db.commit()
 
-    link = db.query(NvoProblemSkill).one()
-    assert link.problem_id == problem.id
-    assert link.weight == 0.7
-
-    db.query(NvoProblemSkill).filter_by(problem_id=problem.id).delete()
-    db.query(NvoProblem).filter_by(id=problem.id).delete()
-    db.query(NvoSkill).filter_by(id=skill.id).delete()
-    db.query(NvoTopic).filter_by(id=topic.id).delete()
-    db.commit()
+    try:
+        link = db.query(NvoProblemSkill).one()
+        assert link.problem_id == problem.id
+        assert link.weight == 0.7
+    finally:
+        db.query(NvoProblemSkill).filter_by(problem_id=problem.id).delete()
+        db.query(NvoProblem).filter_by(id=problem.id).delete()
+        db.query(NvoSkill).filter_by(id=skill.id).delete()
+        db.query(NvoTopic).filter_by(id=topic.id).delete()
+        db.commit()
 
 
 def test_generation_run_round_trip(db):
@@ -117,10 +120,14 @@ def test_generation_run_round_trip(db):
     db.add(run)
     db.commit()
 
-    fetched = db.query(NvoGenerationRun).one()
-    assert fetched.source == "file_catalog"
-    assert fetched.status == "completed"
-    assert fetched.selected_problem_ids_json is None
+    try:
+        fetched = db.query(NvoGenerationRun).filter_by(id=run.id).one()
+        assert fetched.source == "file_catalog"
+        assert fetched.status == "completed"
+        assert fetched.selected_problem_ids_json is None
+    finally:
+        db.query(NvoGenerationRun).filter_by(id=run.id).delete()
+        db.commit()
 
 
 def test_problem_embedding_round_trip(db):
