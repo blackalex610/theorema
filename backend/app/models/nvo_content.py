@@ -119,3 +119,22 @@ class NvoGenerationRun(Base):
     output_json = Column(Text, nullable=True)
     validation_report_json = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class NvoProblemEmbedding(Base):
+    """Cached embedding vector for one problem's statement text.
+
+    Stored as JSON (not a native vector column) so it works identically on
+    SQLite (the test suite's only dialect, see tests/conftest.py) and
+    Postgres — no pgvector dependency. Similarity is computed in Python; see
+    app.services.nvo_content_retrieval.cosine_similarity. Fine at this
+    corpus's scale (hundreds of rows); revisit only if it grows into the
+    tens of thousands.
+    """
+
+    __tablename__ = "nvo_problem_embeddings"
+
+    problem_id = Column(Integer, ForeignKey("nvo_problems.id"), primary_key=True)
+    embedding_json = Column(Text, nullable=False)
+    embedding_model = Column(String(64), nullable=False)
+    embedded_at = Column(DateTime, default=datetime.utcnow, nullable=False)

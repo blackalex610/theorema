@@ -121,3 +121,34 @@ def test_generation_run_round_trip(db):
     assert fetched.source == "file_catalog"
     assert fetched.status == "completed"
     assert fetched.selected_problem_ids_json is None
+
+
+def test_problem_embedding_round_trip(db):
+    from app.models.nvo_content import NvoProblemEmbedding
+
+    topic = NvoTopic(code="emb-topic", name="Emb")
+    db.add(topic)
+    db.flush()
+    problem = NvoProblem(
+        topic_id=topic.id, external_ref="e1", slot_number=1,
+        answer_format="mcq", statement="s", correct_answer_json=json.dumps("А"),
+    )
+    db.add(problem)
+    db.flush()
+
+    db.add(NvoProblemEmbedding(
+        problem_id=problem.id,
+        embedding_json=json.dumps([0.1, 0.2, 0.3]),
+        embedding_model="text-embedding-3-small",
+    ))
+    db.commit()
+
+    fetched = db.query(NvoProblemEmbedding).filter_by(problem_id=problem.id).one()
+    assert json.loads(fetched.embedding_json) == [0.1, 0.2, 0.3]
+
+    # Clean up committed data since the db fixture only rolls back uncommitted changes
+    # Delete embedding first, then problem, then topic (FK order)
+    db.query(NvoProblemEmbedding).filter_by(problem_id=problem.id).delete()
+    db.query(NvoProblem).filter_by(id=problem.id).delete()
+    db.query(NvoTopic).filter_by(id=topic.id).delete()
+    db.commit()
