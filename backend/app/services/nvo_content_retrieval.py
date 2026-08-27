@@ -11,11 +11,13 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import random
+from difflib import SequenceMatcher
 
 from sqlalchemy.orm import Session
 
-from app.models.nvo_content import NvoProblem, NvoTopic
+from app.models.nvo_content import NvoProblem, NvoProblemEmbedding, NvoTopic
 
 logger = logging.getLogger(__name__)
 
@@ -77,3 +79,68 @@ def slot_pool_to_catalog(db: Session, pool: dict[int, list[NvoProblem]]) -> dict
 
 def select_variant_for_slot(candidates: list[NvoProblem]) -> NvoProblem:
     return random.choice(candidates)
+
+
+def cosine_similarity(a: list[float], b: list[float]) -> float:
+    if len(a) != len(b) or not a:
+        return 0.0
+    dot = sum(x * y for x, y in zip(a, b))
+    norm_a = math.sqrt(sum(x * x for x in a))
+    norm_b = math.sqrt(sum(y * y for y in b))
+    if norm_a == 0 or norm_b == 0:
+        return 0.0
+    return dot / (norm_a * norm_b)
+
+
+def rank_by_similarity(
+    db: Session, candidates: list[NvoProblem], query_embedding: list[float]
+) -> list[tuple[NvoProblem, float]]:
+    """Candidates ordered by cosine similarity to `query_embedding`, best first.
+
+    A candidate with no cached embedding sorts last (score 0.0) rather than
+    being dropped — an un-embedded row is still a valid metadata-filtered
+    candidate, just not semantically ranked yet.
+    """
+    embeddings = {
+        row.problem_id: json.loads(row.embedding_json)
+        for row in db.query(NvoProblemEmbedding)
+        .filter(NvoProblemEmbedding.problem_id.in_([c.id for c in candidates]))
+        .all()
+    }
+    scored = [
+        (c, cosine_similarity(embeddings[c.id], query_embedding) if c.id in embeddings else 0.0)
+        for c in candidates
+    ]
+    return sorted(scored, key=lambda pair: pair[1], reverse=True)
+
+
+def _normalize_for_lexical_compare(text: str) -> str:
+    return " ".join(text.lower().split())
+
+
+def apply_diversity_filter(
+    ranked: list[tuple[NvoProblem, float]],
+    k: int,
+    lexical_threshold: float = 0.85,
+) -> list[NvoProblem]:
+    """Take the top-scoring candidates while rejecting near-duplicates.
+
+    Near-duplicate = statement text similarity (difflib ratio) at or above
+    `lexical_threshold` against an already-selected item. Walks the
+    similarity-ranked list in order, so ties still prefer the higher-ranked
+    (more semantically relevant) variant.
+    """
+    selected: list[NvoProblem] = []
+    for candidate, _score in ranked:
+        candidate_text = _normalize_for_lexical_compare(candidate.statement)
+        is_duplicate = any(
+            SequenceMatcher(None, candidate_text, _normalize_for_lexical_compare(chosen.statement)).ratio()
+            >= lexical_threshold
+            for chosen in selected
+        )
+        if is_duplicate:
+            continue
+        selected.append(candidate)
+        if len(selected) >= k:
+            break
+    return selected
