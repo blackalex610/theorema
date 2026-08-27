@@ -52,6 +52,8 @@ ADMIN_ROUTES = [
     ("GET", "/log-error/recent"),
     ("GET", "/bug-report/recent"),
     ("POST", "/nvo/admin/reset-all-xp"),
+    ("GET", "/nvo/generation-runs/{run_id}"),
+    ("GET", "/nvo/retrieval/preview"),
     # Both of these had NO auth dependency at all until fixed alongside the
     # guest-account work — an anonymous caller could wipe every user's XP
     # profile, or destroy every user's exercise attempts for a lesson, with

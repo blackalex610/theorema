@@ -158,22 +158,32 @@ def _load_catalog_or_db() -> tuple[dict, str]:
 
 def _record_generation_run(*, profile: dict, source: str, exam: "NVOExam", model: str | None) -> None:
     """Best-effort audit row. Never blocks or fails a generation on write error."""
-    db = SessionLocal()
+    db = None
     try:
+        db = SessionLocal()
         db.add(
             NvoGenerationRun(
                 requested_profile_json=json.dumps(profile, ensure_ascii=False),
                 source=source,
                 model=model,
                 status="completed",
+                output_json=json.dumps({"exam_id": exam.exam_id}, ensure_ascii=False),
             )
         )
         db.commit()
     except Exception:
         logger.exception("Failed to record NVO generation run (non-fatal)")
-        db.rollback()
+        if db is not None:
+            try:
+                db.rollback()
+            except Exception:
+                logger.exception("Failed to roll back NVO generation run session (non-fatal)")
     finally:
-        db.close()
+        if db is not None:
+            try:
+                db.close()
+            except Exception:
+                logger.exception("Failed to close NVO generation run session (non-fatal)")
 
 
 def _strip_json_fences(raw: str) -> str:
@@ -393,7 +403,8 @@ def _fallback_generate_from_pool(
         progress_callback(95, "Локалният тест е готов")
 
     exam = NVOExam(exam_id=str(uuid.uuid4())[:8], questions=normalized)
-    _record_generation_run(profile={"format": format, "path": "fallback_pool"}, source=_source, exam=exam, model=None)
+    if settings.NVO_USE_DB_RETRIEVAL:
+        _record_generation_run(profile={"format": format, "path": "fallback_pool"}, source=_source, exam=exam, model=None)
     return exam
 
 
@@ -550,12 +561,13 @@ Per-slot topic guide and style examples:
         progress_callback(98, "НВО тестът е готов")
 
     exam = NVOExam(exam_id=str(uuid.uuid4())[:8], questions=validated)
-    _record_generation_run(
-        profile={"format": format, "difficulty": difficulty, "path": "openai"},
-        source=_source,
-        exam=exam,
-        model=settings.OPENAI_NVO_MODEL,
-    )
+    if settings.NVO_USE_DB_RETRIEVAL:
+        _record_generation_run(
+            profile={"format": format, "difficulty": difficulty, "path": "openai"},
+            source=_source,
+            exam=exam,
+            model=settings.OPENAI_NVO_MODEL,
+        )
     return exam
 
 
