@@ -18,7 +18,11 @@ from app.services.playground_problems import select_playground_problems
 from app.routers.mobile_uploads import _ai_grade
 from app.services.progress_service import ProgressService
 from app.services import nvo_exam_store
-from app.services.nvo_content_retrieval import build_slot_pool, slot_pool_to_catalog
+from app.services.nvo_content_retrieval import (
+    build_slot_pool,
+    select_diverse_pool_for_slot,
+    slot_pool_to_catalog,
+)
 from app.auth.dependencies import (
     get_current_user,
     get_optional_user,
@@ -148,6 +152,11 @@ def _load_catalog_or_db() -> tuple[dict, str]:
         try:
             pool = build_slot_pool(db, list(range(1, 24)))
             if pool is not None:
+                if settings.NVO_USE_EMBEDDING_RETRIEVAL:
+                    pool = {
+                        slot: select_diverse_pool_for_slot(db, candidates)
+                        for slot, candidates in pool.items()
+                    }
                 return slot_pool_to_catalog(db, pool), "db"
         except Exception:
             logger.exception("NVO DB retrieval failed; falling back to file catalog")

@@ -144,3 +144,39 @@ def apply_diversity_filter(
         if len(selected) >= k:
             break
     return selected
+
+
+def select_diverse_pool_for_slot(
+    db: Session, candidates: list[NvoProblem], pool_size: int = 3
+) -> list[NvoProblem]:
+    """Rank a slot's candidates against their own centroid embedding and
+    diversity-filter them, returning a curated pool the caller can still pick
+    randomly from.
+
+    There is no free-text user query in NVO generation to rank against, so
+    the "query" is the pool's own centroid — this keeps the most
+    representative, least-redundant variants and drops near-duplicates,
+    without an extra embedding call at generation time (offline embeddings
+    only, per the plan's latency risk mitigation).
+    """
+    embeddings = {
+        row.problem_id: json.loads(row.embedding_json)
+        for row in db.query(NvoProblemEmbedding)
+        .filter(NvoProblemEmbedding.problem_id.in_([c.id for c in candidates]))
+        .all()
+    }
+    if len(embeddings) < 2:
+        return candidates  # not enough signal to rank/dedupe meaningfully
+
+    dimension = len(next(iter(embeddings.values())))
+    centroid = [
+        sum(vec[i] for vec in embeddings.values()) / len(embeddings)
+        for i in range(dimension)
+    ]
+
+    embedded_candidates = [c for c in candidates if c.id in embeddings]
+    unembedded = [c for c in candidates if c.id not in embeddings]
+
+    ranked = rank_by_similarity(db, embedded_candidates, centroid)
+    diverse = apply_diversity_filter(ranked, k=min(pool_size, len(embedded_candidates)))
+    return diverse + unembedded
