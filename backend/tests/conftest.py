@@ -30,6 +30,7 @@ def _schema():
     import app.models.progress  # noqa: F401
     import app.models.companion  # noqa: F401
     import app.models.nvo_exam  # noqa: F401
+    import app.models.nvo_content  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
     yield
