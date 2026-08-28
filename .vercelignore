@@ -19,6 +19,11 @@ yarn-error.log*
 # OS
 .DS_Store
 Thumbs.db
+
+# Secrets — Vercel deployments get these from the dashboard's env config, not
+# from a checked-in file. Without this, backend/.env (live DB password,
+# OpenAI key, SECRET_KEY) shipped inside the deployment bundle.
+.env
 .env.local
 
 # IDE

@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import type { ActiveTestProblem } from '../services/activeTest';
 import {
   createSocketClient,
@@ -32,18 +33,13 @@ const ControllerPage: React.FC = () => {
   const [uploadError, setUploadError] = React.useState<string | null>(null);
   const socketRef = React.useRef<PairingSocket | null>(null);
   const fileInputRefs = React.useRef<Record<number, HTMLInputElement | null>>({});
+  // A guest now holds a real user_id, so pairing works identically to a
+  // signed-in user — no separate guest branch needed.
+  const { user } = useAuth();
   const access = React.useMemo(() => {
-    try {
-      const raw = localStorage.getItem('user');
-      if (!raw) return { allowed: false, reason: 'login' as const };
-      const user = JSON.parse(raw) as { id?: string | number; isGuest?: boolean };
-      if (!user?.id) return { allowed: false, reason: 'login' as const };
-      if (user.isGuest) return { allowed: false, reason: 'guest' as const };
-      return { allowed: true, reason: null, userId: String(user.id) };
-    } catch {
-      return { allowed: false, reason: 'login' as const };
-    }
-  }, []);
+    if (!user) return { allowed: false as const, reason: 'login' as const, userId: undefined };
+    return { allowed: true as const, reason: null, userId: String(user.id) };
+  }, [user]);
 
   React.useEffect(() => {
     return () => {
@@ -558,13 +554,11 @@ const ControllerPage: React.FC = () => {
             <div className="space-y-4 text-center">
               <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-100">Свързване не е разрешено</h1>
               <p className="text-sm text-gray-600 dark:text-slate-300">
-                {access.reason === 'guest'
-                  ? 'Гост профилите не могат да се свързват с desktop сесия. Влез с профил.'
-                  : 'Трябва да влезеш в профил, за да свържеш телефона.'}
+                Трябва да влезеш в профил, за да свържеш телефона.
               </p>
               <button
                 type="button"
-                onClick={() => navigate('/login')}
+                onClick={() => navigate('/')}
                 className="h-12 w-full rounded-2xl bg-emerald-600 px-4 text-base font-semibold text-white hover:bg-emerald-700"
               >
                 Към вход

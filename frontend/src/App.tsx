@@ -1,27 +1,38 @@
+import { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
-import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
-import DashboardPage from './pages/DashboardPage';
-import ProgressSummaryPage from './pages/ProgressSummaryPage';
-import GradesPage from './pages/GradesPage';
-import TopicsPage from './pages/TopicsPage';
-import LessonsPage from './pages/LessonsPage';
-import ExercisesPage from './pages/ExercisesPage';
-import LearnGradesPage from './pages/LearnGradesPage';
-import LearnTopicsPage from './pages/LearnTopicsPage';
-import LearnLessonsPage from './pages/LearnLessonsPage';
-import TheoryPage from './pages/TheoryPage';
-import NVOPracticeExamPage from './pages/NVOPracticeExamPage';
-import PlaygroundPage from './pages/PlaygroundPage';
-import MobileCapturePage from './pages/MobileCapturePage';
-import LiveUploadsPage from './pages/LiveUploadsPage';
-import ControllerPage from './pages/ControllerPage';
+import SmoothScroll from './components/SmoothScroll';
+import RouteFallback from './components/RouteFallback';
+import LandingPage from './pages/LandingPage';
+import AuthPage from './pages/AuthPage';
+
+// Everything past the marketing and auth screens is split out of the initial
+// bundle. The heavy ones are the reason: PlaygroundPage alone is ~4.7k lines of
+// diagram generators, and TheoryPage/NVOPracticeExamPage pull in KaTeX and
+// markdown rendering. None of it is needed to render / or /login.
+const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const ProgressSummaryPage = lazy(() => import('./pages/ProgressSummaryPage'));
+const GradesPage = lazy(() => import('./pages/GradesPage'));
+const TopicsPage = lazy(() => import('./pages/TopicsPage'));
+const LessonsPage = lazy(() => import('./pages/LessonsPage'));
+const ExercisesPage = lazy(() => import('./pages/ExercisesPage'));
+const LearnGradesPage = lazy(() => import('./pages/LearnGradesPage'));
+const LearnTopicsPage = lazy(() => import('./pages/LearnTopicsPage'));
+const LearnLessonsPage = lazy(() => import('./pages/LearnLessonsPage'));
+const TheoryPage = lazy(() => import('./pages/TheoryPage'));
+const NVOPracticeExamPage = lazy(() => import('./pages/NVOPracticeExamPage'));
+const PlaygroundPage = lazy(() => import('./pages/PlaygroundPage'));
+const MobileCapturePage = lazy(() => import('./pages/MobileCapturePage'));
+const LiveUploadsPage = lazy(() => import('./pages/LiveUploadsPage'));
+const ControllerPage = lazy(() => import('./pages/ControllerPage'));
 import SettingsModal from './components/SettingsModal';
+import { AuthProvider } from './context/AuthContext';
 import { PairingProvider } from './context/PairingContext';
 import { SettingsProvider } from './context/SettingsContext';
 import { XpProvider } from './context/XpContext';
 import { DeveloperModeProvider, useIsDevMode } from './context/DeveloperModeContext';
+import RequireAuth from './components/RequireAuth';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 // Inner component to access dev mode for conditional routes
 function AppRoutes() {
@@ -29,47 +40,69 @@ function AppRoutes() {
 
   return (
     <Router>
-      <SettingsModal />
-      <Routes>
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Navigate to="/login" replace />} />
-          <Route path="login" element={<LoginPage />} />
-          <Route path="register" element={<RegisterPage />} />
-          <Route path="dashboard" element={<DashboardPage />} />
-          <Route path="progress" element={<ProgressSummaryPage />} />
-          <Route path="grades" element={<GradesPage />} />
-          <Route path="grades/:gradeId/topics" element={<TopicsPage />} />
-          <Route path="topics/:topicId/lessons" element={<LessonsPage />} />
-          <Route path="lessons/:lessonId/exercises" element={<ExercisesPage />} />
-          <Route path="learn/grades" element={<LearnGradesPage />} />
-          <Route path="learn/grades/:gradeId/topics" element={<LearnTopicsPage />} />
-          <Route path="learn/topics/:topicId/lessons" element={<LearnLessonsPage />} />
-          <Route path="learn/lessons/:lessonId/theory" element={<TheoryPage />} />
-          <Route path="nvo/practice" element={<NVOPracticeExamPage />} />
-          {/* Developer-only routes */}
-          {isDevMode && <Route path="playground" element={<PlaygroundPage />} />}
-          <Route path="mobile-capture" element={<MobileCapturePage />} />
-          <Route path="live-uploads" element={<LiveUploadsPage />} />
-        </Route>
-        <Route path="controller" element={<ControllerPage />} />
-        {/* Redirect playground to dashboard if not in dev mode */}
-        {!isDevMode && <Route path="playground" element={<Navigate to="/dashboard" replace />} />}
-      </Routes>
+      <SmoothScroll>
+        <SettingsModal />
+        <Suspense fallback={<RouteFallback />}>
+          <Routes>
+            <Route path="/" element={<Layout />}>
+              {/* Public */}
+              <Route index element={<AuthPage />} />
+              <Route path="about" element={<LandingPage />} />
+              {/* /login and /register predate the two-button auth page — kept
+                  as redirects so old links and bookmarks still land somewhere. */}
+              <Route path="login" element={<Navigate to="/" replace />} />
+              <Route path="register" element={<Navigate to="/" replace />} />
+              {/* Phone-pairing pages are opened by QR code from a device that has
+                  no session of its own — they are scoped by channel id, not login. */}
+              <Route path="mobile-capture" element={<MobileCapturePage />} />
+
+              {/* Everything below requires a signed-in user. */}
+              <Route element={<RequireAuth />}>
+                <Route path="dashboard" element={<DashboardPage />} />
+                <Route path="progress" element={<ProgressSummaryPage />} />
+                <Route path="grades" element={<GradesPage />} />
+                <Route path="grades/:gradeId/topics" element={<TopicsPage />} />
+                <Route path="topics/:topicId/lessons" element={<LessonsPage />} />
+                <Route path="lessons/:lessonId/exercises" element={<ExercisesPage />} />
+                <Route path="learn/grades" element={<LearnGradesPage />} />
+                <Route path="learn/grades/:gradeId/topics" element={<LearnTopicsPage />} />
+                <Route path="learn/topics/:topicId/lessons" element={<LearnLessonsPage />} />
+                <Route path="learn/lessons/:lessonId/theory" element={<TheoryPage />} />
+                <Route path="nvo/practice" element={<NVOPracticeExamPage />} />
+                <Route path="live-uploads" element={<LiveUploadsPage />} />
+                {/* Developer-only routes */}
+                {isDevMode && <Route path="playground" element={<PlaygroundPage />} />}
+              </Route>
+
+              {/* Unknown paths previously rendered Layout with an empty
+                  Outlet — a blank page with no error and no redirect. */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Route>
+            <Route path="controller" element={<ControllerPage />} />
+            {/* Redirect playground to dashboard if not in dev mode */}
+            {!isDevMode && <Route path="playground" element={<Navigate to="/dashboard" replace />} />}
+          </Routes>
+        </Suspense>
+      </SmoothScroll>
     </Router>
   );
 }
 
 function App() {
   return (
-    <DeveloperModeProvider>
-      <PairingProvider>
-        <SettingsProvider>
-          <XpProvider>
-            <AppRoutes />
-          </XpProvider>
-        </SettingsProvider>
-      </PairingProvider>
-    </DeveloperModeProvider>
+    <AuthProvider>
+      <DeveloperModeProvider>
+        <PairingProvider>
+          <SettingsProvider>
+            <XpProvider>
+              <TooltipProvider delayDuration={200}>
+                <AppRoutes />
+              </TooltipProvider>
+            </XpProvider>
+          </SettingsProvider>
+        </PairingProvider>
+      </DeveloperModeProvider>
+    </AuthProvider>
   );
 }
 

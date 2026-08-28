@@ -2,14 +2,15 @@ import React from 'react';
 import { useSettings } from '../context/SettingsContext';
 import SettingsSection from './SettingsSection';
 import SettingsConnectionPanel from './SettingsConnectionPanel';
-import ThemeToggle from './ThemeToggle';
+import ThemeSwitch from './ThemeSwitch';
 import { usePlan } from '../hooks/usePlan';
 import { useDeveloperMode, DevOnly } from '../context/DeveloperModeContext';
 
 const SettingsModal: React.FC = () => {
-  const { isSettingsOpen, closeSettings, theme, setTheme, language, setLanguage, dashboardLayout, setDashboardLayout } = useSettings();
+  const { isSettingsOpen, closeSettings, language, setLanguage } = useSettings();
   const { status: planStatus, upgrade, refresh } = usePlan();
   const [isUpgrading, setIsUpgrading] = React.useState(false);
+  const [upgradeError, setUpgradeError] = React.useState<string | null>(null);
   const premiumSectionRef = React.useRef<HTMLDivElement | null>(null);
   const { isDevMode, toggleDevMode } = useDeveloperMode();
   const [devClickCount, setDevClickCount] = React.useState(0);
@@ -42,9 +43,20 @@ const SettingsModal: React.FC = () => {
 
   const handleUpgrade = async () => {
     setIsUpgrading(true);
+    setUpgradeError(null);
     try {
       await upgrade();
       await refresh();
+    } catch (error) {
+      // /plan/upgrade no longer grants premium without a verified payment, so
+      // it answers 402 until a provider is wired up. Show that instead of
+      // letting the rejection escape and leaving the button silently dead.
+      const detail = (error as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
+      setUpgradeError(
+        typeof detail === 'string'
+          ? detail
+          : 'Премиум ъпгрейдът все още не е активен.'
+      );
     } finally {
       setIsUpgrading(false);
     }
@@ -111,15 +123,15 @@ const SettingsModal: React.FC = () => {
 
         <div className="min-h-0 space-y-4 overflow-y-auto px-6 py-6">
           <SettingsSection
-            title="Appearance"
-            description="Choose the interface theme and apply it across the whole app."
+            title="Външен вид"
+            description="Избери светла или тъмна тема. Настройката се прилага навсякъде."
           >
-            <ThemeToggle value={theme} onChange={setTheme} />
+            <ThemeSwitch />
           </SettingsSection>
 
           <SettingsSection
-            title="Language"
-            description="Store a preferred language now and wire full translations later."
+            title="Език"
+            description="Езикът на интерфейса. Пълните преводи се добавят постепенно."
           >
             <label className="block">
               <span className="mb-2 block text-sm font-medium text-gray-700 dark:text-slate-300">App language</span>
@@ -132,40 +144,6 @@ const SettingsModal: React.FC = () => {
                 <option value="bg">Bulgarian</option>
               </select>
             </label>
-          </SettingsSection>
-
-          <SettingsSection
-            title="Dashboard Style"
-            description="Choose between the classic summary view or the new AI Coach dashboard."
-          >
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setDashboardLayout('coach')}
-                className={`flex-1 rounded-xl border-2 px-4 py-3 text-sm font-semibold transition-all ${
-                  dashboardLayout === 'coach'
-                    ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-400'
-                    : 'border-gray-200 bg-white text-gray-600 hover:border-blue-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300'
-                }`}
-              >
-                <div className="text-xl mb-1">🚀</div>
-                <div>AI Coach</div>
-                <div className="text-xs font-normal opacity-70 mt-0.5">Gamified · Missions · Skill Tree</div>
-              </button>
-              <button
-                type="button"
-                onClick={() => setDashboardLayout('classic')}
-                className={`flex-1 rounded-xl border-2 px-4 py-3 text-sm font-semibold transition-all ${
-                  dashboardLayout === 'classic'
-                    ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-400'
-                    : 'border-gray-200 bg-white text-gray-600 hover:border-blue-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300'
-                }`}
-              >
-                <div className="text-xl mb-1">📊</div>
-                <div>Classic</div>
-                <div className="text-xs font-normal opacity-70 mt-0.5">Stats · Quick links · Overview</div>
-              </button>
-            </div>
           </SettingsSection>
 
           <DevOnly badgeLabel="Experimental">
@@ -223,7 +201,7 @@ const SettingsModal: React.FC = () => {
                     disabled={isUpgrading}
                     className="w-full rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-3 text-sm font-bold text-white shadow-sm transition-all hover:from-amber-600 hover:to-orange-600 disabled:cursor-not-allowed disabled:opacity-70"
                   >
-                    {isUpgrading ? 'Upgrading...' : '⚡ Buy Premium (Demo)'}
+                    {isUpgrading ? 'Upgrading...' : '⚡ Buy Premium'}
                   </button>
                 ) : (
                   <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300">
@@ -231,8 +209,14 @@ const SettingsModal: React.FC = () => {
                   </div>
                 )}
 
+                {upgradeError && (
+                  <p className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-200">
+                    {upgradeError}
+                  </p>
+                )}
+
                 <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Payment provider is not connected yet. This button uses the demo upgrade endpoint to simulate a successful purchase flow.
+                  Payment provider is not connected yet, so upgrading is disabled. The endpoint no longer grants premium without a verified payment.
                 </p>
               </div>
             </SettingsSection>

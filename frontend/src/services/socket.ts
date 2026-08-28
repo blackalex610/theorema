@@ -60,8 +60,11 @@ export const getStoredPairingUserId = (): string | null => {
   try {
     const raw = localStorage.getItem('user');
     if (!raw) return null;
-    const user = JSON.parse(raw) as { id?: string | number; isGuest?: boolean };
-    if (!user?.id || user.isGuest) return null;
+    // Guests now hold a real user_id (backed by a real JWT the realtime
+    // server verifies), so pairing works identically for them — no
+    // isGuest exception needed.
+    const user = JSON.parse(raw) as { id?: string | number };
+    if (!user?.id) return null;
     return String(user.id);
   } catch {
     return null;
@@ -109,6 +112,9 @@ export const createSocketClient = (): PairingSocket => {
   return io(SOCKET_SERVER_URL, {
     autoConnect: true,
     path: '/socket.io',
+    // The realtime server verifies this JWT on the handshake and derives the
+    // pairing identity from it, so an unauthenticated socket is refused.
+    auth: (cb) => cb({ token: localStorage.getItem('token') ?? '' }),
     transports: ['websocket', 'polling'],
     reconnection: !socketConfig.isFallbackOrigin,
     reconnectionAttempts: socketConfig.isFallbackOrigin ? 0 : 20,

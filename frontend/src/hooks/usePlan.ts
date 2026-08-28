@@ -14,6 +14,7 @@ export interface PlanStatus {
   usage: {
     ai_exercises: UsageCounter;
     ai_chat: UsageCounter;
+    ai_theory: UsageCounter;
     nvo_exams: UsageCounter;
     image_scans: UsageCounter;
   };
@@ -26,6 +27,7 @@ const DEFAULT_STATUS: PlanStatus = {
   usage: {
     ai_exercises: { used: 0, limit: 5, remaining: 5 },
     ai_chat:      { used: 0, limit: 10, remaining: 10 },
+    ai_theory:    { used: 0, limit: 12, remaining: 12 },
     nvo_exams:    { used: 0, limit: 1,  remaining: 1  },
     image_scans:  { used: 0, limit: 2,  remaining: 2  },
   },

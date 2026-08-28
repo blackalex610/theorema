@@ -1,19 +1,25 @@
 import React, { useMemo, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import ChatSidebar from './ChatSidebar';
-import AppSidebar from './AppSidebar';
 import BugReportButton from './BugReportButton';
 
 const ASK_ASSISTANT_EVENT = 'ask-assistant-from-selection';
 
+/** Routes that bring their own chrome: the auth page and the marketing page. */
+const UNCHROMED = new Set(['/', '/about']);
+
+/**
+ * Application shell.
+ *
+ * There is deliberately no inner scroll container here. The document is the
+ * only scroller, which is what lets Lenis and Motion's viewport hooks work on
+ * every screen, and what restores the browser's own scroll restoration.
+ */
 const Layout: React.FC = () => {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const location = useLocation();
 
-  const isAuthPage = useMemo(
-    () => location.pathname === '/login' || location.pathname === '/register',
-    [location.pathname]
-  );
+  const isUnchromed = useMemo(() => UNCHROMED.has(location.pathname), [location.pathname]);
 
   React.useEffect(() => {
     const openChatFromSelection = () => setIsChatOpen(true);
@@ -21,21 +27,13 @@ const Layout: React.FC = () => {
     return () => window.removeEventListener(ASK_ASSISTANT_EVENT, openChatFromSelection as EventListener);
   }, []);
 
-  if (isAuthPage) {
-    return (
-      <div className="min-h-dvh bg-[#0F172A]">
-        <Outlet />
-      </div>
-    );
+  if (isUnchromed) {
+    return <Outlet />;
   }
 
   return (
-    <div className="flex h-screen bg-slate-50 dark:bg-slate-950">
-      <AppSidebar />
-
-      <div className="flex flex-1 flex-col overflow-y-auto no-scrollbar pb-16 lg:pb-0">
-        <Outlet />
-      </div>
+    <div className="min-h-dvh bg-paper">
+      <Outlet />
 
       <ChatSidebar
         isOpen={isChatOpen}

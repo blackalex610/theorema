@@ -71,8 +71,19 @@ class Exercise(Base):
     question = Column(Text, nullable=False)  # Supports LaTeX
     answer = Column(String(255), nullable=False)  # Correct answer
     solution = Column(Text)  # Step-by-step explanation
-    difficulty = Column(Enum(DifficultyLevel), default=DifficultyLevel.MEDIUM)
-    exercise_type = Column(Enum(ExerciseType), default=ExerciseType.NUMERIC)
+    # values_callable: SQLAlchemy's Enum column persists the member NAME
+    # ("EASY") by default, not its value ("easy"). Every CHECK constraint,
+    # seed JSON file, and raw-SQL read path in this codebase expects the
+    # lowercase value, so without this every ORM insert violates the DB
+    # constraint (see supabase_schema.sql's difficulty/exercise_type CHECKs).
+    difficulty = Column(
+        Enum(DifficultyLevel, values_callable=lambda enum_cls: [e.value for e in enum_cls]),
+        default=DifficultyLevel.MEDIUM,
+    )
+    exercise_type = Column(
+        Enum(ExerciseType, values_callable=lambda enum_cls: [e.value for e in enum_cls]),
+        default=ExerciseType.NUMERIC,
+    )
     
     # Relationships
     lesson = relationship("Lesson", back_populates="exercises")

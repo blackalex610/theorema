@@ -3,6 +3,7 @@ from typing import Callable, List, Union, cast
 import asyncio
 import json
 import os
+import re
 from pathlib import Path
 import random
 import uuid
@@ -15,12 +16,16 @@ from app.database import get_db
 from app.services.playground_problems import select_playground_problems
 from app.routers.mobile_uploads import _ai_grade
 from app.services.progress_service import ProgressService
-from app.auth.dependencies import get_optional_user, require_nvo_exam
+from app.services import nvo_exam_store
+from app.auth.dependencies import (
+    get_current_user,
+    get_optional_user,
+    require_admin,
+    require_nvo_exam,
+)
 from app.models.user import User
 
 router = APIRouter(prefix="/nvo", tags=["nvo"])
-GENERATION_JOBS: dict[str, "NVOGenerationJobStatus"] = {}
-GENERATED_EXAMS: dict[str, "NVOExam"] = {}
 
 
 class NVOQuestion(BaseModel):
@@ -126,8 +131,27 @@ def load_nvo_catalog() -> dict:
         raise HTTPException(status_code=500, detail="Invalid NVO question catalog format")
 
 
-def _inject_playground_problems(questions: list) -> list:
-    """Replace Q10-Q15 (indices 9-14) and Q23 (index 22) with playground diagram questions.
+def _strip_json_fences(raw: str) -> str:
+    """Strip ```json ... ``` markdown fences the model sometimes wraps JSON in.
+
+    Without this, json.loads() raised on every fenced response, the caller
+    swallowed the error and silently fell back to the catalog — i.e. AI
+    generation never actually shipped a single AI-generated exam.
+    """
+    text = raw.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```[a-zA-Z]*\s*", "", text)
+        text = re.sub(r"\s*```$", "", text)
+    return text.strip()
+
+
+def _inject_playground_problems(questions: list, format: str | None = None) -> list:
+    """Replace the diagram slots with playground diagram questions.
+
+    Full format (23 questions): Q10-Q15 (indices 9-14) and Q23 (index 22).
+    Short format (16 questions): Q10-Q15 (indices 9-14) and the single open
+    question at Q16 (index 15). Previously the short format skipped injection
+    entirely, so a "16 question" short exam contained zero diagram questions.
 
     Real NVO structure (2024/2025 format, 23 questions):
       Q1-Q8   : arithmetic / algebra / probability  — no diagrams
@@ -141,15 +165,19 @@ def _inject_playground_problems(questions: list) -> list:
     """
     pg = select_playground_problems()
     result = list(questions)
+    # The open diagram question sits last in whichever format we generated.
+    open_index = len(result) - 1 if format == "short" else 22
     for i, mcq_data in enumerate(pg["mcq"]):
         pos = 10 + i  # Q10 through Q15
+        if pos - 1 >= open_index:
+            break  # never overwrite the open question with an MCQ
         data = dict(mcq_data)
         data["number"] = pos
         result[pos - 1] = NVOQuestion(**data)
     q23_data = dict(pg["open_q23"])
-    q23_data["number"] = 23
+    q23_data["number"] = open_index + 1
     # Respect the generator's own diagram flag — non-diagram generators set diagram=False
-    result[22] = NVOQuestion(**q23_data)
+    result[open_index] = NVOQuestion(**q23_data)
     return result
 
 
@@ -204,13 +232,28 @@ def _normalize_math_delimiters(text: str) -> str:
 
 
 def _set_job_progress(job_id: str, *, status: str, progress: int, message: str, exam_id: str | None = None) -> None:
-    GENERATION_JOBS[job_id] = NVOGenerationJobStatus(
+    job = NVOGenerationJobStatus(
         job_id=job_id,
         status=status,
         progress=progress,
         message=message,
         exam_id=exam_id,
     )
+    nvo_exam_store.save_job(job_id, job.model_dump())
+
+
+def _load_job(job_id: str) -> "NVOGenerationJobStatus | None":
+    payload = nvo_exam_store.load_job(job_id)
+    return NVOGenerationJobStatus(**payload) if payload else None
+
+
+def _store_exam(exam: "NVOExam") -> None:
+    nvo_exam_store.save_exam(exam.exam_id, exam.model_dump())
+
+
+def _load_exam(exam_id: str) -> "NVOExam | None":
+    payload = nvo_exam_store.load_exam(exam_id)
+    return NVOExam(**payload) if payload else None
 
 
 def _get_question_counts(format: str | None) -> tuple[int, int]:
@@ -299,9 +342,7 @@ def _fallback_generate_from_pool(
     if progress_callback:
         progress_callback(80, "Добавяне на диаграмни задачи")
 
-    # Only inject playground problems for full format (short format has no diagram slots in selection)
-    if format != 'short':
-        normalized = _inject_playground_problems(normalized)
+    normalized = _inject_playground_problems(normalized, format)
 
     if progress_callback:
         progress_callback(95, "Локалният тест е готов")
@@ -355,9 +396,19 @@ def _generate_via_openai(
     catalog = load_nvo_catalog()
     slots = catalog.get("slots", {})
 
+    # The prompt must describe the format actually being asked for. It used to
+    # hard-code 23 questions even for format="short", so the model returned 23,
+    # the 16-question check below rejected it, and short exams could never be
+    # AI-generated at all — they always fell back to the catalog.
+    mcq_count, open_count = _get_question_counts(format)
+    total_count = mcq_count + open_count
+
+    # Map output positions onto catalog slots: MCQ slots are 1-20, open are 21-23.
+    source_slots = list(range(1, mcq_count + 1)) + list(range(21, 21 + open_count))
+
     # Build per-slot style hints: topic description + one random example variant per slot
     slot_hints: list[str] = []
-    for slot_num in range(1, 24):
+    for position, slot_num in enumerate(source_slots, start=1):
         slot = slots[str(slot_num)]
         topic = slot.get("topic", "")
         notes = slot.get("notes", "")
@@ -365,10 +416,13 @@ def _generate_via_openai(
         example = random.choice(variants) if variants else {}
         example_q = example.get("question", "")[:200]
         slot_hints.append(
-            f"Q{slot_num} [{topic}]: {notes}\n"
+            f"Q{position} [{topic}]: {notes}\n"
             f"  Style example: {example_q}"
         )
     slot_guide = "\n".join(slot_hints)
+
+    # Diagram slots are Q10-Q15 plus the final open question, whatever the length.
+    diagram_slots = f"Q10-Q15 and Q{total_count}"
 
     client = OpenAI(api_key=settings.OPENAI_API_KEY, timeout=75.0)
     difficulty_instructions = _get_difficulty_instructions(difficulty)
@@ -386,12 +440,12 @@ Do NOT copy the example questions verbatim.
 {difficulty_instructions}
 
 Strict requirements:
-1) Exactly 23 questions.
-2) Q1-Q20: multiple choice, exactly 4 options each.
-3) Q21-Q23: open-ended, options = null, include open_parts list.
+1) Exactly {total_count} questions.
+2) Q1-Q{mcq_count}: multiple choice, exactly 4 options each.
+3) Q{mcq_count + 1}-Q{total_count}: open-ended, options = null, include open_parts list.
 4) Bulgarian academic wording.
 5) Math: use $...$ inline and $$...$$ block delimiters.
-6) SET diagram=false FOR ALL QUESTIONS (Q10-Q15 and Q23 diagrams are auto-injected).
+6) SET diagram=false FOR ALL QUESTIONS ({diagram_slots} diagrams are auto-injected).
 7) Output ONLY a valid JSON object with key "questions".
 
 CRITICAL MATH FORMATTING RULES to prevent rendering errors:
@@ -412,6 +466,7 @@ Per-slot topic guide and style examples:
     response = client.chat.completions.create(
         model=settings.OPENAI_NVO_MODEL,
         temperature=0.5,
+        response_format={"type": "json_object"},
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -423,14 +478,13 @@ Per-slot topic guide and style examples:
 
     raw = response.choices[0].message.content or ""
     try:
-        data = json.loads(raw)
+        data = json.loads(_strip_json_fences(raw))
     except Exception as exc:
         raise HTTPException(status_code=502, detail="AI returned invalid JSON for NVO generation") from exc
 
     questions_data = data.get("questions", [])
-    expected_count = 23 if format != 'short' else 16
-    if len(questions_data) != expected_count:
-        raise HTTPException(status_code=502, detail=f"AI did not return exactly {expected_count} questions")
+    if len(questions_data) != total_count:
+        raise HTTPException(status_code=502, detail=f"AI did not return exactly {total_count} questions")
 
     validated: list[NVOQuestion] = []
     for idx, q in enumerate(questions_data, start=1):
@@ -443,9 +497,7 @@ Per-slot topic guide and style examples:
     if progress_callback:
         progress_callback(90, "Добавяне на диаграмни задачи")
 
-    # Only inject playground problems for full format
-    if format != 'short':
-        validated = _inject_playground_problems(validated)
+    validated = _inject_playground_problems(validated, format)
 
     if progress_callback:
         progress_callback(98, "НВО тестът е готов")
@@ -465,19 +517,33 @@ def _run_generation_job(job_id: str, difficulty: str | None = None, format: str 
             _set_job_progress(job_id, status="running", progress=35, message="AI не е наличен. Превключване към локален генератор")
             exam = _fallback_generate_from_pool(format, progress_callback)
 
-        GENERATED_EXAMS[exam.exam_id] = exam
+        _store_exam(exam)
         _set_job_progress(job_id, status="completed", progress=100, message="Тестът е готов за стартиране", exam_id=exam.exam_id)
     except Exception as exc:
         _set_job_progress(job_id, status="failed", progress=100, message=f"Неуспешно генериране на НВО тест: {exc}")
 
 
 @router.post("/generate")
-async def generate_nvo_exam(_user=Depends(require_nvo_exam)) -> NVOExam:
-    """Generate a fresh NVO exam each click. Uses OpenAI when available, fallback otherwise."""
+async def generate_nvo_exam(
+    request: NVOGenerationRequest | None = None,
+    _user=Depends(require_nvo_exam),
+) -> NVOExam:
+    """Generate a fresh NVO exam each click. Uses OpenAI when available, fallback otherwise.
+
+    Previously called the generators with no arguments, so the caller's
+    difficulty and format were silently discarded and every exam came back as
+    a standard-difficulty full exam.
+    """
+    difficulty = request.difficulty if request else None
+    format = request.format if request else None
     try:
-        return _generate_via_openai()
+        exam = _generate_via_openai(difficulty, format)
     except (ValueError, APIError, HTTPException):
-        return _fallback_generate_from_pool()
+        exam = _fallback_generate_from_pool(format)
+    # Store it so /nvo/submit can grade against the server's own copy of the
+    # answers instead of trusting whatever the client posts back.
+    _store_exam(exam)
+    return exam
 
 
 @router.post("/generate-job", response_model=NVOGenerationJobStatus)
@@ -487,7 +553,7 @@ async def create_nvo_generation_job(request: NVOGenerationRequest | None = None,
     format = request.format if request else None
     loop = asyncio.get_event_loop()
     await loop.run_in_executor(None, _run_generation_job, job_id, difficulty, format)
-    job = GENERATION_JOBS.get(job_id)
+    job = _load_job(job_id)
     if not job:
         raise HTTPException(status_code=500, detail="NVO generation job missing after run")
     if job.status == "failed":
@@ -497,7 +563,7 @@ async def create_nvo_generation_job(request: NVOGenerationRequest | None = None,
 
 @router.get("/generate-job/{job_id}", response_model=NVOGenerationJobStatus)
 async def get_nvo_generation_job(job_id: str) -> NVOGenerationJobStatus:
-    job = GENERATION_JOBS.get(job_id)
+    job = _load_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="NVO generation job not found")
     return job
@@ -505,7 +571,7 @@ async def get_nvo_generation_job(job_id: str) -> NVOGenerationJobStatus:
 
 @router.get("/generated/{exam_id}", response_model=NVOExam)
 async def get_generated_nvo_exam(exam_id: str) -> NVOExam:
-    exam = GENERATED_EXAMS.get(exam_id)
+    exam = _load_exam(exam_id)
     if not exam:
         raise HTTPException(status_code=404, detail="Generated NVO exam not found")
     return exam
@@ -520,10 +586,18 @@ async def get_nvo_questions() -> dict:
 @router.post("/submit", response_model=NVOExamSubmitResponse)
 async def submit_nvo_exam(
     payload: NVOExamSubmitRequest,
-    _user=Depends(require_nvo_exam),
+    _user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> NVOExamSubmitResponse:
-    exam = GENERATED_EXAMS.get(payload.exam_id)
+    """Grade a finished NVO exam (open-ended answers go through AI vision).
+
+    SECURITY: previously unauthenticated, which let anyone burn our OpenAI key
+    with attacker-supplied prompts. Auth is now mandatory. The daily nvo_exams
+    credit is charged at generation time, so submitting the exam you already
+    paid for must NOT charge a second credit (that would make the free tier's
+    1 exam/day impossible to ever finish).
+    """
+    exam = _load_exam(payload.exam_id)
     if not exam:
         if payload.questions:
             exam = NVOExam(exam_id=payload.exam_id, questions=payload.questions)
@@ -656,20 +730,17 @@ async def award_nvo_exam_xp(
 @router.post("/admin/reset-all-xp")
 async def reset_all_xp(
     confirm: bool = False,
-    current_user: User | None = Depends(get_optional_user),
+    _admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     """
     Admin endpoint: Reset ALL user XP to 0 globally.
     Requires confirmation flag to prevent accidental resets.
     Preserves user accounts and non-XP progress.
+
+    SECURITY: previously guarded only by "is logged in", so any student could
+    wipe every user's XP. Now requires the admin role.
     """
-    if current_user is None:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    
-    # In production, you might want to check for admin role here
-    # For now, any authenticated user can reset (dev mode friendly)
-    
     if not confirm:
         raise HTTPException(
             status_code=400, 

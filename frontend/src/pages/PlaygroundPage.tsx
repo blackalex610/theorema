@@ -3274,8 +3274,8 @@ const PlaygroundPage: React.FC = () => {
     const source = subscribeToMobileUploads(
       taskUploadChannelId,
       (upload) => {
-        if (upload.problem_number === 34) setTask34LastUploadUrl(upload.file_name);
-        else if (upload.problem_number === 35) setTask35LastUploadUrl(upload.file_name);
+        if (upload.problem_number === 34) setTask34LastUploadUrl(upload.file_url);
+        else if (upload.problem_number === 35) setTask35LastUploadUrl(upload.file_url);
       },
       undefined,
       (grade) => {
@@ -3320,8 +3320,8 @@ const PlaygroundPage: React.FC = () => {
         const latest34 = latest.find((item) => item.problem_number === 34);
         const latest35 = latest.find((item) => item.problem_number === 35);
 
-        if (latest34?.file_name) setTask34LastUploadUrl(latest34.file_name);
-        if (latest35?.file_name) setTask35LastUploadUrl(latest35.file_name);
+        if (latest34?.file_url) setTask34LastUploadUrl(latest34.file_url);
+        if (latest35?.file_url) setTask35LastUploadUrl(latest35.file_url);
       } catch {
         // Keep silent: SSE remains the primary path, this is just a resilience fallback.
       }
@@ -4448,7 +4448,7 @@ const PlaygroundPage: React.FC = () => {
                         📱 Phone grade (Task 34): {task34PhoneGrade.score}/100 — Answer: {task34PhoneGrade.submitted_answer}
                       </p>
                     )}
-                    <img src={`/media/${task34LastUploadUrl}`} alt="uploaded task 34" className="max-h-48 rounded border" />
+                    <img src={task34LastUploadUrl} alt="uploaded task 34" className="max-h-48 rounded border" />
                   </div>
                 )}
                 {/* AI feedback */}
@@ -4598,7 +4598,7 @@ const PlaygroundPage: React.FC = () => {
                         📱 Phone grade (Task 35): {task35PhoneGrade.score}/100 — Answer: {task35PhoneGrade.submitted_answer}
                       </p>
                     )}
-                    <img src={`/media/${task35LastUploadUrl}`} alt="uploaded task 35" className="max-h-48 rounded border" />
+                    <img src={task35LastUploadUrl} alt="uploaded task 35" className="max-h-48 rounded border" />
                   </div>
                 )}
                 {task35Feedback && (

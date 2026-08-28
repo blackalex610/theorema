@@ -1,1 +1,31 @@
 Generic single-database configuration.
+
+Schema management
+-----------------
+
+The app still calls `Base.metadata.create_all()` on boot (see
+`app.main._ensure_db_tables`), which creates missing tables but never alters an
+existing one. Alembic is what tracks the alterations.
+
+Fresh database:
+
+    DATABASE_URL=... alembic upgrade head
+
+Existing database (tables already created by create_all) — adopt the baseline
+without re-running it, otherwise the first CREATE TABLE fails:
+
+    DATABASE_URL=... alembic stamp 754e61405945
+
+After changing a model:
+
+    DATABASE_URL=... alembic revision --autogenerate -m "what changed"
+    # review the generated file, then
+    DATABASE_URL=... alembic upgrade head
+
+`alembic/env.py` imports every model module explicitly. A model that is not
+imported there is invisible to --autogenerate and will be silently dropped from
+the diff, so add new model modules to that list.
+
+The hand-rolled ALTERs in `app.database.ensure_user_usage_columns` predate this
+setup. They are idempotent and fail loudly on anything other than "column
+already exists"; new columns should go through Alembic instead.

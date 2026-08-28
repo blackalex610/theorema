@@ -1,20 +1,31 @@
 import { useEffect, useState } from 'react';
-import { getActivityFeed, type ActivityEvent } from '../services/progress';
-import { ActivityFeedSkeleton } from './Skeleton';
+import {
+  CameraIcon,
+  FireIcon,
+  ListChecksIcon,
+  PencilSimpleLineIcon,
+  StarIcon,
+} from '@phosphor-icons/react';
 
-const SOURCE_EMOJI: Record<string, string> = {
-  exercise:  '✏️',
-  streak:    '🔥',
-  nvo_exam:  '📝',
-  mission:   '⚡',
+import { getActivityFeed, type ActivityEvent } from '../services/progress';
+import { EmptyState } from './app/PageShell';
+import { Skeleton } from '@/components/ui/skeleton';
+
+/** Each XP event carries the icon of the thing that earned it. */
+const SOURCE_ICON: Record<string, React.ComponentType<{ className?: string; weight?: 'fill' }>> = {
+  exercise: PencilSimpleLineIcon,
+  streak: FireIcon,
+  nvo_exam: ListChecksIcon,
+  mission: StarIcon,
+  image_scan: CameraIcon,
 };
 
 function timeAgo(isoString: string): string {
   const diff = Math.floor((Date.now() - new Date(isoString).getTime()) / 1000);
-  if (diff < 60)  return 'преди секунди';
+  if (diff < 60) return 'преди секунди';
   if (diff < 3600) return `преди ${Math.floor(diff / 60)} мин`;
   if (diff < 86400) return `преди ${Math.floor(diff / 3600)} ч`;
-  return `преди ${Math.floor(diff / 86400)} д`;
+  return `преди ${Math.floor(diff / 86400)} дни`;
 }
 
 export default function ActivityFeed() {
@@ -28,33 +39,44 @@ export default function ActivityFeed() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <ActivityFeedSkeleton />;
+  if (loading) {
+    return (
+      <div className="space-y-2" role="status" aria-live="polite">
+        <span className="sr-only">Историята се зарежда</span>
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Skeleton key={i} className="h-11" />
+        ))}
+      </div>
+    );
+  }
 
-  if (events.length === 0) return null;
+  if (events.length === 0) {
+    return (
+      <EmptyState
+        icon={<StarIcon weight="duotone" />}
+        title="Още няма записана активност"
+        description="Всяка решена задача и всеки завършен урок се появяват тук."
+      />
+    );
+  }
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-800/60">
-      <h2 className="mb-4 text-base font-bold text-slate-800 dark:text-slate-100">
-        📜 История на XP
-      </h2>
-      <ul className="space-y-2">
-        {events.map(ev => (
-          <li key={ev.id} className="flex items-center gap-3 text-sm">
-            <span className="text-xl w-7 shrink-0 text-center">
-              {SOURCE_EMOJI[ev.source_type] ?? '⭐'}
+    <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface">
+      {events.map((event) => {
+        const Icon = SOURCE_ICON[event.source_type] ?? StarIcon;
+        return (
+          <li key={event.id} className="flex items-center gap-3 px-4 py-3">
+            <Icon weight="fill" className="size-4 shrink-0 text-ink-faint" />
+            <span className="min-w-0 flex-1 truncate text-caption text-ink">{event.reason}</span>
+            <span className="tnum shrink-0 text-caption font-semibold text-brand-ink">
+              +{event.xp_amount} XP
             </span>
-            <span className="flex-1 text-slate-700 dark:text-slate-300 truncate">
-              {ev.reason}
-            </span>
-            <span className="font-bold text-blue-600 dark:text-blue-400 shrink-0">
-              +{ev.xp_amount} XP
-            </span>
-            <span className="text-[11px] text-slate-400 shrink-0 w-24 text-right">
-              {timeAgo(ev.created_at)}
+            <span className="hidden w-24 shrink-0 text-right text-caption text-ink-faint sm:block">
+              {timeAgo(event.created_at)}
             </span>
           </li>
-        ))}
-      </ul>
-    </section>
+        );
+      })}
+    </ul>
   );
 }

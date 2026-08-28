@@ -1,5 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion, useReducedMotion } from 'framer-motion';
+import { ArrowRightIcon, TargetIcon } from '@phosphor-icons/react';
+
+import AppNavbar from '../components/AppNavbar';
+import ActivityFeed from '../components/ActivityFeed';
+import BadgeShelf from '../components/BadgeShelf';
 import {
   getDashboardStats,
   getRecommendations,
@@ -8,12 +14,25 @@ import {
   type ProgressRecommendations,
   type TopicProgress,
 } from '../services/progress';
-import ProgressBar from '../components/ProgressBar';
-import AppNavbar from '../components/AppNavbar';
-import { ProgressSkeleton } from '../components/Skeleton';
-import ActivityFeed from '../components/ActivityFeed';
-import BadgeShelf from '../components/BadgeShelf';
+import { useIsDevMode } from '../context/DeveloperModeContext';
+import {
+  EmptyState,
+  ErrorState,
+  PageHeader,
+  PageShell,
+  SectionHeading,
+  StatTile,
+} from '../components/app/PageShell';
+import { Reveal, RevealGroup, RevealItem } from '@/components/motion/Reveal';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 
+/* Sample data behind the developer-only toggle, used for screenshots on an
+   empty account. It is never shown to a signed-in student by default. */
 const DEMO_STATS: DashboardStats = {
   total_exercises_completed: 148,
   total_exercises_attempted: 196,
@@ -29,8 +48,8 @@ const DEMO_STATS: DashboardStats = {
 
 const DEMO_RECOMMENDATIONS: ProgressRecommendations = {
   weak_topics: [
-    { topic_id: 101, title: 'Рационални изрази', accuracy: 58.0, reason: 'Accuracy is 58.0% (target: 60%+)' },
-    { topic_id: 102, title: 'Геометрични доказателства', accuracy: 54.0, reason: 'Accuracy is 54.0% (target: 60%+)' },
+    { topic_id: 101, title: 'Рационални изрази', accuracy: 58, reason: 'Точност 58% при цел 60%' },
+    { topic_id: 102, title: 'Геометрични доказателства', accuracy: 54, reason: 'Точност 54% при цел 60%' },
   ],
   recommended_lessons: [
     {
@@ -38,17 +57,18 @@ const DEMO_RECOMMENDATIONS: ProgressRecommendations = {
       topic_id: 101,
       lesson_title: 'Опростяване на рационални изрази',
       topic_title: 'Рационални изрази',
-      reason: 'Practice needed to improve accuracy',
+      reason: 'Практика за повишаване на точността',
     },
     {
       lesson_id: 702,
       topic_id: 102,
       lesson_title: 'Доказване на еднаквост на триъгълници',
       topic_title: 'Геометрични доказателства',
-      reason: 'Practice needed to improve accuracy',
+      reason: 'Практика за повишаване на точността',
     },
   ],
-  encouragement_message: 'Стабилен напредък. Няколко целенасочени упражнения ще повишат точността над 80%.',
+  encouragement_message:
+    'Стабилен напредък. Няколко целенасочени упражнения ще вдигнат точността над 80 процента.',
 };
 
 const DEMO_TOPICS: TopicProgress[] = [
@@ -78,259 +98,324 @@ const DEMO_TOPICS: TopicProgress[] = [
     total_lessons: 7,
     needs_practice: false,
   },
-  {
-    topic_id: 3,
-    title: 'Питагорова теорема',
-    description: 'Задачи с правоъгълни триъгълници',
-    grade_number: 7,
-    progress_percentage: 64,
-    accuracy: 58,
-    completed_exercises: 32,
-    total_exercises: 50,
-    lessons_completed: 4,
-    total_lessons: 7,
-    needs_practice: true,
-  },
-  {
-    topic_id: 4,
-    title: 'Координатна система',
-    description: 'Точки, разстояния и графики',
-    grade_number: 7,
-    progress_percentage: 70,
-    accuracy: 69,
-    completed_exercises: 35,
-    total_exercises: 50,
-    lessons_completed: 6,
-    total_lessons: 8,
-    needs_practice: false,
-  },
 ];
 
 const ProgressSummaryPage: React.FC = () => {
   const navigate = useNavigate();
-  const isDeveloperMode = import.meta.env.DEV || localStorage.getItem('devMode') === 'true';
-  const [demoMode, setDemoMode] = useState(false);
+  const isDevMode = useIsDevMode();
+  const reduced = useReducedMotion();
+
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recommendations, setRecommendations] = useState<ProgressRecommendations | null>(null);
   const [topics, setTopics] = useState<TopicProgress[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [demoMode, setDemoMode] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (demoMode) {
+      setStats(DEMO_STATS);
+      setRecommendations(DEMO_RECOMMENDATIONS);
+      setTopics(DEMO_TOPICS);
       setLoading(false);
       return;
     }
 
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const [statsData, recommendationsData, topicData] = await Promise.all([
-          getDashboardStats(),
-          getRecommendations(),
-          getTopicProgress(),
-        ]);
-
-        setStats(statsData);
-        setRecommendations(recommendationsData);
-        setTopics(topicData);
-      } catch (err) {
-        console.error('Error fetching progress summary:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
+    setLoading(true);
+    setLoadError('');
+    try {
+      const [statsData, recsData, topicData] = await Promise.all([
+        getDashboardStats(),
+        getRecommendations(),
+        getTopicProgress(),
+      ]);
+      setStats(statsData);
+      setRecommendations(recsData);
+      setTopics(topicData);
+    } catch {
+      setLoadError('Прогресът не се зареди. Провери връзката и опитай пак.');
+    } finally {
+      setLoading(false);
+    }
   }, [demoMode]);
 
-  const effectiveStats = demoMode ? DEMO_STATS : stats;
-  const effectiveRecommendations = demoMode ? DEMO_RECOMMENDATIONS : recommendations;
-  const effectiveTopics = demoMode ? DEMO_TOPICS : topics;
+  useEffect(() => {
+    void load();
+  }, [load]);
 
-  const gradeSummary = useMemo(() => {
-    const byGrade = new Map<number, { completed: number; total: number; accuracySum: number; count: number }>();
-
-    effectiveTopics.forEach((topic) => {
-      const current = byGrade.get(topic.grade_number) ?? {
+  const byGrade = useMemo(() => {
+    const map = new Map<number, { completed: number; total: number; accuracySum: number; count: number }>();
+    topics.forEach((topic) => {
+      const current = map.get(topic.grade_number) ?? {
         completed: 0,
         total: 0,
         accuracySum: 0,
         count: 0,
       };
-
       current.completed += topic.completed_exercises;
       current.total += topic.total_exercises;
       current.accuracySum += topic.accuracy;
       current.count += 1;
-      byGrade.set(topic.grade_number, current);
+      map.set(topic.grade_number, current);
     });
-
-    return Array.from(byGrade.entries())
-      .map(([gradeNumber, values]) => ({
-        gradeNumber,
+    return Array.from(map.entries())
+      .map(([grade, values]) => ({
+        grade,
         progress: values.total > 0 ? (values.completed / values.total) * 100 : 0,
         accuracy: values.count > 0 ? values.accuracySum / values.count : 0,
       }))
-      .sort((a, b) => a.gradeNumber - b.gradeNumber);
-  }, [effectiveTopics]);
+      .sort((a, b) => a.grade - b.grade);
+  }, [topics]);
 
-  const accuracyColor = (accuracy: number) => {
-    if (accuracy >= 80) return 'text-green-600 dark:text-green-400';
-    if (accuracy >= 60) return 'text-yellow-600 dark:text-yellow-400';
-    return 'text-red-600 dark:text-red-400';
-  };
+  const accuracy = stats?.accuracy_percentage ?? 0;
+  const sortedTopics = useMemo(
+    () => [...topics].sort((a, b) => a.accuracy - b.accuracy),
+    [topics]
+  );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-950 dark:to-slate-900">
-      <AppNavbar />
+    <>
+      <AppNavbar backTo="/dashboard" backLabel="Обратно към таблото" />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <PageShell>
+        <PageHeader
+          title="Твоят прогрес"
+          description="Точност по теми, завършени уроци и какво си струва да се повтори."
+          crumbs={[{ label: 'Табло', to: '/dashboard' }, { label: 'Прогрес' }]}
+          actions={
+            isDevMode ? (
+              <Button variant="outline" size="sm" onClick={() => setDemoMode((v) => !v)}>
+                {demoMode ? 'Реални данни' : 'Демо данни'}
+              </Button>
+            ) : undefined
+          }
+        />
+
+        {demoMode && (
+          <div className="mb-6">
+            <Badge variant="warn">Показани са демонстрационни данни</Badge>
+          </div>
+        )}
+
+        {loadError && (
+          <div className="mb-6">
+            <ErrorState description={loadError} onRetry={() => void load()} />
+          </div>
+        )}
+
         {loading ? (
           <ProgressSkeleton />
         ) : (
-          <>
-            <div className="mb-8">
-              <h1 className="text-3xl font-black text-gray-900 dark:text-slate-100">Твоят прогрес</h1>
-              <p className="mt-2 text-gray-500 dark:text-slate-400">
-                Следи напредъка си, намери слабите места и се върни директно към темите за практика.
-              </p>
-            </div>
+          <div className="space-y-10">
+            <RevealGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <RevealItem>
+                <StatTile
+                  label="Решени задачи"
+                  value={stats?.total_exercises_completed ?? 0}
+                  hint={`от ${stats?.total_exercises_attempted ?? 0} опита`}
+                  onClick={() => navigate('/grades')}
+                />
+              </RevealItem>
+              <RevealItem>
+                <StatTile
+                  label="Средна точност"
+                  value={`${accuracy.toFixed(0)}%`}
+                  tone={accuracy >= 80 ? 'brand' : accuracy >= 60 ? 'default' : 'warn'}
+                  hint="по всички решени задачи"
+                />
+              </RevealItem>
+              <RevealItem>
+                <StatTile
+                  label="Завършени теми"
+                  value={stats?.topics_completed ?? 0}
+                  suffix={`/ ${stats?.total_topics_available ?? 0}`}
+                />
+              </RevealItem>
+              <RevealItem>
+                <StatTile
+                  label="Завършени уроци"
+                  value={stats?.lessons_completed ?? 0}
+                  suffix={`/ ${stats?.total_lessons_available ?? 0}`}
+                  onClick={() => navigate('/learn/grades')}
+                />
+              </RevealItem>
+            </RevealGroup>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-              <button
-                onClick={() => navigate('/grades')}
-                className="bg-white dark:bg-slate-800/60 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-500 hover:shadow-md transition-all text-left"
-              >
-                <p className="text-sm text-gray-600 dark:text-slate-400">Решени задачи</p>
-                <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{effectiveStats?.total_exercises_completed || 0}</p>
-              </button>
+            <Reveal>
+              <Tabs defaultValue="topics">
+                <TabsList>
+                  <TabsTrigger value="topics">По теми</TabsTrigger>
+                  <TabsTrigger value="grades">По клас</TabsTrigger>
+                  <TabsTrigger value="history">История</TabsTrigger>
+                </TabsList>
 
-              <button
-                onClick={() => navigate('/progress')}
-                className="bg-white dark:bg-slate-800/60 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 hover:border-green-300 dark:hover:border-green-500 hover:shadow-md transition-all text-left"
-              >
-                <p className="text-sm text-gray-600 dark:text-slate-400">Общо опити</p>
-                <p className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">{effectiveStats?.total_exercises_attempted || 0}</p>
-              </button>
+                <TabsContent value="topics">
+                  {sortedTopics.length === 0 ? (
+                    <EmptyState
+                      icon={<TargetIcon weight="duotone" />}
+                      title="Още няма решени задачи"
+                      description="Щом решиш първите задачи, тук ще се появи точността ти по всяка тема."
+                      action={
+                        <Button onClick={() => navigate('/grades')}>
+                          Към упражненията
+                          <ArrowRightIcon />
+                        </Button>
+                      }
+                    />
+                  ) : (
+                    <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface">
+                      {sortedTopics.map((topic) => (
+                        <li key={topic.topic_id}>
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/topics/${topic.topic_id}/lessons`)}
+                            className="flex w-full items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-sunken"
+                          >
+                            <span className="min-w-0 flex-1">
+                              <span className="flex items-center gap-2">
+                                <span className="truncate text-body font-semibold text-ink">
+                                  {topic.title}
+                                </span>
+                                <Badge variant="neutral" numeric>
+                                  {topic.grade_number}. клас
+                                </Badge>
+                                {topic.needs_practice && <Badge variant="warn">за повторение</Badge>}
+                              </span>
+                              <span className="tnum mt-1 block text-caption text-ink-muted">
+                                {topic.completed_exercises} от {topic.total_exercises} задачи,{' '}
+                                {topic.lessons_completed} от {topic.total_lessons} урока
+                              </span>
+                            </span>
 
-              <button
-                onClick={() => navigate('/progress')}
-                className="bg-white dark:bg-slate-800/60 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-500 hover:shadow-md transition-all text-left"
-              >
-                <p className="text-sm text-gray-600 dark:text-slate-400">Точност</p>
-                <p className={`text-3xl font-bold ${accuracyColor(effectiveStats?.accuracy_percentage || 0)}`}>
-                  {effectiveStats?.accuracy_percentage.toFixed(0) || 0}%
-                </p>
-              </button>
+                            <span className="hidden w-40 shrink-0 sm:block">
+                              <span className="block h-1.5 overflow-hidden rounded-full bg-sunken">
+                                <motion.span
+                                  initial={reduced ? false : { width: 0 }}
+                                  whileInView={{ width: `${topic.accuracy}%` }}
+                                  viewport={{ once: true }}
+                                  transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+                                  className={cn(
+                                    'block h-full rounded-full',
+                                    topic.accuracy >= 80
+                                      ? 'bg-brand'
+                                      : topic.accuracy >= 60
+                                        ? 'bg-warn'
+                                        : 'bg-danger'
+                                  )}
+                                />
+                              </span>
+                            </span>
 
-              <button
-                onClick={() => navigate('/progress')}
-                className="bg-white dark:bg-slate-800/60 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 hover:border-orange-300 dark:hover:border-orange-500 hover:shadow-md transition-all text-left"
-              >
-                <p className="text-sm text-gray-600 dark:text-slate-400">Завършени уроци</p>
-                <p className="text-3xl font-bold text-orange-600 dark:text-orange-400">
-                  {effectiveStats?.lessons_completed || 0}/{effectiveStats?.total_lessons_available || 0}
-                </p>
-              </button>
-            </div>
+                            <span
+                              className={cn(
+                                'tnum w-14 shrink-0 text-right text-title font-semibold',
+                                topic.accuracy >= 80
+                                  ? 'text-brand-ink'
+                                  : topic.accuracy >= 60
+                                    ? 'text-ink'
+                                    : 'text-danger'
+                              )}
+                            >
+                              {topic.accuracy.toFixed(0)}%
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </TabsContent>
 
-            {isDeveloperMode && (
-              <div className="mb-6 flex items-center justify-between rounded-xl border border-violet-200 bg-violet-50 dark:border-violet-700/50 dark:bg-violet-900/20 px-4 py-3">
-                <p className="text-sm text-violet-900 dark:text-violet-300 font-medium">
-                  {demoMode ? 'Режим за screenshot: активен (демо данни)' : 'Реални данни от API'}
-                </p>
-                <button
-                  onClick={() => setDemoMode((prev) => !prev)}
-                  className="px-3 py-1.5 text-sm rounded-lg border border-violet-300 dark:border-violet-600 bg-white dark:bg-slate-800 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/40"
-                >
-                  {demoMode ? 'Покажи реални данни' : 'Включи демо данни'}
-                </button>
-              </div>
+                <TabsContent value="grades">
+                  {byGrade.length === 0 ? (
+                    <EmptyState
+                      title="Няма данни по класове"
+                      description="Данните се появяват, след като решиш задачи поне по една тема."
+                    />
+                  ) : (
+                    <ul className="grid gap-4 sm:grid-cols-3">
+                      {byGrade.map((row) => (
+                        <li
+                          key={row.grade}
+                          className="space-y-3 rounded-xl border border-line bg-surface p-5 shadow-lift-1"
+                        >
+                          <div className="flex items-baseline justify-between">
+                            <h3 className="text-body font-semibold text-ink">{row.grade}. клас</h3>
+                            <span className="tnum text-caption text-ink-muted">
+                              {row.accuracy.toFixed(0)}% точност
+                            </span>
+                          </div>
+                          <Progress
+                            value={row.progress}
+                            aria-label={`Изминат материал за ${row.grade}. клас`}
+                          />
+                          <p className="tnum text-caption text-ink-muted">
+                            {row.progress.toFixed(0)}% от задачите решени
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="history">
+                  <ActivityFeed />
+                </TabsContent>
+              </Tabs>
+            </Reveal>
+
+            {recommendations && recommendations.recommended_lessons.length > 0 && (
+              <Reveal>
+                <SectionHeading
+                  title="Препоръчани уроци"
+                  description="Избрани заради темите с най-ниска точност."
+                />
+                <ul className="grid gap-3 sm:grid-cols-2">
+                  {recommendations.recommended_lessons.map((lesson) => (
+                    <li key={lesson.lesson_id}>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/lessons/${lesson.lesson_id}/exercises`)}
+                        className="flex w-full flex-col gap-1 rounded-xl border border-line bg-surface p-5 text-left shadow-lift-1 transition-[border-color,box-shadow] hover:border-brand hover:shadow-lift-2"
+                      >
+                        <span className="text-micro font-semibold uppercase tracking-[0.08em] text-ink-faint">
+                          {lesson.topic_title}
+                        </span>
+                        <span className="text-body font-semibold text-ink">{lesson.lesson_title}</span>
+                        <span className="text-caption text-ink-muted">{lesson.reason}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </Reveal>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-              <div className="bg-white dark:bg-slate-800/60 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700">
-                <h2 className="text-xl font-semibold text-gray-800 dark:text-slate-100 mb-4">Препоръчани уроци</h2>
-                {effectiveRecommendations && effectiveRecommendations.recommended_lessons.length > 0 ? (
-                  <div className="space-y-3">
-                    {effectiveRecommendations.recommended_lessons.map((lesson) => (
-                      <button
-                        key={lesson.lesson_id}
-                        onClick={() => navigate(`/lessons/${lesson.lesson_id}/exercises`)}
-                        className="w-full border border-blue-200 dark:border-blue-700/50 bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 text-left hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-sm transition-all"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="font-semibold text-gray-900 dark:text-slate-100">{lesson.lesson_title}</p>
-                            <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">{lesson.topic_title}</p>
-                          </div>
-                          <span className="text-blue-600 dark:text-blue-400 font-medium whitespace-nowrap">Отвори →</span>
-                        </div>
-                        <p className="text-sm text-gray-600 dark:text-slate-400 mt-2">{lesson.reason}</p>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-600 dark:text-slate-400">Няма препоръчани уроци в момента. Продължавай така!</p>
-                )}
-              </div>
-
-              <div className="bg-white dark:bg-slate-800/60 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700">
-                <h2 className="text-xl font-semibold text-gray-800 dark:text-slate-100 mb-4">Преглед по клас</h2>
-                {gradeSummary.length > 0 ? (
-                  <div className="space-y-4">
-                    {gradeSummary.map((grade) => (
-                      <div
-                        key={grade.gradeNumber}
-                        className="w-full text-left rounded-xl border border-gray-200 dark:border-slate-700 p-4"
-                      >
-                        <div className="flex justify-between text-sm mb-1">
-                          <span className="font-medium text-gray-700 dark:text-slate-200">{grade.gradeNumber} клас</span>
-                          <span className="text-gray-600 dark:text-slate-400">Точност: {grade.accuracy.toFixed(0)}%</span>
-                        </div>
-                        <ProgressBar percentage={grade.progress} color="blue" height="md" />
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-600 dark:text-slate-400">Все още няма данни за класове.</p>
-                )}
-              </div>
-            </div>
-
-            <div className="bg-white dark:bg-slate-800/60 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 mb-8">
-              <h2 className="text-xl font-semibold text-gray-800 dark:text-slate-100 mb-2">Какво следва</h2>
-              <p className="text-gray-600 dark:text-slate-400 mb-4">
-                {effectiveRecommendations?.encouragement_message || 'Практикувай редовно, за да поддържаш добър напредък.'}
-              </p>
-              <div className="flex flex-wrap gap-3">
-                <button
-                  onClick={() => navigate('/grades')}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Към упражненията
-                </button>
-                <button
-                  onClick={() => navigate('/dashboard')}
-                  className="bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-300 border border-gray-300 dark:border-slate-600 px-4 py-2 rounded-lg hover:border-blue-300 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                >
-                  Към таблото
-                </button>
-              </div>
-            </div>
-
-            {/* Badges */}
-            <BadgeShelf />
-
-            {/* XP Activity Feed */}
-            <div className="mt-6">
-              <ActivityFeed />
-            </div>
-          </>
+            {isDevMode && (
+              <Reveal>
+                <BadgeShelf />
+              </Reveal>
+            )}
+          </div>
         )}
-      </main>
-    </div>
+      </PageShell>
+    </>
   );
 };
+
+const ProgressSkeleton: React.FC = () => (
+  <div className="space-y-10" role="status" aria-live="polite">
+    <span className="sr-only">Прогресът се зарежда</span>
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <Skeleton key={i} className="h-28" />
+      ))}
+    </div>
+    <Skeleton className="h-10 w-72" />
+    <div className="space-y-2">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <Skeleton key={i} className="h-16" />
+      ))}
+    </div>
+  </div>
+);
 
 export default ProgressSummaryPage;

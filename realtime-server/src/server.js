@@ -1,12 +1,101 @@
+require('dotenv').config();
+
 const express = require('express');
 const http = require('http');
 const cors = require('cors');
+const crypto = require('crypto');
 const { Server } = require('socket.io');
 
 const PORT = Number(process.env.PORT || 3001);
 const app = express();
 
-app.use(cors({ origin: true, credentials: true }));
+// ─── Origin allowlist ────────────────────────────────────────────────────────
+// SECURITY: this used to be `origin: true` with `credentials: true`, which
+// reflects *any* origin back — so any website a student visited could open an
+// authenticated socket to the pairing server and read/inject room traffic.
+const DEFAULT_ALLOWED_ORIGINS = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:5174',
+  'http://127.0.0.1:5174',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+];
+
+const ALLOWED_ORIGINS = String(process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map((value) => value.trim())
+  .filter(Boolean);
+
+const allowedOrigins = ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : DEFAULT_ALLOWED_ORIGINS;
+
+// Phones on the LAN hit the desktop by private IP during local testing.
+const LOCAL_NETWORK_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3})(:\d+)?$/;
+const ALLOW_LOCAL_NETWORK = process.env.ALLOW_LOCAL_NETWORK !== 'false';
+
+const isOriginAllowed = (origin) => {
+  // Same-origin / non-browser clients send no Origin header.
+  if (!origin) return true;
+  if (allowedOrigins.includes(origin)) return true;
+  return ALLOW_LOCAL_NETWORK && LOCAL_NETWORK_ORIGIN.test(origin);
+};
+
+const corsOriginCheck = (origin, callback) => {
+  if (isOriginAllowed(origin)) return callback(null, true);
+  console.warn(`❌ Blocked disallowed origin: ${origin}`);
+  return callback(new Error('Origin not allowed'));
+};
+
+app.use(cors({ origin: corsOriginCheck, credentials: true }));
+
+// ─── Handshake authentication ────────────────────────────────────────────────
+// SECURITY: identity used to be a client-supplied string, so anyone could
+// claim to be any user id and hijack or impersonate a pairing room. The socket
+// now carries the same JWT the API uses, verified here before any event runs.
+const JWT_SECRET = process.env.REALTIME_JWT_SECRET || process.env.SECRET_KEY || '';
+
+if (!JWT_SECRET) {
+  console.error(
+    '❌ REALTIME_JWT_SECRET (or SECRET_KEY) is not set. It must match the backend ' +
+    'SECRET_KEY. Exiting rather than running as a black hole that rejects every socket.'
+  );
+  process.exit(1);
+}
+
+/** Verify an HS256 JWT with the built-in crypto module (no extra dependency). */
+const verifyJwtHs256 = (token, secret) => {
+  if (!token || !secret) return null;
+  const parts = String(token).split('.');
+  if (parts.length !== 3) return null;
+  const [headerPart, payloadPart, signaturePart] = parts;
+
+  let header;
+  try {
+    header = JSON.parse(Buffer.from(headerPart, 'base64url').toString('utf8'));
+  } catch {
+    return null;
+  }
+  // Reject alg:none and algorithm-confusion attempts outright.
+  if (!header || header.alg !== 'HS256') return null;
+
+  const expected = crypto
+    .createHmac('sha256', secret)
+    .update(`${headerPart}.${payloadPart}`)
+    .digest('base64url');
+  const given = Buffer.from(signaturePart);
+  const want = Buffer.from(expected);
+  if (given.length !== want.length || !crypto.timingSafeEqual(given, want)) return null;
+
+  let payload;
+  try {
+    payload = JSON.parse(Buffer.from(payloadPart, 'base64url').toString('utf8'));
+  } catch {
+    return null;
+  }
+  if (typeof payload.exp === 'number' && payload.exp * 1000 <= Date.now()) return null;
+  if (!payload.sub) return null;
+  return payload;
+};
 
 app.get('/health', (_req, res) => {
   res.json({ ok: true, service: 'realtime-pairing' });
@@ -21,10 +110,40 @@ app.get('/ping', (_req, res) => {
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: true,
+    origin: corsOriginCheck,
     credentials: true,
   },
   maxHttpBufferSize: 10 * 1024 * 1024, // 10 MB — matches MAX_IMAGE_BYTES ceiling
+});
+
+// Every socket must present a valid backend JWT before it can emit anything.
+io.use((socket, next) => {
+  const token =
+    socket.handshake.auth?.token ||
+    String(socket.handshake.headers.authorization || '').replace(/^Bearer\s+/i, '');
+
+  const payload = verifyJwtHs256(token, JWT_SECRET);
+  if (!payload) {
+    console.warn(`❌ Rejected unauthenticated socket ${socket.id}`);
+    return next(new Error('UNAUTHORIZED'));
+  }
+
+  // SECURITY: the backend also mints a *companion* JWT (type:"companion",
+  // scope:"companion") for the phone-pairing flow, signed with the same
+  // SECRET_KEY but via a route that requires no authentication at all
+  // (POST /companion/pair). Both tokens carry a `sub` and verify with the
+  // same signature check above, so without this guard a companion token —
+  // obtainable by anyone — would be accepted here as full user identity.
+  // Only a real backend user access token (no `type`/`scope` claim) may
+  // authenticate a realtime identity socket.
+  if (payload.type === 'companion' || payload.scope === 'companion') {
+    console.warn(`❌ Rejected companion-scoped token on identity socket ${socket.id}`);
+    return next(new Error('UNAUTHORIZED'));
+  }
+
+  // Authoritative identity — never read from the event payload again.
+  socket.data.authUserId = String(payload.sub);
+  return next();
 });
 
 const rooms = new Map();
@@ -68,9 +187,10 @@ const getRoomState = (roomCode) => {
 };
 
 io.on('connection', (socket) => {
-  socket.on('createRoom', ({ roomCode, ownerUserId }, callback) => {
+  socket.on('createRoom', ({ roomCode }, callback) => {
     const normalizedCode = normalizeRoomCode(roomCode);
-    const normalizedOwnerUserId = normalizeUserId(ownerUserId);
+    // Identity comes from the verified handshake JWT, not the event payload.
+    const normalizedOwnerUserId = normalizeUserId(socket.data.authUserId);
     
     console.log(`🏠 createRoom request - code: "${normalizedCode}", userId: ${normalizedOwnerUserId}, socketId: ${socket.id}`);
     
@@ -126,9 +246,10 @@ io.on('connection', (socket) => {
     socket.emit('roomState', getRoomState(normalizedCode));
   });
 
-  socket.on('joinRoom', ({ roomCode, requesterUserId }, callback) => {
+  socket.on('joinRoom', ({ roomCode }, callback) => {
     const normalizedCode = normalizeRoomCode(roomCode);
-    const normalizedRequesterUserId = normalizeUserId(requesterUserId);
+    // Identity comes from the verified handshake JWT, not the event payload.
+    const normalizedRequesterUserId = normalizeUserId(socket.data.authUserId);
     
     console.log(`🔐 joinRoom request - code: "${normalizedCode}", userId: ${normalizedRequesterUserId}, socketId: ${socket.id}`);
 
