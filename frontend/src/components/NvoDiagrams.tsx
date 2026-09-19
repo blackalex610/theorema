@@ -5,6 +5,7 @@
  * NO answer values are displayed - diagrams show only problem setup.
  */
 import React from 'react';
+import SceneRenderer, { type Scene } from './SceneRenderer';
 
 // ─── Type definitions ──────────────────────────────────────────────────────────
 
@@ -835,6 +836,12 @@ export type NvoDiagramConfig = Record<string, unknown>;
 
 export function renderNvoDiagram(type: string, config: NvoDiagramConfig): React.ReactNode {
   switch (type) {
+    // Blueprint-generated questions send `diagram_type: 'scene'` and carry a
+    // declarative scene spec in the config, drawn by one renderer. The
+    // hand-written components below stay for questions the old catalog
+    // generator still produces, so both paths work during the migration.
+    case 'scene':
+      return <SceneRenderer scene={config as unknown as Scene} />;
     case 'RhombusCOMDiagram':
       return <RhombusCOMDiagram config={config as RhombusCOMConfig} />;
     case 'IntersectLinesDiagram':

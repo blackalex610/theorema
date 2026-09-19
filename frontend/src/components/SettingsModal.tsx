@@ -2,12 +2,13 @@ import React from 'react';
 import { useSettings } from '../context/SettingsContext';
 import SettingsSection from './SettingsSection';
 import SettingsConnectionPanel from './SettingsConnectionPanel';
+import MyDataSection from './MyDataSection';
 import ThemeSwitch from './ThemeSwitch';
 import { usePlan } from '../hooks/usePlan';
 import { useDeveloperMode, DevOnly } from '../context/DeveloperModeContext';
 
 const SettingsModal: React.FC = () => {
-  const { isSettingsOpen, closeSettings, language, setLanguage } = useSettings();
+  const { isSettingsOpen, closeSettings } = useSettings();
   const { status: planStatus, upgrade, refresh } = usePlan();
   const [isUpgrading, setIsUpgrading] = React.useState(false);
   const [upgradeError, setUpgradeError] = React.useState<string | null>(null);
@@ -130,20 +131,10 @@ const SettingsModal: React.FC = () => {
           </SettingsSection>
 
           <SettingsSection
-            title="Език"
-            description="Езикът на интерфейса. Пълните преводи се добавят постепенно."
+            title="Моите данни"
+            description="Изтегли всичко, което пазим за теб, или изтрий профила си."
           >
-            <label className="block">
-              <span className="mb-2 block text-sm font-medium text-gray-700 dark:text-slate-300">App language</span>
-              <select
-                value={language}
-                onChange={(event) => setLanguage(event.target.value as 'en' | 'bg')}
-                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 shadow-sm outline-none transition-colors focus:border-blue-400 focus:ring-4 focus:ring-blue-100 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-blue-400 dark:focus:ring-blue-500/20"
-              >
-                <option value="en">English</option>
-                <option value="bg">Bulgarian</option>
-              </select>
-            </label>
+            <MyDataSection />
           </SettingsSection>
 
           <DevOnly badgeLabel="Experimental">

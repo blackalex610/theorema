@@ -260,3 +260,100 @@ def test_a_stored_exam_is_graded_from_the_server_copy_not_the_client_payload():
     clear_cache()
 
     assert _load_exam("submit01") is not None
+
+
+# ─── /nvo/generate-job must not block the request on generation ─────────────
+#
+# create_nvo_generation_job used to `await loop.run_in_executor(...)` the
+# entire generation inline, so the request blocked for as long as generation
+# took (up to the 75s OpenAI timeout) despite the job/polling shape already
+# existing on both sides — GET /nvo/generate-job/{id} existed purely to poll
+# a job that, in practice, was already finished by the time the client had
+# the job_id to poll with. Separately, the daily nvo_exams credit used to be
+# charged by the require_nvo_exam dependency before generation ran at all, so
+# a failed generation cost the credit for nothing.
+
+def test_generate_job_returns_immediately_as_queued(db, make_user):
+    import asyncio
+
+    from fastapi import BackgroundTasks
+    from app.routers.nvo import create_nvo_generation_job
+
+    user = make_user()
+    background_tasks = BackgroundTasks()
+
+    job = asyncio.run(create_nvo_generation_job(background_tasks, request=None, current_user=user))
+
+    assert job.status == "queued"
+    assert job.progress == 0
+    assert len(background_tasks.tasks) == 1  # the actual work has not run yet
+
+
+def test_generate_job_does_not_charge_the_credit_before_the_background_task_runs(db, make_user):
+    import asyncio
+
+    from fastapi import BackgroundTasks
+    from app.routers.nvo import create_nvo_generation_job
+
+    user = make_user()
+    before = user.nvo_exams_today
+    background_tasks = BackgroundTasks()
+
+    asyncio.run(create_nvo_generation_job(background_tasks, request=None, current_user=user))
+
+    db.refresh(user)
+    assert user.nvo_exams_today == before  # unchanged until the job actually succeeds
+
+
+def test_generate_job_charges_the_credit_once_the_background_task_succeeds(monkeypatch, db, make_user):
+    import asyncio
+
+    from fastapi import BackgroundTasks
+    from app.routers.nvo import create_nvo_generation_job, get_nvo_generation_job
+    import app.routers.nvo as nvo_module
+
+    monkeypatch.setattr(nvo_module.settings, "OPENAI_API_KEY", "")  # forces the pool fallback
+    user = make_user()
+    before = user.nvo_exams_today
+    background_tasks = BackgroundTasks()
+
+    job = asyncio.run(create_nvo_generation_job(background_tasks, request=None, current_user=user))
+    asyncio.run(background_tasks())  # simulate Starlette running it after the response is sent
+
+    completed = asyncio.run(get_nvo_generation_job(job.job_id))
+    assert completed.status == "completed"
+
+    db.refresh(user)
+    assert user.nvo_exams_today == before + 1
+
+
+def test_generate_job_does_not_charge_the_credit_when_generation_fails(monkeypatch, db, make_user):
+    import asyncio
+
+    from fastapi import BackgroundTasks, HTTPException
+    from app.routers.nvo import create_nvo_generation_job, get_nvo_generation_job
+    import app.routers.nvo as nvo_module
+
+    def _boom(*args, **kwargs):
+        raise HTTPException(status_code=500, detail="boom")
+
+    # Every generation path has to fail for the job to fail. The blueprint
+    # generator was added in front of these two and succeeds offline, so
+    # patching only the original pair no longer tests anything.
+    monkeypatch.setattr(nvo_module, "_generate_via_blueprint", _boom)
+    monkeypatch.setattr(nvo_module, "_generate_via_openai", _boom)
+    monkeypatch.setattr(nvo_module, "_fallback_generate_from_pool", _boom)
+    user = make_user()
+    before = user.nvo_exams_today
+    background_tasks = BackgroundTasks()
+
+    job = asyncio.run(create_nvo_generation_job(background_tasks, request=None, current_user=user))
+    asyncio.run(background_tasks())
+
+    completed = asyncio.run(get_nvo_generation_job(job.job_id))
+    assert completed.status == "failed"
+
+    db.refresh(user)
+    assert user.nvo_exams_today == before  # never charged for a failed generation
+
+

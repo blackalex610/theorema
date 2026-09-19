@@ -87,8 +87,17 @@ NVO_EXAM_BASE_XP_RANGES = {
     (95, 100): (220, 300),
 }
 
+# Keyed by the four current difficulty codes plus the two legacy names, which
+# are still stored on older attempts: "standard" was the real exam and "hard"
+# the level above it. Kept as literals rather than imported from
+# ``nvo_gen.difficulty`` so that scoring an old attempt never depends on the
+# generator package, but the values must stay in step with the profiles there.
 NVO_DIFFICULTY_MULTIPLIERS = {
     "easy": 0.5,
+    "medium": 0.8,
+    "actual": 1.0,
+    "extra_hard": 2.0,
+    # legacy spellings
     "standard": 1.0,
     "hard": 2.0,
 }
@@ -375,11 +384,21 @@ class ProgressService:
             f"Difficulty: {difficulty} ({calculation['difficulty_multiplier']}x)",
             f"Time: {minutes_taken}min (mult: {calculation['time_multiplier']}x)",
         ]
-        
+        if exam_id:
+            reason_parts.append(f"exam:{exam_id}")
+
+        # BUGFIX: exam_id is the first 8 hex characters of a uuid4
+        # (nvo.py:414,572), not a numeric id. int(exam_id.replace('-','')[:9])
+        # raised ValueError for any id containing a letter — ~98% of them —
+        # which 500'd this endpoint and silently dropped the XP reward for
+        # finishing the exam (the frontend's .catch(() => {}) hid the error
+        # from the student entirely). source_id has no real numeric reference
+        # for an NVO exam, so it's left unset; the exam id stays auditable in
+        # `reason` instead.
         self.db.add(XpEvent(
             user_id=user_id,
             source_type="nvo_exam_detailed",
-            source_id=int(exam_id.replace('-', '')[:9]) if exam_id else 0,
+            source_id=None,
             xp_amount=final_xp,
             reason=" | ".join(reason_parts),
         ))

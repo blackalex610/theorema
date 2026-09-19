@@ -1,23 +1,16 @@
 from __future__ import annotations
 
-import json
 import threading
 import time
 from datetime import datetime
-from pathlib import Path
 from typing import Any, Literal, Optional
 
 from fastapi import APIRouter, HTTPException, Request, Query, Depends
 from pydantic import BaseModel, Field
 from app.auth.dependencies import require_admin
+from app.services.event_log_store import append_log, count_all, read_recent
 
 router = APIRouter(tags=["bug-report"])
-
-# ─── Storage ─────────────────────────────────────────────────────────────────
-
-_LOG_DIR = Path(__file__).resolve().parents[2] / "logs"
-_BUG_FILE = _LOG_DIR / "bug_reports.jsonl"
-_LOCK = threading.Lock()
 
 # ─── Rate limiting (per IP, max 5 reports / 10 min) ─────────────────────────
 
@@ -55,14 +48,6 @@ def _sanitize(value: Any) -> Any:
     return value
 
 
-def _append(entry: dict[str, Any]) -> None:
-    _LOG_DIR.mkdir(parents=True, exist_ok=True)
-    line = json.dumps(_sanitize(entry), ensure_ascii=False)
-    with _LOCK:
-        with _BUG_FILE.open("a", encoding="utf-8") as fp:
-            fp.write(line + "\n")
-
-
 # ─── Schema ───────────────────────────────────────────────────────────────────
 
 class BugReportPayload(BaseModel):
@@ -93,11 +78,11 @@ async def submit_bug_report(payload: BugReportPayload, request: Request):
     if not _allow(ip):
         raise HTTPException(status_code=429, detail="Too many reports. Please wait a few minutes.")
 
-    entry = payload.model_dump()
+    entry = _sanitize(payload.model_dump())
     entry["received_at"] = datetime.utcnow().isoformat()
     entry["ip"] = ip
 
-    _append(entry)
+    append_log("bug_report", entry)
     return {"success": True, "message": "Докладът е изпратен. Благодарим ти!"}
 
 
@@ -107,20 +92,10 @@ async def get_recent_bug_reports(
     limit: int = Query(default=50, ge=1, le=200),
 ):
     """Admin-only. Returns recent bug reports (without raw screenshot blobs)."""
-    if not _BUG_FILE.exists():
-        return {"items": [], "total": 0}
-
-    lines = _BUG_FILE.read_text(encoding="utf-8").splitlines()
-    total = len(lines)
-    recent = lines[-min(limit, 500):]
     items: list[dict[str, Any]] = []
-    for line in reversed(recent):
-        try:
-            entry = json.loads(line)
-            # Strip large screenshot blobs — never return student screen data
-            entry.pop("screenshot_base64", None)
-            items.append(entry)
-        except Exception:
-            pass
+    for entry in read_recent("bug_report", limit=limit):
+        # Strip large screenshot blobs — never return student screen data
+        entry.pop("screenshot_base64", None)
+        items.append(entry)
 
-    return {"items": items, "total": total}
+    return {"items": items, "total": count_all("bug_report")}

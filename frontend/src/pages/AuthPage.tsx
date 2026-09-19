@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import type { CredentialResponse } from '@react-oauth/google';
 import { WarningCircleIcon } from '@phosphor-icons/react';
 
@@ -105,6 +105,22 @@ const AuthPage: React.FC = () => {
             {error}
           </p>
         )}
+
+        {/* Consent happens here, so the documents have to be here too — and
+            Bulgaria's digital age of consent is 14, which covers most of the
+            5th and 6th graders this product is aimed at. */}
+        <p className="pt-2 text-xs leading-relaxed text-ink-muted">
+          С влизането приемаш{' '}
+          <Link to="/terms" className="text-brand-ink underline">
+            Условията за ползване
+          </Link>{' '}
+          и{' '}
+          <Link to="/privacy" className="text-brand-ink underline">
+            Политиката за поверителност
+          </Link>
+          . Ако си на по-малко от 14 години, поискай съгласие от родител, преди да
+          създадеш профил.
+        </p>
       </div>
     </main>
   );

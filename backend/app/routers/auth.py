@@ -8,11 +8,16 @@ from google.auth.transport import requests as google_requests
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
+import json
+
+from fastapi.responses import Response
+
 from app.config import settings
 from app.database import get_db
 from app.models.user import User
 from app.auth.dependencies import get_current_user, get_optional_user, require_admin, FREE_LIMITS
 from app.services.guest_cleanup import purge_stale_guests
+from app.services.user_data import delete_user_account, export_user_data
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -273,6 +278,48 @@ async def get_me(current_user: User = Depends(get_current_user)):
             "nvo_exams": {"used": current_user.nvo_exams_today, "limit": limits["nvo_exams"]},
         },
     }
+
+
+@router.get("/me/export")
+async def export_my_data(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """GDPR Art. 15/20: everything we hold about the caller, as a download.
+
+    Served as an attachment rather than a JSON body so "get my data" produces
+    a file the student or their parent can actually keep, which is what
+    portability means.
+    """
+    payload = export_user_data(db, current_user)
+    return Response(
+        content=json.dumps(payload, ensure_ascii=False, indent=2),
+        media_type="application/json",
+        headers={
+            "Content-Disposition": f'attachment; filename="smartnvo-danni-{current_user.id}.json"'
+        },
+    )
+
+
+@router.delete("/me")
+async def delete_my_account(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """GDPR Art. 17: erase the account and every row belonging to it.
+
+    Irreversible and immediate — no soft-delete flag, because a "deleted"
+    account that still holds a child's homework photos and answer history is
+    not erasure. The JWT keeps its shape but stops resolving to anyone, so
+    the caller's existing token is dead the moment this returns.
+    """
+    try:
+        counts = delete_user_account(db, current_user)
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(status_code=503, detail="Database unavailable") from exc
+
+    return {"deleted": True, "removed_rows": counts}
 
 
 @router.post("/admin/purge-guests")

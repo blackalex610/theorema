@@ -12,10 +12,12 @@ from jose import jwt
 
 from app.auth.dependencies import (
     FREE_LIMITS,
+    increment_usage,
     require_admin,
     require_ai_chat,
     require_image_scan,
     require_nvo_exam,
+    require_nvo_exam_capacity,
 )
 from app.config import settings
 
@@ -79,6 +81,20 @@ def test_free_user_is_blocked_at_the_daily_limit(gate, feature, db, make_user):
     assert exc.value.detail["feature"] == feature
 
 
+def test_the_limit_payload_has_no_dead_upgrade_url(db, make_user):
+    """`upgrade_url` used to hardcode a domain and a `/settings#upgrade`
+    fragment that isn't a route — settings is a modal, not a page — and no
+    frontend code ever read the field. Pinning its absence so it can't creep
+    back in without someone actually wiring it to something real.
+    """
+    user = make_user(ai_chat_today=FREE_LIMITS["ai_chat"], usage_reset_date=date.today())
+
+    with pytest.raises(HTTPException) as exc:
+        require_ai_chat(authorization=_bearer(user), db=db)
+
+    assert "upgrade_url" not in exc.value.detail
+
+
 @pytest.mark.parametrize("gate,feature", GATES)
 def test_premium_user_passes_the_free_limit(gate, feature, db, make_user):
     user = make_user(
@@ -133,3 +149,59 @@ def test_require_admin_rejects_a_normal_logged_in_user(db, make_user):
 def test_require_admin_allows_an_admin(db, make_user):
     admin = make_user(is_admin=1)
     assert require_admin(authorization=_bearer(admin), db=db).id == admin.id
+
+
+# ─── require_nvo_exam_capacity: check without charging ──────────────────────
+#
+# POST /nvo/generate-job used to charge the daily nvo_exams credit via
+# require_nvo_exam (check-and-increment) before generation ever ran, so a
+# student whose generation failed (AI error and the pool fallback both
+# failing) lost their one-exam-per-day allowance for nothing. This gate only
+# verifies capacity; nvo.py charges it via increment_usage once an exam
+# actually exists.
+
+def test_capacity_check_does_not_charge_a_credit(db, make_user):
+    user = make_user()
+    before = user.nvo_exams_today
+
+    require_nvo_exam_capacity(authorization=_bearer(user), db=db)
+
+    db.refresh(user)
+    assert user.nvo_exams_today == before  # unchanged
+
+
+def test_capacity_check_still_blocks_at_the_daily_limit(db, make_user):
+    limit = FREE_LIMITS["nvo_exams"]
+    user = make_user(nvo_exams_today=limit, usage_reset_date=date.today())
+
+    with pytest.raises(HTTPException) as exc:
+        require_nvo_exam_capacity(authorization=_bearer(user), db=db)
+    assert exc.value.status_code == 429
+    assert exc.value.detail["code"] == "LIMIT_REACHED"
+
+
+def test_capacity_check_rejects_anonymous_callers(db):
+    with pytest.raises(HTTPException) as exc:
+        require_nvo_exam_capacity(authorization=None, db=db)
+    assert exc.value.status_code == 401
+
+
+def test_increment_usage_actually_charges_the_credit(db, make_user):
+    user = make_user()
+    before = user.nvo_exams_today
+
+    increment_usage(user, db, "nvo_exams")
+
+    db.refresh(user)
+    assert user.nvo_exams_today == before + 1
+
+
+def test_increment_usage_refuses_past_the_limit(db, make_user):
+    """Re-checked at charge time too, in case capacity was spent elsewhere
+    between the check and the credit actually being charged."""
+    limit = FREE_LIMITS["nvo_exams"]
+    user = make_user(nvo_exams_today=limit, usage_reset_date=date.today())
+
+    with pytest.raises(HTTPException) as exc:
+        increment_usage(user, db, "nvo_exams")
+    assert exc.value.status_code == 429

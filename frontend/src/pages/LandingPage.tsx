@@ -425,10 +425,20 @@ const LandingPage: React.FC = () => {
       {/* ── Testimonials ────────────────────────────────────────────────── */}
       <section id="mnenia" className="section-y scroll-mt-16 border-t border-line bg-surface">
         <div className="mx-auto w-full max-w-[75rem] shell-x">
+          {/* These three quotes are not from verified, identified users. A
+              named testimonial with a specific outcome claim ("вдигнах
+              точността си от 40 на 85") is a consumer-law problem if it isn't
+              real, so it is labelled as illustrative until it can be replaced
+              with a quote from an actual named student, parent or teacher who
+              has agreed to it. Remove the note at the same time as the swap. */}
           <Reveal className="max-w-2xl">
             <h2 className="font-display text-section font-semibold text-ink">
               Какво казват хората, които я ползват
             </h2>
+            <p className="mt-3 text-caption text-ink-muted">
+              Примерни отзиви — показват типични сценарии на употреба, а не изказвания на
+              конкретни потребители.
+            </p>
           </Reveal>
 
           <RevealGroup className="mt-12 grid gap-4 lg:grid-cols-12">

@@ -31,6 +31,9 @@ def _schema():
     import app.models.companion  # noqa: F401
     import app.models.nvo_exam  # noqa: F401
     import app.models.nvo_content  # noqa: F401
+    import app.models.event_log  # noqa: F401
+    import app.models.classroom  # noqa: F401
+    import app.models.mobile_channel  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
     yield

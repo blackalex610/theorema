@@ -23,6 +23,7 @@ from app.routers.bug_report import router as bug_report_router
 from app.routers.feedback import router as feedback_router
 from app.routers.companion_pairing import router as companion_pairing_router
 from app.routers.analytics import router as analytics_router
+from app.routers.classrooms import router as classrooms_router
 from app.middleware.ip_rate_limiter import IPRateLimiterMiddleware
 from app.services.media_tokens import verify_media_token
 import app.models.curriculum  # noqa: ensure models are registered
@@ -30,6 +31,25 @@ import app.models.progress    # noqa: ensure models are registered
 import app.models.user        # noqa: ensure models are registered
 import app.models.companion   # noqa: ensure models are registered
 import app.models.nvo_exam    # noqa: ensure models are registered
+import app.models.event_log   # noqa: ensure models are registered
+import app.models.classroom   # noqa: ensure models are registered
+import app.models.mobile_channel  # noqa: ensure models are registered
+
+# Sentry: opt-in via SENTRY_DSN. Deliberately skipped entirely rather than
+# initialized with an empty DSN — that keeps "no DSN configured" and
+# "Sentry is off" the same, unambiguous state, with zero SDK overhead for
+# every deployment that hasn't set one up yet.
+if settings.SENTRY_DSN:
+    import sentry_sdk
+    from sentry_sdk.integrations.fastapi import FastApiIntegration
+    from sentry_sdk.integrations.starlette import StarletteIntegration
+
+    sentry_sdk.init(
+        dsn=settings.SENTRY_DSN,
+        environment=settings.ENVIRONMENT,
+        integrations=[StarletteIntegration(), FastApiIntegration()],
+        traces_sample_rate=settings.SENTRY_TRACES_SAMPLE_RATE,
+    )
 
 app = FastAPI(
     title="Math Learning Platform API",
@@ -94,6 +114,7 @@ app.include_router(bug_report_router)
 app.include_router(feedback_router)
 app.include_router(companion_pairing_router)
 app.include_router(analytics_router)
+app.include_router(classrooms_router)
 
 MEDIA_DIR = Path(__file__).resolve().parent / "uploads"
 MEDIA_DIR.mkdir(parents=True, exist_ok=True)

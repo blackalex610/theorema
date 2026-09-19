@@ -1,0 +1,15 @@
+{
+  /* Test files live under src/ but need types the app bundle must not carry:
+     node (the contact-sheet harness writes real files), vitest globals, and
+     jest-dom matchers. Keeping them in their own project means the app build
+     stays honest about what ships to the browser. */
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.test.tsbuildinfo",
+    "types": ["vite/client", "node", "vitest/globals", "@testing-library/jest-dom"],
+    "noEmit": true
+  },
+  /* Override the inherited exclude — these are exactly the files we want here. */
+  "exclude": [],
+  "include": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/test"]
+}

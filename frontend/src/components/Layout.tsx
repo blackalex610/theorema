@@ -5,8 +5,8 @@ import BugReportButton from './BugReportButton';
 
 const ASK_ASSISTANT_EVENT = 'ask-assistant-from-selection';
 
-/** Routes that bring their own chrome: the auth page and the marketing page. */
-const UNCHROMED = new Set(['/', '/about']);
+/** Routes that bring their own chrome: auth, marketing, and the legal pages. */
+const UNCHROMED = new Set(['/', '/about', '/privacy', '/terms']);
 
 /**
  * Application shell.

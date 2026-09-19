@@ -183,6 +183,29 @@ def test_a_slow_run_is_worth_less_than_a_fast_one():
     assert slow < fast
 
 
+# ─── award_nvo_exam_xp_detailed: persisting the award ───────────────────────
+
+def test_awarding_xp_for_a_real_exam_id_does_not_crash(service, make_user):
+    """Real exam ids are the first 8 hex characters of a uuid4
+    (nvo.py:414,572) — over 97% of them contain a letter, so casting one to
+    int() raises ValueError. That turned the reward for finishing a 150-minute
+    exam into a silent 500 (the frontend's .catch(() => {}) hid it from the
+    student) for all but the ~2% of ids that happen to be all digits.
+    """
+    user = make_user()
+
+    result = service.award_nvo_exam_xp_detailed(
+        user_id=user.id,
+        percentage_correct=100,
+        difficulty="hard",
+        minutes_taken=30,
+        exam_id="eb258f6b",
+    )
+
+    assert result["final_xp"] > 0
+    assert result["xp_after"] == result["xp_before"] + result["final_xp"]
+
+
 # ─── Query counting: the N+1 regression guard ────────────────────────────────
 
 @contextmanager

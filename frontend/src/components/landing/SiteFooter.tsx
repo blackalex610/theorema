@@ -5,6 +5,12 @@ import { scrollToSection } from '../SmoothScroll';
 
 type FooterLink = { label: string; to?: string; section?: string };
 
+/*
+ * Every link here used to point at '/' — seven dead ends on the one page a
+ * parent actually reads, including "Създаване на профил" pointing at
+ * /register, which only redirects back to '/'. Links now either scroll to a
+ * real section of the marketing page or go to a route that exists.
+ */
 const COLUMNS: Array<{ heading: string; links: FooterLink[] }> = [
   {
     heading: 'Платформа',
@@ -18,17 +24,24 @@ const COLUMNS: Array<{ heading: string; links: FooterLink[] }> = [
   {
     heading: 'Учебно съдържание',
     links: [
-      { label: 'Пети клас', to: '/' },
-      { label: 'Шести клас', to: '/' },
-      { label: 'Седми клас', to: '/' },
-      { label: 'Пробни НВО изпити', to: '/' },
+      { label: 'Упражнения по теми', to: '/grades' },
+      { label: 'Теория по уроци', to: '/learn/grades' },
+      { label: 'Пробни НВО изпити', to: '/nvo/practice' },
+      { label: 'Моят напредък', to: '/progress' },
     ],
   },
   {
     heading: 'Профил',
     links: [
       { label: 'Вход', to: '/' },
-      { label: 'Създаване на профил', to: '/register' },
+      { label: 'Табло', to: '/dashboard' },
+    ],
+  },
+  {
+    heading: 'Правна информация',
+    links: [
+      { label: 'Поверителност', to: '/privacy' },
+      { label: 'Условия за ползване', to: '/terms' },
     ],
   },
 ];
@@ -36,7 +49,7 @@ const COLUMNS: Array<{ heading: string; links: FooterLink[] }> = [
 const SiteFooter: React.FC = () => (
   <footer className="border-t border-line bg-surface">
     <div className="mx-auto w-full max-w-[75rem] shell-x py-14">
-      <div className="grid gap-10 md:grid-cols-[1.4fr_repeat(3,1fr)]">
+      <div className="grid gap-10 md:grid-cols-[1.4fr_repeat(2,1fr)] lg:grid-cols-[1.4fr_repeat(4,1fr)]">
         <div className="space-y-4">
           <Brand />
           <p className="max-w-xs text-caption text-ink-muted">

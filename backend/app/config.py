@@ -52,6 +52,19 @@ class Settings(BaseSettings):
     OPENAI_MODEL: str = "gpt-4o-mini"
     OPENAI_NVO_MODEL: str = "gpt-4.1"
 
+    # How long an uploaded homework photo is kept before the retention sweep
+    # deletes it (app/services/media_retention.py). Only has to outlive the
+    # grading it exists for — an exam runs at most 150 minutes — so this
+    # matches the generated-exam store's own 24h window.
+    MEDIA_RETENTION_HOURS: int = 24
+
+    # Error monitoring (Sentry). Empty by default: analytics/bug-report/
+    # feedback/error-log storage works independently via event_logs (see
+    # app/services/event_log_store.py) — Sentry adds real-time alerting and
+    # stack-trace grouping on top, once an operator opts in with a real DSN.
+    SENTRY_DSN: str = ""
+    SENTRY_TRACES_SAMPLE_RATE: float = 0.0
+
     # NVO content architecture (see NVO_CONTENT_ARCHITECTURE_PLAN.md).
     # Both default off: the DB tables may be empty (no backfill run yet) and
     # generation must keep working from the file catalog until an operator
@@ -104,5 +117,41 @@ def _resolve_secret_key(cfg: "Settings") -> str:
     return key
 
 
+# The as-shipped default: a relative, cwd-dependent SQLite file. Fine for a
+# fresh checkout; catastrophic left in place in production.
+_DEFAULT_SQLITE_URL = "sqlite:///./mathlearning.db"
+
+
+def _resolve_database_url(cfg: "Settings") -> str:
+    """Return the database URL, refusing to boot production on the default.
+
+    On Vercel, `database._resolve_database_url` silently rewrites a SQLite URL
+    to /tmp, which is wiped on every cold start. A missing or misspelled
+    DATABASE_URL env var used to fall through to this default and boot
+    cleanly anyway — serving traffic while silently losing every user and
+    every progress record between invocations, with concurrent instances each
+    holding a different database. That failure mode never surfaces as an
+    error, so — like SECRET_KEY — it must be a hard startup failure in
+    production instead. Development keeps the default so a fresh checkout
+    still runs with no setup.
+    """
+    url = (cfg.DATABASE_URL or "").strip()
+    is_production = cfg.ENVIRONMENT.lower() in {"production", "prod"}
+
+    if not is_production:
+        return url or _DEFAULT_SQLITE_URL
+
+    if not url or url == _DEFAULT_SQLITE_URL:
+        raise RuntimeError(
+            "DATABASE_URL must be set to a real database connection string via "
+            "the environment or .env when ENVIRONMENT=production. Refusing to "
+            "start against the default SQLite file: it is rewritten to an "
+            "ephemeral path on serverless platforms and is wiped on every cold "
+            "start, silently losing all user and progress data."
+        )
+    return url
+
+
 settings = Settings()
 settings.SECRET_KEY = _resolve_secret_key(settings)
+settings.DATABASE_URL = _resolve_database_url(settings)

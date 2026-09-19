@@ -34,6 +34,9 @@ import app.models.user        # noqa
 import app.models.companion   # noqa
 import app.models.nvo_exam    # noqa
 import app.models.nvo_content # noqa
+import app.models.event_log  # noqa
+import app.models.classroom  # noqa
+import app.models.mobile_channel  # noqa
 from app.database import Base
 
 target_metadata = Base.metadata

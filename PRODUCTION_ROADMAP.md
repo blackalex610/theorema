@@ -39,7 +39,7 @@
 | NVO full practice exam | ✅ Done | Async generation, timer, MCQ + open answers, diagrams |
 | NVO difficulty + XP multipliers | ✅ Done | Easy 0.5× / Normal 1× / Hard 2× |
 | NVO exam restore on refresh | ✅ Done | `localStorage` (`nvo-practice-state-v1`) |
-| NVO attempt history + review | ⚠️ Partial | Last 10 in localStorage; unfinished badge + resume; review mode exists |
+| NVO attempt history + review | ✅ Done | Server-side via `GET /nvo/attempts`, merged into the local list; unfinished badge + resume; review mode exists. Per-question review stays device-local (24h exam TTL) — see REMAINING_FEATURES.md §5 |
 | AI chat tutor | ✅ Done | Global sidebar; context shortcuts on theory/exercise/NVO pages |
 | Google OAuth login | ✅ Done | JWT stored in `localStorage` |
 | Guest mode | ✅ Done | Browse with zeroed/mock data; no token |
@@ -47,7 +47,7 @@
 | Dark mode | ⚠️ Partial | Settings toggle; coach dashboard + navbar fixed; classic pages lighter |
 | Bug reporting + analytics events | ✅ Done | File-based backend logging (MVP) |
 | Mobile photo capture + grading | ✅ Done | `/mobile-capture`, SSE live feed |
-| Phone pairing (desktop ↔ phone) | ⚠️ Partial | Works when realtime server is deployed; experimental in Settings |
+| Phone pairing (desktop ↔ phone) | ⚠️ Partial | Channel state is now durable across instances (see §4 #9); SSE fanout still single-instance. Experimental in Settings |
 
 ### Auth & accounts
 
@@ -183,42 +183,60 @@ Legend: ✅ Production-ready · ⚠️ Works but needs hardening · ❌ Missing 
 
 ## 4. Production Blockers (Must Fix)
 
+> **Re-verified 2026-09-19** by reading current source (not by trusting prior doc text). Status legend: ✅ confirmed fixed with file:line evidence · ⚠️ still open · ❓ not reverified this pass.
+
 These items block a safe, reliable public launch. Fix before marketing to real schools.
 
 ### P0 — Security & data integrity
 
-1. **Rotate secrets** — Replace default `SECRET_KEY`, remove hardcoded `GOOGLE_CLIENT_ID` from `backend/app/config.py` and `frontend/src/config/google.ts`; use env vars only.
-2. **Protect admin endpoints** — `POST /progress/admin/reset-all-xp` has no auth; `POST /nvo/admin/reset-all-xp` has no role check; `POST /admin/migrate` is public.
-3. **Enforce auth on paid features** — `_optional_limit_check` still allows anon bypass on **AI chat, NVO, and image uploads**. ✅ Fixed for **AI theory** and **AI exercises** generation.
-4. **Fix CORS** — `CORS_ORIGINS` in config is unused; app sets `Access-Control-Allow-Origin: *`. Wire config and restrict to production domain.
-5. **Fix logout** — Frontend `handleLogout` removes `user` but not `token`; 401 interceptor may behave inconsistently.
-6. **Add route guards** — Unauthenticated users can open `/dashboard`, `/nvo/practice`, etc. Redirect to `/login` when no valid session (allow guest explicitly).
-7. **Disable or gate dev endpoints** — `/bug-report/recent`, `/feedback/summary`, `/log-error/recent` exposed without admin auth.
+1. **Rotate secrets** — ✅ `backend/app/config.py:77-104` `_resolve_secret_key()` now hard-fails startup in production if `SECRET_KEY` is empty, a known placeholder, or under 32 chars. ⚠️ `GOOGLE_CLIENT_ID` is still hardcoded as a fallback default in both `backend/app/config.py:47` and `frontend/src/config/google.ts:1-3` (`import.meta.env.VITE_GOOGLE_CLIENT_ID || '845529…'`) — low severity (client IDs aren't secret) but doesn't match "env vars only."
+2. **Protect admin endpoints** — ✅ Fixed. `require_admin` (backend/app/auth/dependencies.py:95) + `users.is_admin` column now gate `/admin/migrate` (health.py:22-23), `/progress/admin/reset-all-xp` (progress.py:509-512), `/nvo/admin/reset-all-xp` (nvo.py:805-808), plus `bug_report.py`, `error_logs.py`, `curriculum.py`, `auth.py` admin routes.
+3. **Enforce auth on paid features** — ✅ Fixed. `auth/dependencies.py:150` comment confirms the old `_optional_limit_check` bypass was replaced with mandatory `require_ai_chat` / `require_nvo_exam` / `require_image_scan` dependencies.
+4. **Fix CORS** — ✅ Fixed. `main.py:75` uses `allow_origins=settings.CORS_ORIGINS`; the manual middleware (`main.py:55-66`) now reflects only allow-listed origins instead of stamping `*`.
+5. **Fix logout** — ✅ Fixed. `frontend/src/services/api.ts:59-60` and `context/AuthContext.tsx:97-102` clear both `token` and `user` (plus stale dashboard/XP caches) on 401 and on explicit logout.
+6. **Add route guards** — ✅ Fixed. `frontend/src/components/RequireAuth.tsx` + `App.tsx:60` wrap protected routes; unauthenticated visitors are redirected, with the visited path preserved (`utils/redirect.ts`).
+7. **Disable or gate dev endpoints** — ✅ Fixed. `/bug-report/recent` (bug_report.py:106) and `/log-error/recent` (error_logs.py:46) now require `require_admin`.
 
 ### P0 — Serverless compatibility
 
-8. **Persist NVO generation state** — `GENERATION_JOBS` and `GENERATED_EXAMS` are in-memory dicts; lost on Vercel cold start / multi-instance.
-9. **Persist mobile upload/SSE state** — `upload_history`, `stream_subscribers`, `task_contexts` are in-process only.
-10. **External file storage** — Uploads and logs write to local FS (`app/uploads/`, log files); Vercel FS is ephemeral/read-only. Move to S3/Supabase Storage.
-11. **Rate limiter path mismatch** — IP rate limiter checks `/api/ai/` but actual routes are `/ai/`; likely ineffective everywhere.
+8. **Persist NVO generation state** — ✅ Fixed. `nvo.py` now calls `nvo_exam_store.save_job/load_job/save_exam/load_exam`; no more in-memory `GENERATION_JOBS`/`GENERATED_EXAMS` dicts.
+9. **Persist mobile upload/SSE state** — ✅ Fixed (2026-09-19). `upload_history` and `task_contexts` were still module-level dicts, and this was the worst instance of the class: both halves of the pairing flow are requests *from different devices*, so on serverless they were always read from an instance that had never seen the write. The desktop registered an answer key via `POST /mobile/tasks/context`; the phone's `POST /mobile/tasks/grade-photo` landed elsewhere and returned `404 Task context not found`. The phone uploaded a photo; the desktop polled `GET /mobile/uploads/latest` and saw nothing. Phone grading could not have worked in production at all. Both now persist through `app/services/channel_state_store.py` (`record_upload:97`, `save_task_context:194`) into `mobile_upload_records` / `mobile_task_contexts` (migration `b8c9d0e1f2a3`), on the same TTL clock as media retention, with `nvo_exam_store`'s failure policy: reads fall back to the in-process cache, writes log at ERROR rather than throwing away an upload the student already paid a scan credit for. 18 tests in `backend/tests/test_channel_state_store.py` drop the cache between write and read to reproduce the cross-instance case.
+
+   ⚠️ **Still open: SSE fanout across instances.** `stream_subscribers` (`mobile_uploads.py:103`) deliberately stays in memory — an `asyncio.Queue` cannot be serialised and each SSE connection belongs to the one process holding it open. An event published on instance A still never reaches a subscriber on instance B. Correct fanout needs a broker (Redis pub/sub, or the existing realtime server). The clients' `/mobile/uploads/latest` polling is now durable, so the stream is a same-instance fast path rather than the only delivery route — the feature degrades instead of failing.
+10. **External file storage** — ❓ Not reverified this pass.
+11. **Rate limiter path mismatch** — ✅ Fixed. `ip_rate_limiter.py:20-27` `_GUARDED_PREFIXES` now matches real mount points (`/ai/`, `/nvo/`, `/mobile/`, `/curriculum/lessons/`, `/exercises/`).
 
 ### P0 — Database
 
-12. **Real migrations** — Stop relying on `Base.metadata.create_all()` per request. Generate Alembic revisions; include `companion_sessions` tables missing from `supabase_schema.sql`.
-13. **Badge schema** — Ensure `user_badges.badge_key` exists in all environments (see `REMAINING_FEATURES.md` #7).
-14. **Production PostgreSQL** — SQLite + `/tmp` on Vercel is a dev fallback only; require `DATABASE_URL` pointing to Supabase/Postgres in prod.
+12. **Real migrations** — ✅ Mostly fixed. ⚠️ **`alembic upgrade head` had never actually run to completion** — found and fixed 2026-09-19. The guest-users revision dropped a NOT NULL with a bare `op.alter_column`, which PostgreSQL accepts and SQLite cannot parse (`near "ALTER": syntax error`), so the chain died on revision 2 of 9 on every SQLite database — i.e. every local dev environment. Nothing caught it because the test suite builds its schema with `Base.metadata.create_all` and never ran the migrations. Now uses `op.batch_alter_table` (`alembic/versions/a1b2c3d4e5f6_guest_users.py:33,54`), which rebuilds the table on SQLite and emits the plain ALTER on PostgreSQL. `test_migrations.py::test_the_whole_chain_runs_on_a_fresh_database` walks the real chain against a throwaway database and fails without the fix. Alembic exists with a real baseline migration (`backend/alembic/versions/754e61405945_baseline_schema.py`). `main.py:42-53` still calls `Base.metadata.create_all()` at startup, but it's now guarded by an `_db_initialized` flag (runs once per process, not per request) and errors are logged instead of silently swallowed. ⚠️ Companion-session tables in `supabase_schema.sql` not reverified.
+13. **Badge schema** — ✅ Fixed going forward. `badge_key` is in the Alembic baseline migration (`754e61405945_baseline_schema.py:81`). `progress_service.py:473-475` keeps a defensive try/except as a safety net for pre-Alembic databases only — no longer a swallowed-error bug, just a deliberate legacy fallback.
+14. **Production PostgreSQL** — ✅ Fixed. The SQLite default in `config.py:15` is now only a dev convenience: `_resolve_database_url()` (`config.py:130-157`) hard-fails startup in production if `DATABASE_URL` is unset, exactly as `_resolve_secret_key` does, so a prod deploy can no longer silently boot on an ephemeral SQLite file.
 
 ### P1 — Payments & accounts
 
-15. **Stripe integration** — Replace demo `POST /plan/upgrade` with webhook-verified subscription flow.
-16. **Decide on email auth** — Either remove register UI or implement properly; current state confuses users.
+15. **Stripe integration** — ⚠️ Still open (by design). `backend/app/routers/plan.py:42-58` `POST /plan/upgrade` now deliberately returns `402` with a Bulgarian "not yet active" message instead of granting premium — safe, but Stripe still needs to be built.
+16. **Decide on email auth** — ❓ Not reverified this pass.
 
 ### P1 — Deployment wiring
 
-17. **Deploy realtime server** — Set `VITE_REALTIME_URL` / `VITE_SOCKET_URL` to Railway/Render instance; document in Vercel env.
-18. **Fix env var naming drift** — `DEPLOYMENT.md` says `JWT_SECRET`, `ALLOWED_ORIGINS`; code uses `SECRET_KEY`, ignores `CORS_ORIGINS`.
-19. **Google OAuth production origins** — Add Vercel domain to Google Cloud Console authorized origins.
-20. **Port consistency** — `start.ps1` uses 8000; README/Vite proxy use 8001; align scripts.
+17. **Deploy realtime server** — ❓ Not reverified this pass.
+18. **Fix env var naming drift** — ✅ Fixed. `DEPLOYMENT.md:42-45,132-142` now documents `SECRET_KEY` and `CORS_ORIGINS`, matching what `config.py:19,34` actually reads, and `DEPLOYMENT.md:51` explicitly warns that the old `JWT_SECRET` / `ALLOWED_ORIGINS` names silently misconfigure a deploy.
+19. **Google OAuth production origins** — ❓ Not reverified this pass.
+20. **Port consistency** — ❓ Not reverified this pass.
+
+### Net effect
+
+Of the 20 original P0/P1 blockers, **16 are now confirmed fixed** (12 previously,
+plus #9 mobile upload/task-context persistence, #14 Postgres-in-prod, #18 env-var
+doc drift, and the migration-chain half of #12). Two are confirmed still open —
+the Stripe stub (#15, deliberate) and the SSE cross-instance fanout carved out of
+#9 — plus the low-severity hardcoded Google client ID under #1.
+
+Six were **not** reverified in this pass and should not be treated as green:
+external file storage (#10), companion-session tables in `supabase_schema.sql`
+(#12), the email-auth decision (#16), realtime-server deployment (#17), OAuth
+production origins (#19) and port consistency (#20). Re-check these before a
+launch go/no-go.
 
 ---
 
@@ -274,17 +292,17 @@ These items block a safe, reliable public launch. Fix before marketing to real s
 
 ## 6. Product Backlog (Remaining Features)
 
-Status as of codebase review. Original list: `REMAINING_FEATURES.md`.
+**Re-verified 2026-09-09 against actual code** (see `REMAINING_FEATURES.md` for full detail).
 
 | # | Feature | Status | Next action |
 |---|---------|--------|-------------|
-| 1 | Saved problems (practice + NVO) | ❌ Not started | Design `saved_problems` table; add save button on exercise + NVO question UI; list in jump bar |
-| 2 | NVO flow lock on refresh | ✅ Mostly done | QA edge cases: tab close, expired generation job, guest user |
-| 3 | NVO short + full modes | ⚠️ Partial | Wire `NVOFormatSelector` in `NVOPracticeExamPage`; pass `format` to API; save in history metadata |
-| 4 | NVO difficulty + XP multipliers | ✅ Done | Verify hard mode question difficulty in generator |
-| 5 | NVO history improvements | ⚠️ Partial | Add `status: unfinished` flair; server persistence; cap display at 10; scoring breakdown in review |
-| 6 | Mission-to-practice routing | ⚠️ Partial | Audit all `mission.route` values; test `?mission_id=` deep links; align backend mission definitions |
-| 7 | Badge schema migration | ❌ Not done | Alembic migration for `user_badges.badge_key`; remove runtime fallback in `progress_service.py` |
+| 1 | Saved problems (practice + NVO) | ❌ Not started — confirmed zero matches for `saved_problem`/`SavedProblem` anywhere in repo | Design `saved_problems` table; add save button on exercise + NVO question UI; list in jump bar |
+| 2 | NVO flow lock on refresh | ✅ Done — `NVOPracticeExamPage.tsx:97,459-480` restores `nvo-practice-state-v1` on mount | QA edge cases: tab close, expired generation job, guest user |
+| 3 | NVO short + full modes | ✅ Done (2026-09-09) — `NVOFormatSelector` now rendered in the pre-exam modal; format drives generation, timer duration, and history metadata; verified live (short format → 16Q/30:00 timer) | None |
+| 4 | NVO difficulty + XP multipliers | ✅ Done — `NVODifficultySelector` rendered in a modal (`:1457-1476`), feeds `startNewExam(selectedDifficulty)`, XP shows `difficulty_multiplier` (`:1786-1788`) | None — fully wired end-to-end |
+| 5 | NVO history improvements | ⚠️ Partial — "Недовършен" flair and cap-at-10 (`MAX_HISTORY_ATTEMPTS`) both done; history is still `localStorage`-only, not server-persisted | Add server-side history table + API; keep localStorage as offline cache only |
+| 6 | Mission-to-practice routing | Not found broken — spot check of `mission.route` / `navigate(mission.route)` found no inconsistency, but a full audit of every mission definition wasn't done | Skip unless a specific routing bug is reported |
+| 7 | Badge schema migration | ✅ Done for new/migrated DBs — `badge_key` is in the Alembic baseline migration; `progress_service.py:473-475` fallback is now a deliberate legacy-DB safety net, not a bug | Low priority: remove fallback once all environments confirmed on Alembic baseline |
 
 ### Additional product ideas (not in original backlog)
 
@@ -422,19 +440,19 @@ Status as of codebase review. Original list: `REMAINING_FEATURES.md`.
 
 ## 11. Technical Debt & Doc Drift
 
-| Item | Location | Action |
-|------|----------|--------|
-| `passlib[bcrypt]` unused | `requirements.txt` | Remove or implement email auth |
-| `create_all()` on every request | `backend/app/main.py` middleware | Remove after migrations |
-| Outdated backend README | `backend/README.md` | Update (JWT "ready to implement" is false) |
-| Outdated frontend README | `frontend/README.md` | Update routes + React version |
-| Outdated root README | `README.md` | Fix auth section, React version |
-| `DEPLOYMENT.md` env names | Root | Align with `config.py` |
-| `rewrite_login_page.py` | `frontend/` | Delete or move to scripts |
-| Hardcoded Google client ID | `config.py`, `google.ts` | Env only |
-| In-memory analytics/feedback | Backend routers | Move to DB or external service |
-| `PlaygroundPage` 4700+ lines | Dev only | Split or exclude from prod bundle |
-| Login page always dark | `LoginPage.tsx` | Consider respecting global theme |
+| Item | Location | Status (2026-09-09) | Action |
+|------|----------|------|--------|
+| `passlib[bcrypt]` unused | `requirements.txt` | ❓ Not reverified | Remove or implement email auth |
+| `create_all()` on every request | `backend/app/main.py` | ⚠️ Partially fixed — now runs once per process via `_db_initialized` guard (`main.py:40-53`), not per request; errors logged instead of swallowed | Fully remove after migrations are the only schema source |
+| Outdated backend README | `backend/README.md` | ❓ Not reverified | Update (JWT "ready to implement" is false) |
+| Outdated frontend README | `frontend/README.md` | ❓ Not reverified | Update routes + React version |
+| Outdated root README | `README.md` | ❓ Not reverified | Fix auth section, React version |
+| `DEPLOYMENT.md` env names | Root | ⚠️ Confirmed still wrong — `DEPLOYMENT.md:44,128` say `JWT_SECRET`/`ALLOWED_ORIGINS`; code uses `SECRET_KEY`/`CORS_ORIGINS` (`config.py:19,34`) | Align doc with `config.py` |
+| `rewrite_login_page.py` | `frontend/` | ❓ Not reverified | Delete or move to scripts |
+| Hardcoded Google client ID | `config.py:47`, `google.ts:1-3` | ⚠️ Confirmed still hardcoded as fallback default in both files | Env only (low severity — client IDs aren't secret) |
+| In-memory analytics/feedback | Backend routers | ❓ Not reverified | Move to DB or external service |
+| `PlaygroundPage` 4700+ lines | Dev only | ⚠️ Confirmed unchanged — still exactly 4,736 lines | Split or exclude from prod bundle |
+| Login page always dark | `LoginPage.tsx` | ❓ Not reverified | Consider respecting global theme |
 
 ---
 

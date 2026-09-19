@@ -6,6 +6,7 @@ looked exactly like "the column is already there" and the app booted against a
 schema that 500s on every limit check. Only the duplicate-column case is
 benign; everything else has to surface.
 """
+import os
 from pathlib import Path
 
 import pytest
@@ -109,3 +110,42 @@ def test_a_baseline_revision_exists():
     """Without a revision, the Alembic setup tracks nothing at all."""
     versions = list((BACKEND_ROOT / "alembic" / "versions").glob("*.py"))
     assert versions, "alembic/versions is empty — schema drift is untracked"
+
+
+def test_the_whole_chain_runs_on_a_fresh_database(tmp_path):
+    """`alembic upgrade head` must actually work, start to finish.
+
+    It did not. The guest-users revision used a bare `op.alter_column` to drop
+    a NOT NULL, which PostgreSQL accepts and SQLite cannot parse at all
+    ("near ALTER: syntax error") — so the chain died on revision 2 of 9 on
+    every SQLite database, i.e. every local dev environment. Nothing caught it
+    because the test suite builds its schema with `Base.metadata.create_all`
+    and never ran the migrations themselves.
+
+    This walks the real chain against a throwaway database. It is the only
+    test here that proves a fresh deploy can be migrated rather than only that
+    the revision files parse.
+    """
+    import subprocess
+    import sys
+
+    db_path = tmp_path / "chain.db"
+    env = {
+        **os.environ,
+        "DATABASE_URL": f"sqlite:///{db_path.as_posix()}",
+        "SECRET_KEY": "migration-chain-test-key-not-a-real-deploy-secret",
+        "ENVIRONMENT": "test",
+    }
+
+    result = subprocess.run(
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
+        cwd=BACKEND_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, (
+        f"alembic upgrade head failed:\n{result.stdout}\n{result.stderr}"
+    )
+    assert db_path.exists()

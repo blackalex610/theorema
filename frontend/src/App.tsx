@@ -25,6 +25,14 @@ const PlaygroundPage = lazy(() => import('./pages/PlaygroundPage'));
 const MobileCapturePage = lazy(() => import('./pages/MobileCapturePage'));
 const LiveUploadsPage = lazy(() => import('./pages/LiveUploadsPage'));
 const ControllerPage = lazy(() => import('./pages/ControllerPage'));
+// Teacher side of the product: create a class, hand out the code, watch the
+// roster. Same account can also be a student in someone else's class.
+const ClassroomsPage = lazy(() => import('./pages/ClassroomsPage'));
+const ClassroomDetailPage = lazy(() => import('./pages/ClassroomDetailPage'));
+// Public legal documents: reachable signed-out, and linked from the footer
+// and the sign-in screen, because a privacy policy nobody can open is not one.
+const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
+const TermsPage = lazy(() => import('./pages/TermsPage'));
 import SettingsModal from './components/SettingsModal';
 import { AuthProvider } from './context/AuthContext';
 import { PairingProvider } from './context/PairingContext';
@@ -52,6 +60,8 @@ function AppRoutes() {
                   as redirects so old links and bookmarks still land somewhere. */}
               <Route path="login" element={<Navigate to="/" replace />} />
               <Route path="register" element={<Navigate to="/" replace />} />
+              <Route path="privacy" element={<PrivacyPage />} />
+              <Route path="terms" element={<TermsPage />} />
               {/* Phone-pairing pages are opened by QR code from a device that has
                   no session of its own — they are scoped by channel id, not login. */}
               <Route path="mobile-capture" element={<MobileCapturePage />} />
@@ -60,6 +70,8 @@ function AppRoutes() {
               <Route element={<RequireAuth />}>
                 <Route path="dashboard" element={<DashboardPage />} />
                 <Route path="progress" element={<ProgressSummaryPage />} />
+                <Route path="classrooms" element={<ClassroomsPage />} />
+                <Route path="classrooms/:classroomId" element={<ClassroomDetailPage />} />
                 <Route path="grades" element={<GradesPage />} />
                 <Route path="grades/:gradeId/topics" element={<TopicsPage />} />
                 <Route path="topics/:topicId/lessons" element={<LessonsPage />} />

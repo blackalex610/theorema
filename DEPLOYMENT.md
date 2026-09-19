@@ -41,9 +41,15 @@ VITE_REALTIME_URL=your-realtime-server-url
 ```
 DATABASE_URL=your-postgresql-connection-string
 OPENAI_API_KEY=your-openai-api-key
-JWT_SECRET=your-jwt-secret-key
-ALLOWED_ORIGINS=https://your-deployment-url
+SECRET_KEY=your-jwt-signing-key
+CORS_ORIGINS=https://your-deployment-url
+GOOGLE_CLIENT_ID=your-google-oauth-client-id
+ENVIRONMENT=production
 ```
+
+<!-- These are the names the code actually reads (app/config.py) — a deploy
+     that follows outdated names like JWT_SECRET or ALLOWED_ORIGINS silently
+     falls back to defaults instead of erroring, which is worse. -->
 
 ### Step 4: Deploy
 
@@ -90,7 +96,7 @@ After successful deployment:
 
 ### Issue: CORS errors
 
-**Solution**: Update `ALLOWED_ORIGINS` in backend environment variables to include your Vercel domain.
+**Solution**: Update `CORS_ORIGINS` in backend environment variables to include your Vercel domain.
 
 ### Issue: Database connection fails
 
@@ -121,19 +127,29 @@ VITE_APP_NAME=Математика
 ### Backend (environment)
 
 ```env
-# Database
+# Database — required in production; the app refuses to start without a real
+# value here rather than silently falling back to an ephemeral SQLite file.
 DATABASE_URL=postgresql://user:password@host:port/database
 
-# Authentication
-JWT_SECRET=your-secret-key-change-in-production
-JWT_ALGORITHM=HS256
-JWT_EXPIRATION_HOURS=24
+# Authentication — required in production (>= 32 chars, not a placeholder);
+# the app refuses to start otherwise. ALGORITHM and ACCESS_TOKEN_EXPIRE_MINUTES
+# are optional — shown here at their code defaults (app/config.py).
+SECRET_KEY=your-secret-key-change-in-production
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=10080
 
-# API Configuration
-ALLOWED_ORIGINS=https://your-deployment-url,http://localhost:3000
+# API Configuration (comma-separated origins)
+CORS_ORIGINS=https://your-deployment-url,http://localhost:3000
+
+# Google OAuth (token verification)
+GOOGLE_CLIENT_ID=your-google-oauth-client-id
 
 # AI Service
 OPENAI_API_KEY=your-openai-api-key
+
+# Error monitoring (optional — omit to leave Sentry disabled entirely)
+SENTRY_DSN=
+SENTRY_TRACES_SAMPLE_RATE=0.0
 
 # Server
 DEBUG=False

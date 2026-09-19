@@ -15,28 +15,15 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import exists
 from sqlalchemy.orm import Session
 
-from app.models.curriculum import ExerciseAttempt
-from app.models.progress import (
-    LessonProgress,
-    UserBadge,
-    UserDailyMission,
-    UserProgress,
-    UserXpProfile,
-    XpEvent,
-)
 from app.models.user import User
+from app.services.user_data import USER_OWNED_TABLES
 
-# Every table that carries a user_id today. If a new one is added, it must be
-# added here too, or a guest with only that kind of activity gets purged.
-_ACTIVITY_TABLES = (
-    ExerciseAttempt,
-    UserProgress,
-    LessonProgress,
-    UserXpProfile,
-    XpEvent,
-    UserBadge,
-    UserDailyMission,
-)
+# Every table that carries a user_id, read from the one shared registry in
+# user_data.py rather than a second copy kept in step by hand. The private
+# copy that used to live here had already drifted — NvoAttempt was added to
+# the schema and never added here, so a guest whose only activity was an NVO
+# exam attempt counted as "inactive" and was eligible for purging.
+_ACTIVITY_TABLES = USER_OWNED_TABLES
 
 
 def purge_stale_guests(db: Session, older_than_days: int = 30) -> int:

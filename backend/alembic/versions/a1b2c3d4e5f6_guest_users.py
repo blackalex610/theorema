@@ -24,8 +24,15 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.alter_column("users", "google_sub", existing_type=sa.String(length=128), nullable=True)
-    op.alter_column("users", "email", existing_type=sa.String(length=255), nullable=True)
+    # batch_alter_table, not a bare alter_column: SQLite has no
+    # `ALTER TABLE ... ALTER COLUMN`, so a plain alter_column made
+    # `alembic upgrade head` fail with a syntax error on every SQLite
+    # database — i.e. every local dev environment. Batch mode rebuilds the
+    # table on SQLite and emits the plain ALTER on PostgreSQL, so the same
+    # migration now runs on both.
+    with op.batch_alter_table("users") as batch:
+        batch.alter_column("google_sub", existing_type=sa.String(length=128), nullable=True)
+        batch.alter_column("email", existing_type=sa.String(length=255), nullable=True)
     op.add_column(
         "users",
         sa.Column("is_guest", sa.Boolean(), nullable=False, server_default=sa.false()),
@@ -44,5 +51,6 @@ def downgrade() -> None:
     op.drop_index("ix_users_guest_ip_created", table_name="users")
     op.drop_column("users", "upgraded_at")
     op.drop_column("users", "is_guest")
-    op.alter_column("users", "email", existing_type=sa.String(length=255), nullable=False)
-    op.alter_column("users", "google_sub", existing_type=sa.String(length=128), nullable=False)
+    with op.batch_alter_table("users") as batch:
+        batch.alter_column("email", existing_type=sa.String(length=255), nullable=False)
+        batch.alter_column("google_sub", existing_type=sa.String(length=128), nullable=False)

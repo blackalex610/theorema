@@ -13,8 +13,10 @@ from openai import OpenAI
 from pydantic import BaseModel
 from starlette.responses import StreamingResponse
 from app.config import settings
-from app.auth.dependencies import get_current_user, require_image_scan
+from app.auth.dependencies import get_current_user, require_admin, require_image_scan
 from app.services.media_tokens import build_media_url
+from app.services.media_retention import purge_expired_uploads
+from app.services import channel_state_store
 from app.database import get_db
 from sqlalchemy.orm import Session
 
@@ -83,9 +85,22 @@ class TaskPhotoGradeRequest(BaseModel):
 
 
 UPLOAD_HISTORY_LIMIT = 100
-upload_history: dict[str, list[UploadEvent]] = defaultdict(list)
+
+# `upload_history` and `task_contexts` used to be module-level dicts here. Both
+# are read by a *different device's* request than the one that wrote them — the
+# desktop registers a task context, the phone grades against it; the phone
+# uploads a photo, the desktop polls for it — so on serverless they were read
+# from an instance that had never seen the write, and both halves of the
+# pairing flow silently failed. They now live in channel_state_store.
+#
+# `stream_subscribers` deliberately stays in memory: an asyncio.Queue cannot be
+# serialised, and each SSE connection belongs to the single process holding it
+# open. That means an event published on instance A still does not reach a
+# subscriber on instance B — the SSE fanout needs a broker (Redis pub/sub, or
+# the existing realtime server) to be correct across instances. Until then the
+# clients poll /mobile/uploads/latest, which is now durable, and the stream is
+# a same-instance fast path rather than the only delivery route.
 stream_subscribers: dict[str, set[asyncio.Queue[tuple[str, dict[str, Any]]]]] = defaultdict(set)
-task_contexts: dict[str, dict[int, TaskContext]] = defaultdict(dict)
 
 CHANNEL_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{8,64}$")
 SUPPORTED_PROBLEM_NUMBERS = {34, 35}
@@ -117,10 +132,9 @@ def _broadcast_stream_event(channel_id: str, event_name: str, payload: dict[str,
 
 
 def _record_upload_event(event: UploadEvent, channel_id: str):
-    channel_history = upload_history[channel_id]
-    channel_history.insert(0, event)
-    del channel_history[UPLOAD_HISTORY_LIMIT:]
-    _broadcast_stream_event(channel_id, "upload", event.model_dump())
+    payload = event.model_dump()
+    channel_state_store.record_upload(channel_id, payload, UPLOAD_HISTORY_LIMIT)
+    _broadcast_stream_event(channel_id, "upload", payload)
 
 
 def _ai_grade(
@@ -304,6 +318,11 @@ async def upload_mobile_photo(
     if len(data) > MAX_FILE_SIZE_BYTES:
         raise HTTPException(status_code=413, detail="File too large (max 10 MB)")
 
+    # Retention sweep runs here rather than on a schedule: there is no
+    # scheduler in this deployment, and a photo of a child's handwriting
+    # sitting on disk forever is the thing being prevented. Never raises.
+    purge_expired_uploads()
+
     filename = f"{uuid4().hex}{ext}"
     target_path = UPLOAD_DIR / filename
     target_path.write_bytes(data)
@@ -348,7 +367,7 @@ async def get_latest_uploads(
 ):
     channel_id = _validate_channel_id(channel_id)
     safe_limit = max(1, min(limit, 50))
-    return upload_history[channel_id][:safe_limit]
+    return [UploadEvent(**event) for event in channel_state_store.load_uploads(channel_id, safe_limit)]
 
 
 @router.post("/tasks/context", response_model=TaskContext)
@@ -370,15 +389,15 @@ async def set_task_context(payload: TaskContext, _user=Depends(get_current_user)
         updated_at=datetime.now(timezone.utc).isoformat(),
         statement=payload.statement,
     )
-    task_contexts[channel_id][problem_number] = context
+    channel_state_store.save_task_context(channel_id, problem_number, context.model_dump())
     return context
 
 
 @router.get("/tasks/contexts", response_model=list[TaskContext])
 async def get_task_contexts(channel_id: str = Query(...)):
     channel_id = _validate_channel_id(channel_id)
-    contexts = list(task_contexts.get(channel_id, {}).values())
-    return sorted(contexts, key=lambda item: item.problem_number)
+    # Already ordered by problem number in the store's query.
+    return [TaskContext(**item) for item in channel_state_store.load_task_contexts(channel_id)]
 
 
 @router.post("/tasks/grade", response_model=TaskGradeResponse)
@@ -393,7 +412,8 @@ async def grade_task_submission(payload: TaskGradeRequest, _user=Depends(get_cur
     """
     channel_id = _validate_channel_id(payload.channel_id)
     problem_number = _validate_problem_number(payload.problem_number)
-    context = task_contexts.get(channel_id, {}).get(problem_number)
+    stored_context = channel_state_store.load_task_context(channel_id, problem_number)
+    context = TaskContext(**stored_context) if stored_context else None
     response = _build_task_grade(
         channel_id=channel_id,
         problem_number=problem_number,
@@ -415,7 +435,8 @@ async def grade_task_from_photo(payload: TaskPhotoGradeRequest, _user=Depends(ge
     """
     channel_id = _validate_channel_id(payload.channel_id)
     problem_number = _validate_problem_number(payload.problem_number)
-    context = task_contexts.get(channel_id, {}).get(problem_number)
+    stored_context = channel_state_store.load_task_context(channel_id, problem_number)
+    context = TaskContext(**stored_context) if stored_context else None
     if not context:
         raise HTTPException(status_code=404, detail="Task context not found for this problem and channel")
 
@@ -510,7 +531,7 @@ async def analyze_math_image(
 async def clear_channel_history(channel_id: str = Query(...)):
     """Clear upload history and grade state for a channel (e.g. on page refresh)."""
     channel_id = _validate_channel_id(channel_id)
-    upload_history.pop(channel_id, None)
+    channel_state_store.clear_uploads(channel_id)
     return {"cleared": True}
 
 
@@ -545,3 +566,19 @@ async def stream_upload_events(channel_id: str = Query(...)):
             "Connection": "keep-alive",
         },
     )
+
+
+@router.post("/admin/purge-expired-uploads")
+async def purge_expired_uploads_endpoint(
+    max_age_hours: int | None = None,
+    _admin=Depends(require_admin),
+):
+    """Admin-only retention sweep over the uploads directory.
+
+    The sweep also runs opportunistically on every upload, so this exists for
+    a deliberate manual run (or an external cron) rather than being the only
+    thing standing between the platform and photos of children's handwriting
+    kept indefinitely.
+    """
+    removed = purge_expired_uploads(max_age_hours)
+    return {"removed": removed}
