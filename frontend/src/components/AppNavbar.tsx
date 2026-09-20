@@ -4,6 +4,7 @@ import {
   ArrowLeftIcon,
   ArrowsClockwiseIcon,
   BookOpenIcon,
+  BookmarkSimpleIcon,
   ChalkboardTeacherIcon,
   ChartLineUpIcon,
   DeviceMobileIcon,
@@ -72,6 +73,7 @@ const NAV_ITEMS = [
   { label: 'НВО изпити', path: '/nvo/practice', Icon: SparkleIcon, exact: false },
   { label: 'Прогрес', path: '/progress', Icon: ChartLineUpIcon, exact: false },
   { label: 'Класове', path: '/classrooms', Icon: ChalkboardTeacherIcon, exact: false },
+  { label: 'Запазени', path: '/saved', Icon: BookmarkSimpleIcon, exact: false },
 ] as const;
 
 const USAGE_ROWS = [

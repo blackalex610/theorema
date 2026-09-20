@@ -25,6 +25,7 @@ import NVOFormatSelector, { type NVOFormat } from '../components/NVOFormatSelect
 import NVOBlueprintSelector from '../components/NVOBlueprintSelector';
 import SaveProblemButton from '../components/SaveProblemButton';
 import { nvoRef, type SavedProblemSnapshot } from '../services/savedProblems';
+import { formatBgDateTime } from '../utils/datetime';
 import { getExamDurationSeconds, FULL_EXAM_DURATION_SECONDS } from '../utils/nvoFormat';
 import { mergeServerAttempts, canReview, type AttemptRecord } from '../utils/nvoHistory';
 import { useAuth } from '../context/AuthContext';
@@ -123,18 +124,6 @@ const normalizeOptionKey = (value: string) => {
   if (key === 'В') return 'В';
   if (key === 'Г') return 'Г';
   return key;
-};
-
-const formatBgDateTime = (iso: string) => {
-  const dt = new Date(iso);
-  if (Number.isNaN(dt.getTime())) return iso;
-  return dt.toLocaleString('bg-BG', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
 };
 
 const createQuestionPlaceholders = (): ExamQuestion[] =>

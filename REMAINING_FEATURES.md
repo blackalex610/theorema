@@ -2,18 +2,34 @@
 
 > **Updated 2026-09-19** — every item below re-verified against actual source (file:line evidence), not against the old doc text. See `PRODUCTION_ROADMAP.md` §4/§6 for the security/infra blocker list; this file covers only the product-feature backlog.
 
-## 1. Saved Problems System (Practice + NVO) — ❌ Not started
+## 1. Saved Problems System (Practice + NVO) — ✅ Done (2026-09-20)
 
-Confirmed: zero matches for `saved_problem` / `SavedProblem` anywhere in the repo outside this doc. No model, no endpoint, no UI.
+A student can bookmark an individual practice exercise or NVO question and
+review it later at `/saved`. Design in
+`docs/superpowers/specs/2026-09-20-saved-problems-design.md`.
 
-- Add "Save problem" action on individual practice problems.
-- Add "Save problem" action on NVO questions.
-- Add a "Saved Problems" button in the right-side bottom popup/jump bar.
-- Build a Saved Problems view/list with:
-  - Problem content preview
-  - Origin of saving (practice lesson / NVO exam + question number)
-  - Date and time saved
-- Allow opening saved problems directly from that list.
+- Bookmark toggle on practice problems (`ExercisesPage.tsx`, card header) and on
+  NVO questions (`NVOPracticeExamPage.tsx`, beside "Маркирай за преглед").
+- "Запазени задачи" in the navbar and in the ChatSidebar quick actions — the
+  latter is the right-side popup the original backlog item meant.
+- `SavedProblemsPage` lists preview, origin and saved date, with filter chips and
+  an expandable read-only review (options, the student's answer, correct answer,
+  solution).
+
+**The design decision worth knowing.** Saved problems store a **full JSON
+snapshot** of the question rather than a reference. Practice exercises do have
+durable row ids, but NVO questions do not — `question.id` is only the ordinal
+within a generated exam, and the exam is evicted from `nvo_exam_store` after 24h.
+A reference would rot exactly when a student wants to come back to it. Both
+sources normalise onto one snapshot schema, so the review page has a single
+renderer.
+
+Free for every signed-in user (guests included), capped at 200 per user.
+`saved_problems` is registered in `USER_OWNED_TABLES`, so it is exported and
+erased with the account. Covered by 27 backend tests and 12 frontend tests.
+
+**Known limitation.** A snapshot is a point-in-time copy: correcting a source
+problem later does not update copies already saved.
 
 ## 2. NVO Exam Flow Lock on Refresh — ✅ Done
 
@@ -77,10 +93,11 @@ Spot check: `backend/app/models/progress.py:129` has a `mission_id` FK; `Dashboa
 
 1. ~~NVO short/full format wiring (#3)~~ — done 2026-09-09.
 2. ~~Server-side NVO history persistence (#5)~~ — done 2026-09-19.
-3. **Saved Problems System (#1)** — full new feature (model + API + UI). Now the
-   largest remaining product gap.
-4. Durable cross-device NVO review (new, from #5) — needs a decision on storing
-   every sat exam past the 24h exam TTL.
+3. ~~Saved Problems System (#1)~~ — done 2026-09-20.
+4. **Durable cross-device NVO review** (from #5) — needs a decision on storing
+   every sat exam past the 24h exam TTL. Now the largest remaining gap. Note that
+   Saved Problems has since proven the snapshot approach works; the open question
+   here is only whether to snapshot *every* attempt rather than flagged questions.
 5. Badge legacy fallback cleanup (#7) — cosmetic, do whenever convenient.
 6. Mission routing (#6) — skip unless a bug surfaces.
 

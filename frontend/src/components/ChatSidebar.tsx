@@ -99,7 +99,7 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({ isOpen, onOpen, onClose }) =>
     await sendUserPrompt(input);
   };
 
-  const shortcutItems = useMemo(() => {
+  const routeShortcuts = useMemo(() => {
     const path = location.pathname;
     
     // Theory page - show theory-related actions
@@ -208,6 +208,24 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({ isOpen, onOpen, onClose }) =>
       },
     ];
   }, [location.pathname, navigate, onClose]);
+
+  // Saved problems are reachable from every route, so this one is appended to
+  // whichever shortcut set the current path produced rather than repeated in
+  // each branch above.
+  const shortcutItems = useMemo(
+    () => [
+      ...routeShortcuts,
+      {
+        label: '🔖 Запазени задачи',
+        tone: 'bg-amber-50 hover:bg-amber-100 dark:bg-amber-900/30 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-300',
+        run: () => {
+          navigate('/saved');
+          onClose();
+        },
+      },
+    ],
+    [routeShortcuts, navigate, onClose]
+  );
 
   React.useEffect(() => {
     const handleAskAssistantEvent = (event: Event) => {

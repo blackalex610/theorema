@@ -21,6 +21,7 @@ const LearnTopicsPage = lazy(() => import('./pages/LearnTopicsPage'));
 const LearnLessonsPage = lazy(() => import('./pages/LearnLessonsPage'));
 const TheoryPage = lazy(() => import('./pages/TheoryPage'));
 const NVOPracticeExamPage = lazy(() => import('./pages/NVOPracticeExamPage'));
+const SavedProblemsPage = lazy(() => import('./pages/SavedProblemsPage'));
 const PlaygroundPage = lazy(() => import('./pages/PlaygroundPage'));
 const MobileCapturePage = lazy(() => import('./pages/MobileCapturePage'));
 const LiveUploadsPage = lazy(() => import('./pages/LiveUploadsPage'));
@@ -82,6 +83,7 @@ function AppRoutes() {
                 <Route path="learn/topics/:topicId/lessons" element={<LearnLessonsPage />} />
                 <Route path="learn/lessons/:lessonId/theory" element={<TheoryPage />} />
                 <Route path="nvo/practice" element={<NVOPracticeExamPage />} />
+                <Route path="saved" element={<SavedProblemsPage />} />
                 <Route path="live-uploads" element={<LiveUploadsPage />} />
                 {/* Developer-only routes */}
                 {isDevMode && <Route path="playground" element={<PlaygroundPage />} />}

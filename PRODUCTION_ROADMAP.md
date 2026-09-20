@@ -296,11 +296,11 @@ launch go/no-go.
 
 | # | Feature | Status | Next action |
 |---|---------|--------|-------------|
-| 1 | Saved problems (practice + NVO) | ❌ Not started — confirmed zero matches for `saved_problem`/`SavedProblem` anywhere in repo | Design `saved_problems` table; add save button on exercise + NVO question UI; list in jump bar |
+| 1 | Saved problems (practice + NVO) | ✅ Done (2026-09-20) — `saved_problems` table + `/saved-problems` API + `/saved` page; bookmark on exercises and NVO questions. Stores a full snapshot, not a reference, because NVO exams expire after 24h | None — see `docs/superpowers/specs/2026-09-20-saved-problems-design.md` |
 | 2 | NVO flow lock on refresh | ✅ Done — `NVOPracticeExamPage.tsx:97,459-480` restores `nvo-practice-state-v1` on mount | QA edge cases: tab close, expired generation job, guest user |
 | 3 | NVO short + full modes | ✅ Done (2026-09-09) — `NVOFormatSelector` now rendered in the pre-exam modal; format drives generation, timer duration, and history metadata; verified live (short format → 16Q/30:00 timer) | None |
 | 4 | NVO difficulty + XP multipliers | ✅ Done — `NVODifficultySelector` rendered in a modal (`:1457-1476`), feeds `startNewExam(selectedDifficulty)`, XP shows `difficulty_multiplier` (`:1786-1788`) | None — fully wired end-to-end |
-| 5 | NVO history improvements | ⚠️ Partial — "Недовършен" flair and cap-at-10 (`MAX_HISTORY_ATTEMPTS`) both done; history is still `localStorage`-only, not server-persisted | Add server-side history table + API; keep localStorage as offline cache only |
+| 5 | NVO history improvements | ✅ Done (2026-09-19) — "Недовършен" flair, cap-at-10, and server-side history via `GET /nvo/attempts` merged into the local list; server owns scores, device owns the review payload | Per-question review stays device-local; see the durable cross-device review item in `REMAINING_FEATURES.md` |
 | 6 | Mission-to-practice routing | Not found broken — spot check of `mission.route` / `navigate(mission.route)` found no inconsistency, but a full audit of every mission definition wasn't done | Skip unless a specific routing bug is reported |
 | 7 | Badge schema migration | ✅ Done for new/migrated DBs — `badge_key` is in the Alembic baseline migration; `progress_service.py:473-475` fallback is now a deliberate legacy-DB safety net, not a bug | Low priority: remove fallback once all environments confirmed on Alembic baseline |
 
