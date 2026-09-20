@@ -9,6 +9,8 @@ import XpToast from '../components/XpToast';
 import LevelUpModal from '../components/LevelUpModal';
 import UpgradePrompt from '../components/UpgradePrompt';
 import FeedbackButtons from '../components/FeedbackButtons';
+import SaveProblemButton from '../components/SaveProblemButton';
+import { exerciseRef, type SavedProblemSnapshot } from '../services/savedProblems';
 import { getLimitErrorDetail } from '../services/api';
 import { usePlan } from '../hooks/usePlan';
 import { usePlanPrompt } from '../hooks/usePlanPrompt';
@@ -293,6 +295,24 @@ const ExercisesPage: React.FC = () => {
                       </span>
                     </div>
                   </div>
+                  <SaveProblemButton
+                    source="exercise"
+                    sourceRef={exerciseRef(state.exercise.id)}
+                    buildSnapshot={(): SavedProblemSnapshot => ({
+                      kind: 'exercise',
+                      question: state.exercise.question,
+                      answer_type: state.exercise.exercise_type,
+                      options: null,
+                      correct_answer: state.submission?.correct_answer ?? null,
+                      solution: state.submission?.solution ?? null,
+                      diagram: null,
+                      user_answer: state.userAnswer || null,
+                      origin: {
+                        lesson_id: state.exercise.lesson_id,
+                        difficulty: state.exercise.difficulty,
+                      },
+                    })}
+                  />
                 </div>
 
                 {/* Exercise Question */}

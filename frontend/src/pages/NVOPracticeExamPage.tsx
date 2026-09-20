@@ -23,6 +23,8 @@ import NVODifficultySelector, {
 } from '../components/NVODifficultySelector';
 import NVOFormatSelector, { type NVOFormat } from '../components/NVOFormatSelector';
 import NVOBlueprintSelector from '../components/NVOBlueprintSelector';
+import SaveProblemButton from '../components/SaveProblemButton';
+import { nvoRef, type SavedProblemSnapshot } from '../services/savedProblems';
 import { getExamDurationSeconds, FULL_EXAM_DURATION_SECONDS } from '../utils/nvoFormat';
 import { mergeServerAttempts, canReview, type AttemptRecord } from '../utils/nvoHistory';
 import { useAuth } from '../context/AuthContext';
@@ -208,6 +210,16 @@ const convertExamQuestions = (questions: NVOQuestion[], part1Count = 20): ExamQu
       parts: q.open_parts ?? (q.number === 21 ? undefined : q.number === 22 ? ['A', 'Б'] : ['A', 'Б', 'В']),
     } as OpenQuestion;
   });
+
+/** Flatten a possibly multi-part answer into one line for a saved snapshot. */
+const answerToText = (value: AnswerValue | undefined): string | null => {
+  if (!value) return null;
+  if (typeof value === 'string') return value || null;
+  const parts = Object.entries(value)
+    .filter(([, text]) => text)
+    .map(([key, text]) => `${key}) ${text}`);
+  return parts.length ? parts.join('; ') : null;
+};
 
 const isQuestionAnswered = (question: ExamQuestion, value: AnswerValue | undefined) => {
   if (!value) return false;
@@ -1724,18 +1736,45 @@ const NVOPracticeExamPage: React.FC = () => {
                   </p>
                   <h2 className="text-xl font-bold text-gray-900">Задача {current.id}</h2>
                 </div>
-                {!isReviewMode && (
-                  <button
-                    onClick={() => toggleReview(current.id)}
-                    className={`px-3 py-2 rounded-lg text-sm font-semibold border transition-colors ${
-                      markedForReview.includes(current.id)
-                        ? 'bg-amber-100 text-amber-800 border-amber-300'
-                        : 'bg-white text-gray-700 border-gray-300 hover:border-amber-300'
-                    }`}
-                  >
-                    {markedForReview.includes(current.id) ? 'Отбелязано за преглед' : 'Маркирай за преглед'}
-                  </button>
-                )}
+                <div className="flex shrink-0 items-center gap-2">
+                  {examId && (
+                    <SaveProblemButton
+                      source="nvo"
+                      sourceRef={nvoRef(examId, current.id)}
+                      buildSnapshot={(): SavedProblemSnapshot => ({
+                        kind: 'nvo',
+                        question: current.text,
+                        answer_type: current.type === 'mcq' ? 'multiple_choice' : 'open',
+                        options: current.type === 'mcq' ? current.options : null,
+                        correct_answer: current.correctAnswer ?? null,
+                        solution: null,
+                        diagram:
+                          current.hasDiagram && current.diagramType
+                            ? { type: current.diagramType, config: current.diagramConfig ?? {} }
+                            : null,
+                        user_answer: answerToText(answers[current.id]),
+                        origin: {
+                          exam_id: examId,
+                          question_number: current.id,
+                          module: current.module,
+                          topic: current.topic,
+                        },
+                      })}
+                    />
+                  )}
+                  {!isReviewMode && (
+                    <button
+                      onClick={() => toggleReview(current.id)}
+                      className={`px-3 py-2 rounded-lg text-sm font-semibold border transition-colors ${
+                        markedForReview.includes(current.id)
+                          ? 'bg-amber-100 text-amber-800 border-amber-300'
+                          : 'bg-white text-gray-700 border-gray-300 hover:border-amber-300'
+                      }`}
+                    >
+                      {markedForReview.includes(current.id) ? 'Отбелязано за преглед' : 'Маркирай за преглед'}
+                    </button>
+                  )}
+                </div>
               </div>
 
               {waitingForQuestions && (
