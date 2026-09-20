@@ -1,10 +1,13 @@
 """Saved problems: a student's bookmarked practice exercises and NVO questions."""
+import itertools
 import json
 
 import pytest
 from fastapi import HTTPException
+from fastapi.testclient import TestClient
 from sqlalchemy.exc import IntegrityError
 
+from app.main import app
 from app.models.saved_problem import SavedProblem
 from app.services import saved_problems as svc
 
@@ -221,3 +224,100 @@ def test_deleting_someone_elses_saved_problem_is_a_404(db, make_user):
         svc.delete_problem(db, user_id=mine.id, saved_id=row.id)
     assert exc.value.status_code == 404
     assert db.query(SavedProblem).filter(SavedProblem.id == row.id).count() == 1
+
+
+# ─── HTTP layer ─────────────────────────────────────────────────────────────
+
+_client = TestClient(app)
+_ip_counter = itertools.count()
+
+
+def _auth_headers() -> dict:
+    """Mint a real session. The guest endpoint is per-IP capped, hence the counter."""
+    res = _client.post(
+        "/auth/guest",
+        headers={"X-Forwarded-For": f"198.51.100.{next(_ip_counter) % 254 + 1}"},
+    )
+    assert res.status_code == 200, res.text
+    return {"Authorization": f"Bearer {res.json()['access_token']}"}
+
+
+@pytest.mark.parametrize(
+    "method,path",
+    [
+        ("post", "/saved-problems"),
+        ("get", "/saved-problems"),
+        ("get", "/saved-problems/refs"),
+        ("delete", "/saved-problems/1"),
+    ],
+)
+def test_every_route_requires_a_session(method, path):
+    kwargs = {"json": {}} if method == "post" else {}
+    res = getattr(_client, method)(path, **kwargs)
+    assert res.status_code == 401, f"{method.upper()} {path} was reachable anonymously"
+
+
+def test_save_list_and_remove_over_http():
+    headers = _auth_headers()
+    body = {
+        "source": "exercise",
+        "source_ref": "4271",
+        "snapshot": {
+            "kind": "exercise",
+            "question": "Колко е 2 + 2?",
+            "answer_type": "numeric",
+        },
+    }
+
+    created = _client.post("/saved-problems", json=body, headers=headers)
+    assert created.status_code == 201, created.text
+    assert created.json()["snapshot"]["question"] == "Колко е 2 + 2?"
+
+    again = _client.post("/saved-problems", json=body, headers=headers)
+    assert again.status_code == 200
+    assert again.json()["id"] == created.json()["id"]
+
+    listing = _client.get("/saved-problems", headers=headers)
+    assert listing.status_code == 200
+    assert len(listing.json()) == 1
+
+    refs = _client.get("/saved-problems/refs", headers=headers)
+    assert refs.json()["refs"] == {"exercise:4271": created.json()["id"]}
+
+    removed = _client.delete(f"/saved-problems/{created.json()['id']}", headers=headers)
+    assert removed.status_code == 204
+    assert _client.get("/saved-problems", headers=headers).json() == []
+
+
+def test_http_limit_is_clamped():
+    headers = _auth_headers()
+    for ref in range(3):
+        _client.post(
+            "/saved-problems",
+            json={
+                "source": "exercise",
+                "source_ref": str(ref),
+                "snapshot": {"kind": "exercise", "question": "q", "answer_type": "numeric"},
+            },
+            headers=headers,
+        )
+    assert len(_client.get("/saved-problems?limit=0", headers=headers).json()) == 1
+    assert len(_client.get("/saved-problems?limit=9999", headers=headers).json()) == 3
+
+
+def test_one_student_cannot_delete_anothers_saved_problem():
+    mine, theirs = _auth_headers(), _auth_headers()
+    created = _client.post(
+        "/saved-problems",
+        json={
+            "source": "nvo",
+            "source_ref": "exam-abc:7",
+            "snapshot": {"kind": "nvo", "question": "Колко е 2 + 2?", "answer_type": "open"},
+        },
+        headers=theirs,
+    )
+    assert created.status_code == 201
+
+    attacked = _client.delete(f"/saved-problems/{created.json()['id']}", headers=mine)
+    assert attacked.status_code == 404
+    assert len(_client.get("/saved-problems", headers=theirs).json()) == 1

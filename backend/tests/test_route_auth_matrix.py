@@ -86,6 +86,10 @@ ADMIN_ROUTES = [
 # caller-supplied id.
 PERSONAL_DATA_ROUTES = [
     ("GET", "/nvo/attempts"),
+    ("POST", "/saved-problems"),
+    ("GET", "/saved-problems"),
+    ("GET", "/saved-problems/refs"),
+    ("DELETE", "/saved-problems/{saved_id}"),
 ]
 
 
