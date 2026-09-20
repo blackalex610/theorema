@@ -38,6 +38,7 @@ import { AuthProvider } from './context/AuthContext';
 import { PairingProvider } from './context/PairingContext';
 import { SettingsProvider } from './context/SettingsContext';
 import { XpProvider } from './context/XpContext';
+import { SavedProblemsProvider } from './context/SavedProblemsContext';
 import { DeveloperModeProvider, useIsDevMode } from './context/DeveloperModeContext';
 import RequireAuth from './components/RequireAuth';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -107,9 +108,11 @@ function App() {
         <PairingProvider>
           <SettingsProvider>
             <XpProvider>
-              <TooltipProvider delayDuration={200}>
-                <AppRoutes />
-              </TooltipProvider>
+              <SavedProblemsProvider>
+                <TooltipProvider delayDuration={200}>
+                  <AppRoutes />
+                </TooltipProvider>
+              </SavedProblemsProvider>
             </XpProvider>
           </SettingsProvider>
         </PairingProvider>
