@@ -24,6 +24,7 @@ from app.models.progress import (
     UserXpProfile,
     XpEvent,
 )
+from app.models.saved_problem import SavedProblem
 from app.models.user import User
 from app.services.user_data import (
     USER_OWNED_TABLES,
@@ -58,6 +59,12 @@ def _populate(db, user_id: int) -> None:
         XpEvent(user_id=user_id, source_type="test", xp_amount=50, reason="test"),
         UserBadge(user_id=user_id, badge_key="streak_7"),
         NvoAttempt(user_id=user_id, exam_id="abc123", percentage_correct=80),
+        SavedProblem(
+            user_id=user_id,
+            source="exercise",
+            source_ref="4271",
+            snapshot_json='{"kind": "exercise", "question": "test"}',
+        ),
         EventLog(
             log_type="bug_report",
             payload_json=json.dumps({"user_id": str(user_id), "message": "нещо не работи"}),
@@ -82,6 +89,7 @@ def test_every_user_owned_table_is_registered():
         "user_badges",
         "user_daily_missions",
         "nvo_attempts",
+        "saved_problems",
     }
 
 

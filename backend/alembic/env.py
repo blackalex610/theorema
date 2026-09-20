@@ -37,6 +37,7 @@ import app.models.nvo_content # noqa
 import app.models.event_log  # noqa
 import app.models.classroom  # noqa
 import app.models.mobile_channel  # noqa
+import app.models.saved_problem  # noqa
 from app.database import Base
 
 target_metadata = Base.metadata

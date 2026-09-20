@@ -34,6 +34,7 @@ def _schema():
     import app.models.event_log  # noqa: F401
     import app.models.classroom  # noqa: F401
     import app.models.mobile_channel  # noqa: F401
+    import app.models.saved_problem  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
     yield

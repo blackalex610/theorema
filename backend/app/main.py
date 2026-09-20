@@ -34,6 +34,7 @@ import app.models.nvo_exam    # noqa: ensure models are registered
 import app.models.event_log   # noqa: ensure models are registered
 import app.models.classroom   # noqa: ensure models are registered
 import app.models.mobile_channel  # noqa: ensure models are registered
+import app.models.saved_problem  # noqa: ensure models are registered
 
 # Sentry: opt-in via SENTRY_DSN. Deliberately skipped entirely rather than
 # initialized with an empty DSN — that keeps "no DSN configured" and

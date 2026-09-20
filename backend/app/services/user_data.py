@@ -37,6 +37,7 @@ from app.models.progress import (
     UserXpProfile,
     XpEvent,
 )
+from app.models.saved_problem import SavedProblem
 from app.models.user import User
 
 logger = logging.getLogger(__name__)
@@ -53,6 +54,7 @@ USER_OWNED_TABLES = (
     UserBadge,
     UserDailyMission,
     NvoAttempt,
+    SavedProblem,
 )
 
 # Which of those belong under "progress" in an export, for a shape a human
