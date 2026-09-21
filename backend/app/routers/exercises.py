@@ -156,6 +156,11 @@ async def submit_exercise(
     if not exercise:
         raise HTTPException(status_code=404, detail="Exercise not found")
     
+    # SECURITY: resolve the caller BEFORE any OpenAI call. _ai_equivalence_check
+    # embeds attacker-supplied text in a prompt, so running it ahead of the auth
+    # check let an anonymous caller burn our OpenAI key and only then get a 401.
+    resolved_user_id = _resolve_user_id(current_user, user_id)
+
     # Multi-stage correctness check: local strict/equivalence first, then AI equivalence.
     canonical_answer = str(exercise.answer)
     is_correct = _local_equivalence_check(submission.answer, canonical_answer)
@@ -166,8 +171,6 @@ async def submit_exercise(
             correct_answer=canonical_answer,
             solution=str(exercise.solution) if exercise.solution is not None else None,
         )
-    
-    resolved_user_id = _resolve_user_id(current_user, user_id)
 
     # Create exercise attempt for the authenticated user.
     attempt = ExerciseAttemptModel(

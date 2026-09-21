@@ -1,22 +1,17 @@
 from __future__ import annotations
 
-import json
 import threading
 import time
 from datetime import datetime
-from pathlib import Path
 from typing import Any, Literal, Optional
 
-from fastapi import APIRouter, HTTPException, Request, Query
+from fastapi import APIRouter, HTTPException, Request, Query, Depends
 from pydantic import BaseModel, Field
 
+from app.auth.dependencies import require_admin
+from app.services.event_log_store import append_log, read_recent
+
 router = APIRouter(tags=["feedback"])
-
-# ─── Storage ─────────────────────────────────────────────────────────────────
-
-_LOG_DIR = Path(__file__).resolve().parents[2] / "logs"
-_FEEDBACK_FILE = _LOG_DIR / "feedback.jsonl"
-_LOCK = threading.Lock()
 
 # ─── Rate limiting (per IP, 60 feedback/min) ─────────────────────────────────
 
@@ -36,14 +31,6 @@ def _allow(ip: str) -> bool:
             return False
         bucket.append(now)
         return True
-
-
-def _append(entry: dict[str, Any]) -> None:
-    _LOG_DIR.mkdir(parents=True, exist_ok=True)
-    line = json.dumps(entry, ensure_ascii=False)
-    with _LOCK:
-        with _FEEDBACK_FILE.open("a", encoding="utf-8") as fp:
-            fp.write(line + "\n")
 
 
 # ─── Schema ───────────────────────────────────────────────────────────────────
@@ -77,35 +64,28 @@ async def submit_feedback(payload: FeedbackPayload, request: Request):
     entry["received_at"] = datetime.utcnow().isoformat()
     entry["ip"] = ip
 
-    try:
-        _append(entry)
+    if append_log("feedback", entry):
         return {"success": True}
-    except OSError:
-        # In some deployment targets the local filesystem may be read-only.
-        return {"success": False, "stored": False}
+    return {"success": False, "stored": False}
 
 
 @router.get("/feedback/summary")
 async def get_feedback_summary(
+    _admin=Depends(require_admin),
     content_type: Optional[str] = None,
     limit: int = Query(default=200, ge=1, le=1000),
 ):
-    """Dev endpoint — returns helpful/not-helpful ratio per content_type."""
-    if not _FEEDBACK_FILE.exists():
-        return {"items": [], "summary": {}}
+    """Admin-only: helpful/not-helpful ratio per content_type.
 
-    lines = _FEEDBACK_FILE.read_text(encoding="utf-8").splitlines()
-    items: list[dict[str, Any]] = []
-    for line in lines[-min(limit, 5000):]:
-        try:
-            item = json.loads(line)
-            if content_type and item.get("content_type") != content_type:
-                continue
-            items.append(item)
-        except Exception:
-            pass
+    SECURITY: this had no auth at all until now — anyone who found the route
+    could read every feedback submission (user_id, topic, free-text reasons
+    included), the same class of bug as the admin routes fixed earlier.
+    """
+    items: list[dict[str, Any]] = [
+        item for item in read_recent("feedback", limit=limit)
+        if not content_type or item.get("content_type") == content_type
+    ]
 
-    # Build summary
     summary: dict[str, Any] = {}
     for item in items:
         ct = item.get("content_type", "unknown")
@@ -118,4 +98,4 @@ async def get_feedback_summary(
             reason = item.get("reason") or "unspecified"
             summary[ct]["reasons"][reason] = summary[ct]["reasons"].get(reason, 0) + 1
 
-    return {"items": list(reversed(items))[:100], "summary": summary}
+    return {"items": items[:100], "summary": summary}

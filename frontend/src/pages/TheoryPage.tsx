@@ -239,7 +239,10 @@ const TheoryPage: React.FC = () => {
         setCachedLevels(prev => new Set([...prev, detailLevel]));
       } catch (err: any) {
         console.error('Theory generation error:', err);
-        const message = err?.response?.data?.detail || 'Грешка при генериране на теорията';
+        const detail = err?.response?.data?.detail;
+        let message = 'Грешка при генериране на теорията';
+        if (typeof detail === 'string') message = detail;
+        else if (detail?.message) message = detail.message;
         setTheoryError(message);
       } finally {
         setTheoryLoading(false);

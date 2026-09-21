@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { createNVOGenerationJob, getGeneratedNVOExam, getNVOGenerationJob, submitNVOExam, awardNvoXpDetailed, type NVOExamSubmitResponse, type NVOAwardXpResponse } from '../services/nvo';
+import { createNVOGenerationJob, getGeneratedNVOExam, getNVOGenerationJob, getNVOBlueprints, submitNVOExam, awardNvoXpDetailed, listNvoAttempts, type NVOExamSubmitResponse, type NVOAwardXpResponse, type NVOBlueprintCode, type NVOBlueprintInfo } from '../services/nvo';
 import { useXp } from '../context/XpContext';
 import UpgradePrompt from '../components/UpgradePrompt';
 import { getLimitErrorDetail } from '../services/api';
@@ -14,8 +14,18 @@ import DiagramRenderer from '../components/DiagramRenderer';
 import { renderNvoDiagram } from '../components/NvoDiagrams';
 import type { NVOQuestion } from '../services/nvo';
 import AppNavbar from '../components/AppNavbar';
-import NVODifficultySelector, { type NVODifficulty } from '../components/NVODifficultySelector';
-import { type NVOFormat } from '../components/NVOFormatSelector';
+import NVODifficultySelector, {
+  DIFFICULTY_BADGE,
+  DIFFICULTY_XP,
+  normalizeDifficulty,
+  type NVODifficulty,
+  type NVODifficultyStored,
+} from '../components/NVODifficultySelector';
+import NVOFormatSelector, { type NVOFormat } from '../components/NVOFormatSelector';
+import NVOBlueprintSelector from '../components/NVOBlueprintSelector';
+import { getExamDurationSeconds, FULL_EXAM_DURATION_SECONDS } from '../utils/nvoFormat';
+import { mergeServerAttempts, canReview, type AttemptRecord } from '../utils/nvoHistory';
+import { useAuth } from '../context/AuthContext';
 
 type QuestionOption = {
   key: string;
@@ -70,7 +80,7 @@ type ExamHistoryEntry = {
   scorePercent: number;
   module1Percent: number;
   module2Percent: number;
-  difficulty?: 'easy' | 'standard' | 'hard';
+  difficulty?: NVODifficultyStored;
   format?: 'full' | 'short';
   openResults?: NVOExamSubmitResponse['open_results'];
   questions: ExamQuestion[];
@@ -96,20 +106,13 @@ type PreviousResult = {
 
 const STORAGE_KEY = 'nvo-practice-state-v1';
 const HISTORY_KEY = 'nvo-practice-history-v1';
-const FULL_EXAM_DURATION_SECONDS = 90 * 60;
 const EXAM_DURATION_SECONDS = FULL_EXAM_DURATION_SECONDS;
 
-const DIFFICULTY_LABELS: Record<string, string> = {
-  easy: '0.5x XP',
-  standard: '1.0x XP',
-  hard: '2.0x XP',
-};
-
-const DIFFICULTY_COLORS: Record<string, string> = {
-  easy: 'text-green-600 bg-green-100',
-  standard: 'text-blue-600 bg-blue-100',
-  hard: 'text-rose-600 bg-rose-100',
-};
+// Keyed by the four current levels; `normalizeDifficulty` maps the legacy
+// 'standard'/'hard' stored on older attempts onto them before lookup, so a
+// history entry written before the rename still renders its badge.
+const DIFFICULTY_LABELS = DIFFICULTY_XP;
+const DIFFICULTY_COLORS = DIFFICULTY_BADGE;
 
 const normalizeOptionKey = (value: string) => {
   const key = value.trim().charAt(0).toUpperCase();
@@ -159,8 +162,15 @@ const createQuestionPlaceholders = (): ExamQuestion[] =>
     } as OpenQuestion;
   });
 
-const convertExamQuestions = (questions: NVOQuestion[]): ExamQuestion[] =>
+/**
+ * @param part1Count Last question number belonging to Part 1. The server sends
+ *   this because it is not a constant: a classic (2024/2025) paper ends Part 1
+ *   at 20, a 2026 paper at 21. Defaults to 20 for legacy papers that predate
+ *   the field.
+ */
+const convertExamQuestions = (questions: NVOQuestion[], part1Count = 20): ExamQuestion[] =>
   questions.map((q: NVOQuestion) => {
+    const moduleOf = (n: number) => (n <= part1Count ? 1 : 2);
     if (q.options) {
       const KEY_ORDER = ['А', 'Б', 'В', 'Г'];
       const parsedOptions = q.options.map((opt) => {
@@ -173,7 +183,7 @@ const convertExamQuestions = (questions: NVOQuestion[]): ExamQuestion[] =>
 
       return {
         id: q.number,
-        module: q.number <= 20 ? 1 : 2,
+        module: moduleOf(q.number),
         type: 'mcq',
         text: q.question,
         hasDiagram: q.diagram,
@@ -187,7 +197,7 @@ const convertExamQuestions = (questions: NVOQuestion[]): ExamQuestion[] =>
 
     return {
       id: q.number,
-      module: q.number <= 20 ? 1 : 2,
+      module: moduleOf(q.number),
       type: 'open',
       text: q.question,
       hasDiagram: q.diagram,
@@ -310,6 +320,7 @@ type ExamSnapshot = {
   currentQuestion: number;
   examStartTimestamp: string | null;
   examDifficulty: NVODifficulty;
+  examFormat: NVOFormat;
   existingId?: number;
   createdAt?: string;
 };
@@ -317,6 +328,12 @@ type ExamSnapshot = {
 const buildHistoryEntryFromSnapshot = (
   snapshot: ExamSnapshot,
   status: 'in_progress' | 'unfinished' | 'completed',
+  // The server's own score for a just-completed submission. computeExamMetrics
+  // can no longer derive a real score on its own — correct_answer is never
+  // sent to the client — so a 'completed' entry must pass this through;
+  // 'in_progress'/'unfinished' snapshots have no such response yet, and
+  // never rendered a correctness score anyway (only answered-count).
+  scoreOverride?: { score: number; maxScore: number; scorePercent: number },
 ): ExamHistoryEntry => {
   const metrics = computeExamMetrics(
     snapshot.examQuestions,
@@ -331,12 +348,13 @@ const buildHistoryEntryFromSnapshot = (
     createdAt: snapshot.createdAt ?? new Date().toISOString(),
     completedAt: status === 'completed' ? new Date().toISOString() : undefined,
     durationSec: metrics.durationSec,
-    score: metrics.score,
-    maxScore: metrics.maxScore,
-    scorePercent: metrics.scorePercent,
+    score: scoreOverride?.score ?? metrics.score,
+    maxScore: scoreOverride?.maxScore ?? metrics.maxScore,
+    scorePercent: scoreOverride?.scorePercent ?? metrics.scorePercent,
     module1Percent: metrics.module1Percent,
     module2Percent: metrics.module2Percent,
     difficulty: snapshot.examDifficulty,
+    format: snapshot.examFormat,
     questions: snapshot.examQuestions,
     answers: snapshot.answers,
     answerImages: snapshot.answerImages,
@@ -397,13 +415,30 @@ const NVOPracticeExamPage: React.FC = () => {
   const [examQuestions, setExamQuestions] = useState<ExamQuestion[]>([]);
   const [history, setHistory] = useState<ExamHistoryEntry[]>([]);
   const [isSubmittingExam, setIsSubmittingExam] = useState(false);
-  const [selectedDifficulty, setSelectedDifficulty] = useState<NVODifficulty>('standard');
+  const [selectedDifficulty, setSelectedDifficulty] = useState<NVODifficulty>('actual');
   const [showDifficultySelector, setShowDifficultySelector] = useState(false);
-  const [_selectedFormat, _setSelectedFormat] = useState<NVOFormat>('full');
-  const [examDifficulty, setExamDifficulty] = useState<NVODifficulty>('standard');
-  const [_examFormat, _setExamFormat] = useState<NVOFormat>('full');
-  const [_examDuration, _setExamDuration] = useState(FULL_EXAM_DURATION_SECONDS);
+  const [selectedFormat, setSelectedFormat] = useState<NVOFormat>('full');
+  const [examDifficulty, setExamDifficulty] = useState<NVODifficulty>('actual');
+  const [examFormat, setExamFormat] = useState<NVOFormat>('full');
+  // Which exam *shape* to build — a separate axis from the length above.
+  // Defaults to the current official format; the student's last choice is
+  // remembered because most people practise one format consistently.
+  const [blueprints, setBlueprints] = useState<NVOBlueprintInfo[]>([]);
+  const [blueprintsLoading, setBlueprintsLoading] = useState(true);
+  const [selectedBlueprint, setSelectedBlueprint] = useState<NVOBlueprintCode>(() => {
+    try {
+      const saved = localStorage.getItem('nvo.blueprint');
+      return saved === 'classic' || saved === 'nvo2026' ? saved : 'nvo2026';
+    } catch {
+      return 'nvo2026';
+    }
+  });
   const [xpAwardResult, setXpAwardResult] = useState<NVOAwardXpResponse | null>(null);
+  // The server's own grading of the just-submitted exam (every question,
+  // MCQ included) — the results screen and the XP award both read from this
+  // instead of a client-side recomputation the client could no longer even
+  // perform correctly, since correct_answer is never sent to the client.
+  const [submitResult, setSubmitResult] = useState<NVOExamSubmitResponse | null>(null);
   const [historyPage, setHistoryPage] = useState(0);
   const examSnapshotRef = useRef<ExamSnapshot & {
     examStarted: boolean;
@@ -419,16 +454,44 @@ const NVOPracticeExamPage: React.FC = () => {
     timeLeft: EXAM_DURATION_SECONDS,
     currentQuestion: 1,
     examStartTimestamp: null,
-    examDifficulty: 'standard',
+    examDifficulty: 'actual',
+    examFormat: 'full',
     examStarted: false,
     examReady: false,
     submitted: false,
     isReviewMode: false,
   });
 
+  const { isAuthenticated, isGuest } = useAuth();
   const { status: planStatus } = usePlan();
   const { refreshXp } = useXp();
   const { maybeShow: maybeShowUpgrade, dismiss: dismissUpgrade } = usePlanPrompt(setLimitError);
+
+  // Exam shapes come from the server so a new format costs a blueprint entry
+  // in Python and nothing here. If the call fails the picker stays hidden and
+  // generation falls back to the server's default format, which is correct —
+  // a student should never be blocked from starting by a metadata fetch.
+  useEffect(() => {
+    let cancelled = false;
+    getNVOBlueprints()
+      .then((list) => {
+        if (cancelled) return;
+        setBlueprints(list);
+        if (!list.some((b) => b.code === selectedBlueprint) && list.length > 0) {
+          setSelectedBlueprint(list[0].code);
+        }
+      })
+      .catch(() => { /* picker hides; the server default applies */ })
+      .finally(() => { if (!cancelled) setBlueprintsLoading(false); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('nvo.blueprint', selectedBlueprint);
+    } catch { /* private mode — the in-memory choice still applies */ }
+  }, [selectedBlueprint]);
 
   useEffect(() => {
     try {
@@ -474,7 +537,8 @@ const NVOPracticeExamPage: React.FC = () => {
             timeLeft: 0,
             currentQuestion: typeof saved.currentQuestion === 'number' ? saved.currentQuestion : 1,
             examStartTimestamp: null,
-            examDifficulty: 'standard',
+            examDifficulty: 'actual',
+            examFormat: 'full',
           });
           localStorage.removeItem(storageKey);
           const refreshedHistory = localStorage.getItem(historyKey);
@@ -515,6 +579,56 @@ const NVOPracticeExamPage: React.FC = () => {
     setSubmitted(false);
   }, [historyKey, storageKey]);
 
+  /**
+   * Pull the account's graded attempts and fold them into the local list.
+   *
+   * History used to live only in localStorage, so a new device — or a cleared
+   * cache — started empty even though the server had graded every one of those
+   * sittings. Runs after the restore effect above so the local list is already
+   * in state and the server can correct it rather than race it.
+   *
+   * Best-effort by design: a student with no connection still sees the history
+   * this device holds, so a failure here is not worth an error banner. Guests
+   * have no server-side attempts at all, so they skip the call entirely.
+   */
+  useEffect(() => {
+    if (!isAuthenticated || isGuest) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const attempts = await listNvoAttempts();
+        if (cancelled || attempts.length === 0) return;
+
+        setHistory((prev) =>
+          trimHistory(
+            mergeServerAttempts(prev, attempts as AttemptRecord[], (attempt) =>
+              normalizeHistoryEntry({
+                // Server attempts carry no questions, so the review action
+                // stays hidden for them (see canReview). Everything the
+                // history card actually prints is here.
+                id: new Date(attempt.graded_at).getTime(),
+                examId: attempt.exam_id,
+                status: 'completed',
+                createdAt: attempt.created_at,
+                completedAt: attempt.graded_at,
+                score: attempt.score,
+                maxScore: attempt.max_score,
+                scorePercent: attempt.percentage_correct,
+                difficulty: normalizeDifficulty(attempt.difficulty),
+                format: attempt.format === 'short' ? 'short' : 'full',
+              }),
+            ),
+          ),
+        );
+      } catch {
+        // Offline or a server blip — the local history still stands.
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [isAuthenticated, isGuest]);
+
   useEffect(() => {
     const payload: ExamState = {
       examId,
@@ -552,6 +666,7 @@ const NVOPracticeExamPage: React.FC = () => {
       currentQuestion,
       examStartTimestamp,
       examDifficulty,
+      examFormat,
       examStarted,
       examReady,
       submitted,
@@ -567,6 +682,7 @@ const NVOPracticeExamPage: React.FC = () => {
     currentQuestion,
     examStartTimestamp,
     examDifficulty,
+    examFormat,
     examStarted,
     examReady,
     submitted,
@@ -599,6 +715,7 @@ const NVOPracticeExamPage: React.FC = () => {
           currentQuestion,
           examStartTimestamp,
           examDifficulty,
+          examFormat,
           existingId: existing?.id,
           createdAt: existing?.createdAt,
         },
@@ -620,6 +737,7 @@ const NVOPracticeExamPage: React.FC = () => {
     currentQuestion,
     examStartTimestamp,
     examDifficulty,
+    examFormat,
   ]);
 
   useEffect(() => {
@@ -638,7 +756,7 @@ const NVOPracticeExamPage: React.FC = () => {
           const exam = await getGeneratedNVOExam(job.exam_id);
           if (cancelled) return;
 
-          const questions = convertExamQuestions(exam.questions);
+          const questions = convertExamQuestions(exam.questions, exam.part1_count);
           const readyEntry: ExamHistoryEntry = {
             id: Date.now(),
             examId: exam.exam_id,
@@ -650,6 +768,8 @@ const NVOPracticeExamPage: React.FC = () => {
             scorePercent: 0,
             module1Percent: 0,
             module2Percent: 0,
+            difficulty: examDifficulty,
+            format: examFormat,
             questions,
             answers: {},
             answerImages: {},
@@ -685,7 +805,7 @@ const NVOPracticeExamPage: React.FC = () => {
       cancelled = true;
       window.clearInterval(interval);
     };
-  }, [generationJobId]);
+  }, [generationJobId, examDifficulty, examFormat]);
 
   // Smoothly animate the progress bar toward the real reported value
   useEffect(() => {
@@ -843,24 +963,7 @@ const NVOPracticeExamPage: React.FC = () => {
     clearActiveTestData();
   }, [examReady, examStarted, isReviewMode, openTestProblems, submitted]);
 
-  const scoreCurrentExam = () => {
-    let score = 0;
-    let maxScore = 0;
-
-    examQuestions.forEach((q) => {
-      if (q.type !== 'mcq') return;
-      if (typeof q.correctAnswer !== 'string') return;
-      maxScore += 1;
-      const selected = answers[q.id];
-      if (typeof selected === 'string' && normalizeOptionKey(selected) === normalizeOptionKey(q.correctAnswer)) {
-        score += 1;
-      }
-    });
-
-    return { score, maxScore };
-  };
-
-  const saveHistoryEntry = () => {
+  const saveHistoryEntry = (result?: NVOExamSubmitResponse) => {
     if (!examId) return;
     setHistory((prev) => {
       const existing = prev.find((item) => item.examId === examId);
@@ -875,10 +978,14 @@ const NVOPracticeExamPage: React.FC = () => {
           currentQuestion,
           examStartTimestamp,
           examDifficulty,
+          examFormat,
           existingId: existing?.id,
           createdAt: existing?.createdAt,
         },
         'completed',
+        result
+          ? { score: result.total_score, maxScore: result.total_max_score, scorePercent: result.percentage_correct }
+          : undefined,
       );
       return upsertHistoryEntry(prev, entry);
     });
@@ -900,6 +1007,7 @@ const NVOPracticeExamPage: React.FC = () => {
           currentQuestion,
           examStartTimestamp,
           examDifficulty,
+          examFormat,
           existingId: existing?.id,
           createdAt: existing?.createdAt,
         },
@@ -910,20 +1018,22 @@ const NVOPracticeExamPage: React.FC = () => {
     localStorage.removeItem(storageKey);
   };
 
-  const startNewExam = async (difficulty?: NVODifficulty) => {
-    const selectedDiff = difficulty || 'standard';
+  const startNewExam = async (difficulty?: NVODifficulty, format?: NVOFormat) => {
+    const selectedDiff = difficulty || 'actual';
+    const selectedFmt = format || 'full';
     setExamDifficulty(selectedDiff);
+    setExamFormat(selectedFmt);
     setLoadingExam(true);
     setGenerationProgress(0);
     setGenerationMessage('Подготовка за генериране на НВО тест');
     try {
-      const job = await createNVOGenerationJob(selectedDiff);
+      const job = await createNVOGenerationJob(selectedDiff, selectedFmt, selectedBlueprint);
       setGenerationProgress(job.progress);
       setGenerationMessage(job.message);
 
       if (job.status === 'completed' && job.exam_id) {
         const exam = await getGeneratedNVOExam(job.exam_id);
-        const questions = convertExamQuestions(exam.questions);
+        const questions = convertExamQuestions(exam.questions, exam.part1_count);
         const readyEntry: ExamHistoryEntry = {
           id: Date.now(),
           examId: exam.exam_id,
@@ -936,6 +1046,7 @@ const NVOPracticeExamPage: React.FC = () => {
           module1Percent: 0,
           module2Percent: 0,
           difficulty: selectedDiff,
+          format: selectedFmt,
           questions,
           answers: {},
           answerImages: {},
@@ -977,16 +1088,18 @@ const NVOPracticeExamPage: React.FC = () => {
     setAnswerImages(entry.answerImages ?? {});
     setMarkedForReview(entry.markedForReview);
     setCurrentQuestion(entry.currentQuestion ?? 1);
-    setTimeLeft(entry.timeLeft ?? EXAM_DURATION_SECONDS);
+    const entryDurationSeconds = getExamDurationSeconds(entry.format);
+    setTimeLeft(entry.timeLeft ?? entryDurationSeconds);
     setExamStartTimestamp(
-      entry.timeLeft != null && entry.timeLeft < EXAM_DURATION_SECONDS
-        ? new Date(Date.now() - (EXAM_DURATION_SECONDS - entry.timeLeft) * 1000).toISOString()
+      entry.timeLeft != null && entry.timeLeft < entryDurationSeconds
+        ? new Date(Date.now() - (entryDurationSeconds - entry.timeLeft) * 1000).toISOString()
         : new Date().toISOString(),
     );
     setSubmitted(false);
     setExamStarted(true);
     setExamReady(entry.questions.length > 0);
-    setExamDifficulty(entry.difficulty || 'standard');
+    setExamDifficulty(normalizeDifficulty(entry.difficulty));
+    setExamFormat(entry.format || 'full');
     setIsReviewMode(false);
     setShowUnansweredWarning(false);
   };
@@ -998,12 +1111,13 @@ const NVOPracticeExamPage: React.FC = () => {
     setAnswerImages(entry.answerImages ?? {});
     setMarkedForReview(entry.markedForReview);
     setCurrentQuestion(entry.currentQuestion ?? 1);
-    setTimeLeft(entry.timeLeft ?? EXAM_DURATION_SECONDS);
+    setTimeLeft(entry.timeLeft ?? getExamDurationSeconds(entry.format));
     setExamStartTimestamp(null);
     setSubmitted(false);
     setExamStarted(true);
     setExamReady(true);
-    setExamDifficulty(entry.difficulty || 'standard');
+    setExamDifficulty(normalizeDifficulty(entry.difficulty));
+    setExamFormat(entry.format || 'full');
     setIsReviewMode(true);
     setShowUnansweredWarning(false);
   };
@@ -1032,8 +1146,10 @@ const NVOPracticeExamPage: React.FC = () => {
     );
   };
 
-  const submitExamToBackend = async () => {
-    if (!examId) return;
+  const submitExamToBackend = async (): Promise<NVOExamSubmitResponse> => {
+    if (!examId) {
+      throw new Error('Missing exam id');
+    }
 
     const openAnswerImages = examQuestions
       .filter((question) => question.type === 'open')
@@ -1042,7 +1158,7 @@ const NVOPracticeExamPage: React.FC = () => {
         image: answerImages[question.id] || '',
       }));
 
-    await submitNVOExam({
+    return submitNVOExam({
       exam_id: examId,
       answers,
       open_answer_images: openAnswerImages,
@@ -1056,7 +1172,10 @@ const NVOPracticeExamPage: React.FC = () => {
         diagram_config: question.diagramConfig,
         open_parts: question.type === 'open' ? question.parts : undefined,
         options: question.type === 'mcq' ? question.options.map((option) => `${option.key}) ${option.text}`) : null,
-        correct_answer: question.correctAnswer ?? null,
+        // The server never sends an answer key in the first place (see
+        // _strip_answer_key), so there is nothing real to echo back here —
+        // grading happens server-side against its own stored copy.
+        correct_answer: null,
       })),
     });
   };
@@ -1069,28 +1188,26 @@ const NVOPracticeExamPage: React.FC = () => {
 
     setIsSubmittingExam(true);
     try {
-      await submitExamToBackend();
+      const result = await submitExamToBackend();
+      setSubmitResult(result);
       trackEvent('nvo_completed', {
         exam_id: examId,
         question_count: examQuestions.length,
       });
-      saveHistoryEntry();
-      // Calculate exam results for XP award
-      const { score, maxScore } = scoreCurrentExam();
-      const percentageCorrect = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
-      const minutesTaken = Math.round((EXAM_DURATION_SECONDS - timeLeft) / 60);
-      
-      // Award NVO exam XP with performance-based calculation
+      saveHistoryEntry(result);
+      const minutesTaken = Math.round((getExamDurationSeconds(examFormat) - timeLeft) / 60);
+
+      // Award NVO exam XP. The server derives percentage_correct and
+      // difficulty itself from the attempt /nvo/submit just wrote — the
+      // client no longer reports either.
       awardNvoXpDetailed({
-        percentage_correct: percentageCorrect,
-        difficulty: examDifficulty,
+        exam_id: examId!,
         minutes_taken: minutesTaken,
-        exam_id: examId,
       }).then((result) => {
         setXpAwardResult(result);
         refreshXp();
       }).catch(() => {});
-      
+
       setSubmitted(true);
     } catch {
       alert('Неуспешно предаване на теста. Опитайте отново.');
@@ -1408,12 +1525,21 @@ const NVOPracticeExamPage: React.FC = () => {
                                 Продължи
                               </button>
                             )}
-                            <button
-                              onClick={() => revisitExam(source)}
-                              className="text-sm px-3 py-1.5 rounded-lg border border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-700/50 dark:text-blue-300 dark:hover:bg-blue-900/30"
-                            >
-                              Преглед на теста
-                            </button>
+                            {canReview(source) ? (
+                              <button
+                                onClick={() => revisitExam(source)}
+                                className="text-sm px-3 py-1.5 rounded-lg border border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-700/50 dark:text-blue-300 dark:hover:bg-blue-900/30"
+                              >
+                                Преглед на теста
+                              </button>
+                            ) : (
+                              /* Synced from another device: the score is the
+                                 account's, but the questions and answers never
+                                 left that browser, so there is nothing to show. */
+                              <span className="text-xs text-gray-500 dark:text-slate-400 self-center">
+                                Прегледът е достъпен само на устройството, на което е решен тестът.
+                              </span>
+                            )}
                           </div>
                         )}
                       </div>
@@ -1453,10 +1579,28 @@ const NVOPracticeExamPage: React.FC = () => {
           </div>
         </main>
 
-        {/* Difficulty Selector Modal */}
+        {/* Difficulty + Format Selector Modal */}
         {showDifficultySelector && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
-            <div className="w-full max-w-2xl rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+            <div className="w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+              {(blueprintsLoading || blueprints.length > 0) && (
+                <>
+                  <NVOBlueprintSelector
+                    blueprints={blueprints}
+                    selected={selectedBlueprint}
+                    onSelect={setSelectedBlueprint}
+                    disabled={loadingExam}
+                    loading={blueprintsLoading}
+                  />
+                  <div className="my-6 border-t border-gray-200 dark:border-slate-700" />
+                </>
+              )}
+              <NVOFormatSelector
+                selected={selectedFormat}
+                onSelect={setSelectedFormat}
+                disabled={loadingExam}
+              />
+              <div className="my-6 border-t border-gray-200 dark:border-slate-700" />
               <NVODifficultySelector
                 selected={selectedDifficulty}
                 onSelect={setSelectedDifficulty}
@@ -1473,7 +1617,7 @@ const NVOPracticeExamPage: React.FC = () => {
                 <button
                   onClick={() => {
                     setShowDifficultySelector(false);
-                    startNewExam(selectedDifficulty);
+                    startNewExam(selectedDifficulty, selectedFormat);
                   }}
                   disabled={loadingExam}
                   className="px-4 py-2 rounded-xl bg-orange-600 text-white font-semibold hover:bg-orange-700 disabled:opacity-50"
@@ -1506,8 +1650,8 @@ const NVOPracticeExamPage: React.FC = () => {
             <div className="px-3 py-2 rounded-lg bg-slate-100 text-slate-700 text-sm font-semibold">
               ⏱ {formatTime(timeLeft)}
             </div>
-            <div className={`px-3 py-2 rounded-lg text-sm font-semibold ${DIFFICULTY_COLORS[examDifficulty] || 'text-blue-600 bg-blue-100'}`}>
-              ⭐ {DIFFICULTY_LABELS[examDifficulty] || '1.0x XP'}
+            <div className={`px-3 py-2 rounded-lg text-sm font-semibold ${DIFFICULTY_COLORS[normalizeDifficulty(examDifficulty)]}`}>
+              ⭐ {DIFFICULTY_LABELS[normalizeDifficulty(examDifficulty)]}
             </div>
             <div className="hidden sm:block px-3 py-2 rounded-lg bg-blue-50 text-blue-700 text-sm font-semibold">
               {answeredCount}/{examQuestions.length} отговорени
@@ -1760,16 +1904,17 @@ const NVOPracticeExamPage: React.FC = () => {
           ) : (
             <section className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm text-center">
               <h2 className="text-2xl font-bold text-gray-900 mb-2">Тестът е предаден</h2>
-              {(() => {
-                const { score, maxScore } = scoreCurrentExam();
-                const pct = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
-                return (
-                  <div className="max-w-md mx-auto mb-5">
-                    <p className="text-5xl font-black text-blue-600 mb-1">{pct}%</p>
-                    <p className="text-sm text-gray-500">{score} верни от {maxScore} задачи с избор (Модул 1)</p>
-                  </div>
-                );
-              })()}
+              {submitResult && (
+                <div className="max-w-md mx-auto mb-5">
+                  <p className="text-5xl font-black text-blue-600 mb-1">{submitResult.percentage_correct}%</p>
+                  <p className="text-sm text-gray-500">
+                    {submitResult.mcq_score} верни от {submitResult.mcq_max_score} задачи с избор (Модул 1)
+                    {submitResult.total_open_max_score > 0 && (
+                      <> · {submitResult.total_open_score} верни от {submitResult.total_open_max_score} отворени (Модул 2)</>
+                    )}
+                  </p>
+                </div>
+              )}
               
               {/* XP Award Breakdown */}
               {xpAwardResult && (

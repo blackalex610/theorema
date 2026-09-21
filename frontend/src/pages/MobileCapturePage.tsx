@@ -166,6 +166,18 @@ const MobileCapturePage: React.FC = () => {
         </div>
 
         <div className="p-5 space-y-4">
+          {/* Plain-language disclosure at the point of capture. The photo
+              leaves the device and goes to a third-party AI service; saying
+              so here is the difference between consent and surprise. */}
+          <p className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-[11px] leading-relaxed text-slate-600">
+            Снимката се изпраща за автоматична проверка към OpenAI и се съхранява до{' '}
+            <strong>24 часа</strong>, след което се изтрива. Снимай само решението си —
+            не и лица или лични документи.{' '}
+            <a href="/privacy" target="_blank" rel="noreferrer" className="underline">
+              Повече
+            </a>
+          </p>
+
           <input
             ref={fileInputRef}
             type="file"

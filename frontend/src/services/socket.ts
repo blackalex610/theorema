@@ -1,18 +1,15 @@
 import { io, type Socket } from 'socket.io-client';
 import type { ActiveTestProblem } from './activeTest';
 
-export type PairedDevice = {
-  id: string;
-  name: string;
-  joinedAt: string;
-  userAgent: string;
-};
+export type PairingSocket = Socket;
 
-export type RoomState = {
-  roomCode: string;
-  devices: PairedDevice[];
-};
-
+/**
+ * A photo pushed from the phone for ad-hoc math recognition.
+ *
+ * Nothing currently emits this — see "Known dead path" in
+ * docs/superpowers/specs/2026-09-21-phone-connect-rehaul-design.md. The type
+ * and listener are retained so MathVisionPanel keeps its prop.
+ */
 export type PairingImagePayload = {
   dataUrl: string;
   sentAt: string;
@@ -20,48 +17,57 @@ export type PairingImagePayload = {
   deviceName: string;
 };
 
-export type ActiveTestDataPayload = {
-  problems: ActiveTestProblem[];
+export type ConnectReason =
+  | 'UNAUTHORIZED'
+  | 'INVALID_PAYLOAD'
+  | 'DEVICE_GONE'
+  | 'DEVICE_BUSY'
+  | 'ALREADY_LINKED'
+  | 'NOT_LINKED'
+  | 'TOO_LARGE'
+  | 'REQUEST_EXPIRED'
+  | 'REQUEST_UNKNOWN';
+
+export type ConnectAck<T = unknown> = ({ ok: true } & T) | { ok: false; reason?: ConnectReason };
+
+export type DiscoveredDevice = {
+  deviceId: string;
+  name: string;
+  platform: string;
+  announcedAt: number;
+  busy: boolean;
 };
 
-export type SubmitAnswerImagePayload = {
+export type IncomingLinkRequest = {
+  requestId: string;
+  desktopName: string;
+  expiresInMs: number;
+};
+
+export type LinkEstablished = {
+  linkId: string;
+  peer: { deviceId?: string; desktopId?: string; name?: string };
+  examProblems: ActiveTestProblem[];
+};
+
+export type AnswerSubmitPayload = {
   problemId: number;
   image: string;
+  deviceId: string;
+  deviceName: string;
+  submittedAt: string;
 };
-
-type PairingAck = {
-  ok: boolean;
-  reason?: 'INVALID_CODE' | 'ROOM_EXISTS' | 'ROOM_NOT_FOUND' | 'ACCOUNT_MISMATCH' | 'UNAUTHORIZED';
-  roomCode?: string;
-  devices?: PairedDevice[];
-  device?: PairedDevice;
-  expectedUserId?: string;
-};
-
-type SendImageAck = {
-  ok: boolean;
-  reason?: 'NOT_PAIRED' | 'TOO_LARGE' | 'INVALID_PAYLOAD';
-};
-
-type ActiveTestDataAck = {
-  ok: boolean;
-  reason?: 'NOT_PAIRED' | 'INVALID_PAYLOAD';
-};
-
-type SubmitAnswerImageAck = {
-  ok: boolean;
-  reason?: 'NOT_PAIRED' | 'TOO_LARGE' | 'INVALID_PAYLOAD';
-};
-
-export type PairingSocket = Socket;
 
 export const getStoredPairingUserId = (): string | null => {
   if (typeof window === 'undefined') return null;
   try {
     const raw = localStorage.getItem('user');
     if (!raw) return null;
-    const user = JSON.parse(raw) as { id?: string | number; isGuest?: boolean };
-    if (!user?.id || user.isGuest) return null;
+    // Guests now hold a real user_id (backed by a real JWT the realtime
+    // server verifies), so pairing works identically for them — no
+    // isGuest exception needed.
+    const user = JSON.parse(raw) as { id?: string | number };
+    if (!user?.id) return null;
     return String(user.id);
   } catch {
     return null;
@@ -109,6 +115,9 @@ export const createSocketClient = (): PairingSocket => {
   return io(SOCKET_SERVER_URL, {
     autoConnect: true,
     path: '/socket.io',
+    // The realtime server verifies this JWT on the handshake and derives the
+    // connect identity from it, so an unauthenticated socket is refused.
+    auth: (cb) => cb({ token: localStorage.getItem('token') ?? '' }),
     transports: ['websocket', 'polling'],
     reconnection: !socketConfig.isFallbackOrigin,
     reconnectionAttempts: socketConfig.isFallbackOrigin ? 0 : 20,
@@ -116,39 +125,50 @@ export const createSocketClient = (): PairingSocket => {
   });
 };
 
-export const emitCreateRoom = (socket: PairingSocket, roomCode: string, ownerUserId: string): Promise<PairingAck> => {
-  return new Promise((resolve) => {
-    socket.emit('createRoom', { roomCode, ownerUserId }, (response: PairingAck) => resolve(response));
-  });
-};
-
-export const emitJoinRoom = (socket: PairingSocket, roomCode: string, requesterUserId: string): Promise<PairingAck> => {
-  return new Promise((resolve) => {
-    socket.emit('joinRoom', { roomCode, requesterUserId }, (response: PairingAck) => resolve(response));
-  });
-};
-
-export const emitSendImage = (socket: PairingSocket, dataUrl: string): Promise<SendImageAck> => {
-  return new Promise((resolve) => {
-    socket.emit('sendImage', { dataUrl }, (response: SendImageAck) => resolve(response));
-  });
-};
-
-export const emitActiveTestData = (socket: PairingSocket, problems: ActiveTestProblem[]): Promise<ActiveTestDataAck> => {
-  return new Promise((resolve) => {
-    socket.emit('activeTestData', { problems }, (response: ActiveTestDataAck) => resolve(response));
-  });
-};
-
-export const emitSubmitAnswerImage = (
+const request = <T,>(
   socket: PairingSocket,
-  payload: SubmitAnswerImagePayload
-): Promise<SubmitAnswerImageAck> => {
-  return new Promise((resolve) => {
-    socket.emit('submitAnswerImage', payload, (response: SubmitAnswerImageAck) => resolve(response));
+  event: string,
+  payload: unknown
+): Promise<ConnectAck<T>> =>
+  new Promise((resolve) => {
+    socket.emit(event, payload, (response: ConnectAck<T>) => resolve(response));
   });
-};
 
-export const generatePairingCode = (): string => {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-};
+// ─── Desktop ─────────────────────────────────────────────────────────────────
+
+export const emitPresenceSubscribe = (socket: PairingSocket, desktopId: string, name: string) =>
+  request<{ devices: DiscoveredDevice[] }>(socket, 'presence:subscribe', { desktopId, name });
+
+export const emitPresenceUnsubscribe = (socket: PairingSocket) =>
+  request(socket, 'presence:unsubscribe', {});
+
+export const emitLinkRequest = (socket: PairingSocket, deviceId: string) =>
+  request<{ requestId: string }>(socket, 'link:request', { deviceId });
+
+export const emitLinkCancel = (socket: PairingSocket, requestId: string) =>
+  request(socket, 'link:cancel', { requestId });
+
+export const emitLinkEnd = (socket: PairingSocket) => request(socket, 'link:end', {});
+
+export const emitExamProblems = (socket: PairingSocket, problems: ActiveTestProblem[]) =>
+  request(socket, 'exam:problems', { problems });
+
+// ─── Phone ───────────────────────────────────────────────────────────────────
+
+export const emitPresenceAnnounce = (
+  socket: PairingSocket,
+  deviceId: string,
+  name: string,
+  platform: string
+) => request<{ deviceId: string }>(socket, 'presence:announce', { deviceId, name, platform });
+
+export const emitPresenceWithdraw = (socket: PairingSocket) =>
+  request(socket, 'presence:withdraw', {});
+
+export const emitLinkRespond = (socket: PairingSocket, requestId: string, accept: boolean) =>
+  request(socket, 'link:respond', { requestId, accept });
+
+export const emitLinkLeave = (socket: PairingSocket) => request(socket, 'link:leave', {});
+
+export const emitAnswerSubmit = (socket: PairingSocket, problemId: number, image: string) =>
+  request(socket, 'answer:submit', { problemId, image });

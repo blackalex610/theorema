@@ -1,3 +1,5 @@
+import { API_BASE_URL as API_URL } from '../config/api';
+
 type LogLevel = 'info' | 'warning' | 'error';
 
 type ErrorContext = {
@@ -19,26 +21,6 @@ const SENSITIVE_KEYS = [
   'secret',
   'cookie',
 ];
-
-const buildDefaultApiBaseUrl = (): string => {
-  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
-    return '/api';
-  }
-  return '/_/backend';
-};
-
-const resolveApiBaseUrl = (): string => {
-  const envBase = import.meta.env.VITE_API_URL;
-  if (!envBase) return buildDefaultApiBaseUrl();
-
-  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && envBase === '/api') {
-    return '/_/backend';
-  }
-
-  return envBase;
-};
-
-const API_URL = resolveApiBaseUrl();
 
 function getCurrentUserId(): string | undefined {
   try {

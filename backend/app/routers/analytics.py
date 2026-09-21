@@ -1,20 +1,14 @@
 from __future__ import annotations
 
-import json
-import threading
 from datetime import datetime
-from pathlib import Path
 from typing import Any, Literal, Optional
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-router = APIRouter(prefix="/analytics", tags=["analytics"])
+from app.services.event_log_store import append_log
 
-# Append-only analytics storage (MVP)
-_LOG_DIR = Path(__file__).resolve().parents[2] / "logs"
-_ANALYTICS_FILE = _LOG_DIR / "analytics_events.jsonl"
-_LOCK = threading.Lock()
+router = APIRouter(prefix="/analytics", tags=["analytics"])
 
 
 class AnalyticsEventPayload(BaseModel):
@@ -34,21 +28,12 @@ class AnalyticsEventPayload(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
-def _append_event(entry: dict[str, Any]) -> None:
-    _LOG_DIR.mkdir(parents=True, exist_ok=True)
-    line = json.dumps(entry, ensure_ascii=False)
-    with _LOCK:
-        with _ANALYTICS_FILE.open("a", encoding="utf-8") as fp:
-            fp.write(line + "\n")
-
-
 @router.post("/events", status_code=201)
 async def create_analytics_event(payload: AnalyticsEventPayload):
     entry = payload.model_dump()
     entry["received_at"] = datetime.utcnow().isoformat()
-    try:
-        _append_event(entry)
+    if append_log("analytics", entry):
         return {"success": True}
-    except OSError:
-        # In some deployment targets the local filesystem may be read-only.
-        return {"success": False, "stored": False}
+    # A DB write failure here must not surface as a 500 to a fire-and-forget
+    # telemetry call — the caller just gets told it wasn't stored.
+    return {"success": False, "stored": False}

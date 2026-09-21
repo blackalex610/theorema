@@ -1,17 +1,15 @@
 from __future__ import annotations
 
-import json
+import logging
 import threading
 import time
-from pathlib import Path
 from typing import Any
 
 from app.config import settings
+from app.services.event_log_store import append_log, read_recent
 
+logger = logging.getLogger(__name__)
 
-_LOG_DIR = Path(__file__).resolve().parents[2] / "logs"
-_LOG_FILE = _LOG_DIR / "errors.jsonl"
-_LOCK = threading.Lock()
 _RATE_LOCK = threading.Lock()
 _RATE_BUCKET: dict[str, list[float]] = {}
 _RATE_LIMIT_COUNT = 20
@@ -76,28 +74,37 @@ def allow_log_for_key(rate_key: str) -> bool:
         return True
 
 
+def _forward_to_sentry(entry: dict[str, Any]) -> None:
+    """Best-effort: also surface a frontend error report in Sentry.
+
+    Never raises — this runs on the same path as every /log-error POST, and
+    a Sentry hiccup must not turn a client's error report into a 500 of its
+    own. No-ops entirely when SENTRY_DSN isn't set (see main.py).
+    """
+    if not settings.SENTRY_DSN:
+        return
+    try:
+        import sentry_sdk
+
+        with sentry_sdk.new_scope() as scope:
+            scope.set_tag("source", "frontend")
+            scope.set_context("report", {
+                "route": entry.get("route"),
+                "user_id": entry.get("user_id"),
+            })
+            level = entry.get("level") if entry.get("level") in ("info", "warning", "error") else "error"
+            sentry_sdk.capture_message(str(entry.get("message", "Frontend error")), level=level)
+    except Exception:
+        logger.debug("Failed to forward frontend error report to Sentry", exc_info=True)
+
+
 def append_error_log(entry: dict[str, Any]) -> None:
     safe_entry = _sanitize_value(entry)
     if settings.ENVIRONMENT.lower() == "production":
         safe_entry = _minimal_for_production(safe_entry)
-
-    _LOG_DIR.mkdir(parents=True, exist_ok=True)
-    line = json.dumps(safe_entry, ensure_ascii=False)
-
-    with _LOCK:
-        with _LOG_FILE.open("a", encoding="utf-8") as fp:
-            fp.write(line + "\n")
+    append_log("error", safe_entry)
+    _forward_to_sentry(safe_entry)
 
 
 def read_recent_logs(limit: int = 100) -> list[dict[str, Any]]:
-    if not _LOG_FILE.exists():
-        return []
-    lines = _LOG_FILE.read_text(encoding="utf-8").splitlines()
-    recent_lines = lines[-max(1, min(limit, 500)):]
-    out: list[dict[str, Any]] = []
-    for line in reversed(recent_lines):
-        try:
-            out.append(json.loads(line))
-        except json.JSONDecodeError:
-            continue
-    return out
+    return read_recent("error", limit=limit)

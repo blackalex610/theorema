@@ -13,6 +13,7 @@ interface UpgradePromptProps {
 const DEFAULT_MESSAGES: Record<string, string> = {
   ai_exercises: 'Достигнахте дневния лимит от 5 AI задачи.',
   ai_chat:      'Достигнахте дневния лимит от 10 AI съобщения.',
+  ai_theory:    'Достигнахте дневния лимит от 12 AI теория генерации.',
   nvo_exams:    'Достигнахте дневния лимит от 1 НВО изпит.',
   image_scans:  'Достигнахте дневния лимит от 2 снимки.',
 };

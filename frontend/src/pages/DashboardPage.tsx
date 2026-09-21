@@ -1,341 +1,535 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getDashboardStats, getRecommendations, type DashboardStats, type ProgressRecommendations } from '../services/progress';
-import { useStreak } from '../hooks/useStreak';
-import StreakWidget from '../components/StreakWidget';
-import AppNavbar from '../components/AppNavbar';
-import { useSettings } from '../context/SettingsContext';
-import CoachDashboardPage from './CoachDashboardPage';
-import { ProgressSkeleton } from '../components/Skeleton';
+import { motion, useReducedMotion } from 'framer-motion';
+import {
+  ArrowRightIcon,
+  BookOpenIcon,
+  ChartLineUpIcon,
+  FireIcon,
+  PencilSimpleLineIcon,
+  SparkleIcon,
+  TargetIcon,
+} from '@phosphor-icons/react';
 
-const ClassicDashboardPage: React.FC = () => {
+import AppNavbar from '../components/AppNavbar';
+import BadgeShelf from '../components/BadgeShelf';
+import {
+  getDailyMissions,
+  getDashboardStats,
+  getRecommendations,
+  getXpSummary,
+  recordActivity,
+  type DailyMission,
+  type DashboardStats,
+  type ProgressRecommendations,
+  type XpSummary,
+} from '../services/progress';
+import { useXp } from '../context/XpContext';
+import { useAuth } from '../context/AuthContext';
+import { useIsDevMode } from '../context/DeveloperModeContext';
+import {
+  EmptyState,
+  ErrorState,
+  PageHeader,
+  PageShell,
+  SectionHeading,
+} from '../components/app/PageShell';
+import { Reveal, RevealGroup, RevealItem, useSpringHover } from '@/components/motion/Reveal';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
+
+/* ── Cache ───────────────────────────────────────────────────────────────── */
+
+const DASHBOARD_CACHE_KEY = 'dashboard_cache_v1';
+const CACHE_FRESH_MS = 5 * 60 * 1000;
+
+interface DashboardCache {
+  stats: DashboardStats;
+  recommendations: ProgressRecommendations;
+  xpSummary: XpSummary;
+  missions: DailyMission[];
+  savedAt: number;
+}
+
+function readCache(): DashboardCache | null {
+  try {
+    const raw = localStorage.getItem(DASHBOARD_CACHE_KEY);
+    return raw ? (JSON.parse(raw) as DashboardCache) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCache(data: Omit<DashboardCache, 'savedAt'>) {
+  try {
+    localStorage.setItem(DASHBOARD_CACHE_KEY, JSON.stringify({ ...data, savedAt: Date.now() }));
+  } catch {
+    /* storage full, not worth failing the render over */
+  }
+}
+
+/* ── Page ────────────────────────────────────────────────────────────────── */
+
+const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
-  const streak = useStreak();
-  const scrollToSection = (sectionId: string) => {
-    const el = document.getElementById(sectionId);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  };
-  const user = useMemo(() => {
-    try { return JSON.parse(localStorage.getItem('user') ?? '{}') as { name?: string; picture?: string; email?: string; isGuest?: boolean }; }
-    catch { return {}; }
-  }, []);
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [recommendations, setRecommendations] = useState<ProgressRecommendations | null>(null);
-  const [loading, setLoading] = useState(true);
+  const isDevMode = useIsDevMode();
+  const { refreshXp } = useXp();
+  const reduced = useReducedMotion();
+  const hover = useSpringHover();
+
+  const { user } = useAuth();
+  const firstName = user?.name?.split(' ')[0] ?? 'Ученик';
+
+  const [stats, setStats] = useState<DashboardStats | null>(() => readCache()?.stats ?? null);
+  const [recommendations, setRecommendations] = useState<ProgressRecommendations | null>(
+    () => readCache()?.recommendations ?? null
+  );
+  const [xpSummary, setXpSummary] = useState<XpSummary | null>(() => readCache()?.xpSummary ?? null);
+  const [missions, setMissions] = useState<DailyMission[]>(() => readCache()?.missions ?? []);
+  const [loading, setLoading] = useState(() => readCache() === null);
   const [loadError, setLoadError] = useState('');
 
-  useEffect(() => {
-    // Skip API calls for guest users - they don't have a token
-    if (user.isGuest) {
-      setStats({
-        total_exercises_completed: 0,
-        total_exercises_attempted: 0,
-        accuracy_percentage: 0,
-        topics_started: 0,
-        topics_completed: 0,
-        total_topics_available: 0,
-        lessons_started: 0,
-        lessons_completed: 0,
-        total_lessons_available: 0,
-        recent_activity: [],
-      });
-      setRecommendations({
-        weak_topics: [],
-        recommended_lessons: [],
-        encouragement_message: 'Влез в профил, за да видиш препоръките си.',
-      });
-      setLoading(false);
-      return;
-    }
-
-    const fetchData = async () => {
-      setLoading(true);
+  const load = useCallback(
+    async (force = false) => {
+      // Guests now hold a real backend account, so every call below succeeds
+      // for them exactly as it does for a signed-in user — no short-circuit.
+      const cached = readCache();
+      if (!force && cached && Date.now() - cached.savedAt < CACHE_FRESH_MS) {
+        setLoading(false);
+        return;
+      }
+      if (!cached) setLoading(true);
       setLoadError('');
+
       try {
-        const [statsResult, recommendationsResult] = await Promise.allSettled([
+        const [s, r, x, m] = await Promise.allSettled([
           getDashboardStats(),
-          getRecommendations()
+          getRecommendations(),
+          recordActivity(),
+          getDailyMissions(),
         ]);
 
-        if (statsResult.status === 'fulfilled') {
-          setStats(statsResult.value);
-        } else {
-          console.error('Dashboard stats request failed:', statsResult.reason);
-          setStats({
-            total_exercises_completed: 0,
-            total_exercises_attempted: 0,
-            accuracy_percentage: 0,
-            topics_started: 0,
-            topics_completed: 0,
-            total_topics_available: 0,
-            lessons_started: 0,
-            lessons_completed: 0,
-            total_lessons_available: 0,
-            recent_activity: [],
+        const nextStats = s.status === 'fulfilled' ? s.value : null;
+        const nextRecs = r.status === 'fulfilled' ? r.value : null;
+        let nextXp = x.status === 'fulfilled' ? x.value : null;
+        if (!nextXp) nextXp = await getXpSummary().catch(() => null);
+        const nextMissions = m.status === 'fulfilled' ? m.value : null;
+
+        if (nextStats) setStats(nextStats);
+        if (nextRecs) setRecommendations(nextRecs);
+        if (nextXp) setXpSummary(nextXp);
+        if (nextMissions) setMissions(nextMissions);
+
+        if (nextStats && nextRecs && nextXp && nextMissions) {
+          writeCache({
+            stats: nextStats,
+            recommendations: nextRecs,
+            xpSummary: nextXp,
+            missions: nextMissions,
           });
         }
 
-        if (recommendationsResult.status === 'fulfilled') {
-          setRecommendations(recommendationsResult.value);
-        } else {
-          console.error('Recommendations request failed:', recommendationsResult.reason);
-          setRecommendations({
-            weak_topics: [],
-            recommended_lessons: [],
-            encouragement_message: 'Данните за препоръки са временно недостъпни.',
-          });
+        if (!nextStats && !nextRecs) {
+          setLoadError('Връзката със сървъра не се осъществи. Провери дали backend работи.');
         }
-
-        if (statsResult.status === 'rejected' && recommendationsResult.status === 'rejected') {
-          setLoadError('Неуспешно зареждане на таблото. Провери дали backend сървърът работи.');
-        }
-      } catch (err) {
-        console.error('Error fetching dashboard data:', err);
-        setLoadError('Възникна проблем при зареждане на данните.');
+        refreshXp();
       } finally {
         setLoading(false);
       }
-    };
+    },
+    [refreshXp]
+  );
 
-    fetchData();
-  }, [user.isGuest]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const accuracy = stats?.accuracy_percentage ?? 0;
-
-  const quickLinks = [
-    { short: 'NVO', label: 'NVO', action: () => navigate('/nvo/practice'), tone: 'bg-[#1c4270] hover:bg-slate-700' },
-    { short: 'EX', label: 'Exercises', action: () => navigate('/grades'), tone: 'bg-slate-600 hover:bg-[#1c4270]' },
-    { short: 'TH', label: 'Theory', action: () => navigate('/learn/grades'), tone: 'bg-slate-600 hover:bg-[#1c4270]' },
-    { short: 'PR', label: 'Progress', action: () => navigate('/progress'), tone: 'bg-slate-600 hover:bg-[#1c4270]' },
-    { short: 'ST', label: 'Stats', action: () => scrollToSection('dashboard-stats'), tone: 'bg-slate-600 hover:bg-[#1c4270]' },
-    { short: 'FA', label: 'Focus Areas', action: () => scrollToSection('dashboard-weak-topics'), tone: 'bg-slate-600 hover:bg-[#1c4270]' },
-    { short: 'AC', label: 'Actions', action: () => scrollToSection('dashboard-actions'), tone: 'bg-slate-600 hover:bg-[#1c4270]' },
-  ];
+  const topicsTotal = stats?.total_topics_available ?? 0;
+  const topicsDone = stats?.topics_completed ?? 0;
+  const lessonsTotal = stats?.total_lessons_available ?? 0;
+  const lessonsDone = stats?.lessons_completed ?? 0;
+  const weakTopics = recommendations?.weak_topics ?? [];
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <>
       <AppNavbar showBack={false} />
 
-      <div className="fixed right-0 top-1/2 z-30 hidden -translate-y-1/2 md:block">
-        <div className="dashboard-jump-shell group relative w-[4.25rem]">
-          <div className="dashboard-jump-rail absolute right-0 top-0 max-h-[72vh] w-[17rem] overflow-y-auto no-scrollbar rounded-l-xl border border-slate-200 bg-white p-3 shadow-md">
-            <div className="mb-3 flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5">
-              <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#1c4270]">Jump</span>
-              <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-400 group-hover:hidden">Mini</span>
-              <span className="hidden text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-400 group-hover:inline">Expanded</span>
-            </div>
-
-            <div className="space-y-2">
-              {quickLinks.map((item) => (
-                <button
-                  key={item.label}
-                  onClick={item.action}
-                  className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold text-white transition-colors ${item.tone}`}
-                >
-                  <span className="inline-block min-w-[2.25rem] rounded-md bg-white/20 px-1.5 py-0.5 text-center text-[11px] font-extrabold tracking-wide">
-                    {item.short}
-                  </span>
-                  <span className="ml-2 hidden flex-1 text-right group-hover:inline">{item.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        {/* Greeting */}
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold text-[#1c4270] tracking-tight">Добре дошъл{user.name ? `, ${user.name.split(' ')[0]}` : ''}.</h2>
-          <p className="mt-1.5 text-base text-slate-500">
-            {recommendations?.encouragement_message || 'Готов ли си да учиш математика днес?'}
-          </p>
-        </div>
-
-        <StreakWidget
-          streak={streak}
-          exercisesToday={stats?.total_exercises_completed ?? 0}
-          lessonsToday={stats?.lessons_started ?? 0}
+      <PageShell>
+        <PageHeader
+          title={`Здравей, ${firstName}`}
+          description={
+            recommendations?.encouragement_message ||
+            'Продължи оттам, докъдето стигна миналия път.'
+          }
+          actions={
+            <>
+              <motion.div {...hover}>
+                <Button onClick={() => navigate('/nvo/practice')}>
+                  <SparkleIcon weight="fill" />
+                  Пробен НВО изпит
+                </Button>
+              </motion.div>
+              <Button variant="outline" onClick={() => navigate('/grades')}>
+                <PencilSimpleLineIcon />
+                Упражнения
+              </Button>
+            </>
+          }
         />
 
         {loadError && (
-          <div className="mb-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
-            {loadError}
+          <div className="mb-6">
+            <ErrorState description={loadError} onRetry={() => void load(true)} />
           </div>
         )}
 
         {loading ? (
-          <ProgressSkeleton />
+          <DashboardSkeleton />
         ) : (
-          <>
-            {/* Stat cards — all clickable */}
-            <div id="dashboard-stats" className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10 scroll-mt-28">
-              <button
-                onClick={() => navigate('/grades')}
-                className="group bg-white rounded-xl p-5 shadow-sm border border-slate-200 hover:border-slate-300 hover:shadow-md transition-all text-left"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-semibold text-[#1c4270] bg-slate-100 px-2 py-1 rounded-md">
-                    Упражнения
-                  </span>
-                </div>
-                <p className="text-3xl font-bold text-[#1c4270]">{stats?.total_exercises_completed ?? 0}</p>
-                <p className="text-sm text-slate-400 mt-1">решени задачи</p>
-              </button>
+          <div className="space-y-10">
+            {/* ── Level plus the four measurements ───────────────────────── */}
+            <RevealGroup className="grid gap-4 lg:grid-cols-12">
+              <RevealItem className="lg:col-span-4">
+                <LevelCard xp={xpSummary} />
+              </RevealItem>
 
-              <button
-                onClick={() => navigate('/progress')}
-                className="group bg-white rounded-xl p-5 shadow-sm border border-slate-200 hover:border-slate-300 hover:shadow-md transition-all text-left"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-semibold text-[#1c4270] bg-slate-100 px-2 py-1 rounded-md">
-                    Точност
-                  </span>
+              <RevealItem className="lg:col-span-8">
+                <div className="grid h-full gap-4 sm:grid-cols-2">
+                  <MetricCard
+                    label="Средна точност"
+                    value={`${accuracy.toFixed(0)}%`}
+                    progress={accuracy}
+                    hint={`${stats?.total_exercises_attempted ?? 0} опита общо`}
+                    tone={accuracy >= 80 ? 'brand' : accuracy >= 50 ? 'warn' : 'danger'}
+                    onClick={() => navigate('/progress')}
+                    icon={<TargetIcon weight="fill" />}
+                  />
+                  <MetricCard
+                    label="Решени задачи"
+                    value={String(stats?.total_exercises_completed ?? 0)}
+                    hint="от началото на профила"
+                    onClick={() => navigate('/grades')}
+                    icon={<PencilSimpleLineIcon weight="fill" />}
+                  />
+                  <MetricCard
+                    label="Завършени теми"
+                    value={String(topicsDone)}
+                    suffix={topicsTotal ? `/ ${topicsTotal}` : undefined}
+                    progress={topicsTotal ? (topicsDone / topicsTotal) * 100 : 0}
+                    onClick={() => navigate('/progress')}
+                    icon={<ChartLineUpIcon weight="fill" />}
+                  />
+                  <MetricCard
+                    label="Завършени уроци"
+                    value={String(lessonsDone)}
+                    suffix={lessonsTotal ? `/ ${lessonsTotal}` : undefined}
+                    progress={lessonsTotal ? (lessonsDone / lessonsTotal) * 100 : 0}
+                    onClick={() => navigate('/learn/grades')}
+                    icon={<BookOpenIcon weight="fill" />}
+                  />
                 </div>
-                <p className="text-3xl font-bold text-[#1c4270]">{accuracy.toFixed(0)}%</p>
-                <p className="text-sm text-slate-400 mt-1">средна точност</p>
-              </button>
+              </RevealItem>
+            </RevealGroup>
 
-              <button
-                onClick={() => navigate('/grades')}
-                className="group bg-white rounded-xl p-5 shadow-sm border border-slate-200 hover:border-slate-300 hover:shadow-md transition-all text-left"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-semibold text-[#1c4270] bg-slate-100 px-2 py-1 rounded-md">
-                    Теми
-                  </span>
-                </div>
-                <p className="text-3xl font-bold text-[#1c4270]">{stats?.topics_started ?? 0}</p>
-                <p className="text-sm text-slate-400 mt-1">започнати теми</p>
-              </button>
+            {/* ── Where the effort should go next ────────────────────────── */}
+            <Reveal>
+              <SectionHeading
+                id="focus"
+                title="Теми за упражняване"
+                description="Подредени по точност, най-слабата отгоре."
+                action={
+                  weakTopics.length > 0 ? (
+                    <Button variant="ghost" size="sm" onClick={() => navigate('/progress')}>
+                      Целият прогрес
+                      <ArrowRightIcon />
+                    </Button>
+                  ) : undefined
+                }
+              />
 
-              <button
-                onClick={() => navigate('/progress')}
-                className="group bg-white rounded-xl p-5 shadow-sm border border-slate-200 hover:border-slate-300 hover:shadow-md transition-all text-left"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-semibold text-[#1c4270] bg-slate-100 px-2 py-1 rounded-md">
-                    Уроци
-                  </span>
-                </div>
-                <p className="text-3xl font-bold text-[#1c4270]">
-                  {stats?.lessons_completed ?? 0}
-                  <span className="text-xl text-slate-300">/{stats?.total_lessons_available ?? 0}</span>
-                </p>
-                <p className="text-sm text-slate-400 mt-1">завършени уроци</p>
-              </button>
-            </div>
-
-            {/* Weak topics */}
-            {recommendations && recommendations.weak_topics.length > 0 && (
-              <div id="dashboard-weak-topics" className="mb-10 bg-white border border-slate-200 rounded-xl p-6 scroll-mt-28">
-                <h3 className="text-sm font-bold text-[#1c4270] mb-4 uppercase tracking-widest">
-                  Теми за упражняване
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {recommendations.weak_topics.map((topic) => (
-                    <button
-                      key={topic.topic_id}
-                      onClick={() => navigate('/grades')}
-                      className="bg-slate-50 p-4 rounded-lg border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all text-left"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-semibold text-[#1c4270] truncate">{topic.title}</h4>
-                          <p className="text-sm text-slate-500 mt-0.5">{topic.reason}</p>
-                        </div>
-                        <span className="ml-3 text-lg font-bold text-[#1c4270] shrink-0">
+              {weakTopics.length === 0 ? (
+                <EmptyState
+                  icon={<TargetIcon weight="duotone" />}
+                  title="Още няма достатъчно данни"
+                  description="Реши няколко задачи и тук ще се появят темите, които се получават най-трудно."
+                  action={
+                    <Button onClick={() => navigate('/grades')}>
+                      Към упражненията
+                      <ArrowRightIcon />
+                    </Button>
+                  }
+                />
+              ) : (
+                <ul className="grid gap-3 sm:grid-cols-2">
+                  {weakTopics.map((topic) => (
+                    <li key={topic.topic_id}>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/topics/${topic.topic_id}/lessons`)}
+                        className="flex w-full items-start justify-between gap-4 rounded-xl border border-line bg-surface p-5 text-left shadow-lift-1 transition-[border-color,box-shadow] duration-200 hover:border-brand hover:shadow-lift-2"
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate text-body font-semibold text-ink">
+                            {topic.title}
+                          </span>
+                          <span className="mt-0.5 block text-caption text-ink-muted">
+                            {topic.reason}
+                          </span>
+                          <span className="mt-3 block h-1.5 w-full overflow-hidden rounded-full bg-sunken">
+                            <motion.span
+                              initial={reduced ? false : { width: 0 }}
+                              animate={{ width: `${topic.accuracy}%` }}
+                              transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+                              className={cn(
+                                'block h-full rounded-full',
+                                topic.accuracy < 50 ? 'bg-danger' : 'bg-warn'
+                              )}
+                            />
+                          </span>
+                        </span>
+                        <span className="tnum shrink-0 text-title font-semibold text-ink">
                           {topic.accuracy.toFixed(0)}%
                         </span>
-                      </div>
-                    </button>
+                      </button>
+                    </li>
                   ))}
-                </div>
-              </div>
+                </ul>
+              )}
+            </Reveal>
+
+            {/* ── Daily missions ─────────────────────────────────────────── */}
+            <Reveal>
+              <SectionHeading
+                id="missions"
+                title="Задачи за днес"
+                description="Кратки сесии, съобразени с това, което вече си решавал."
+              />
+
+              {missions.length === 0 ? (
+                <EmptyState
+                  icon={<FireIcon weight="duotone" />}
+                  title="Няма активни задачи за днес"
+                  description="Започни свободна сесия по тема и задачите за утре ще се подредят около нея."
+                  action={
+                    <Button variant="outline" onClick={() => navigate('/grades')}>
+                      Избери тема
+                    </Button>
+                  }
+                />
+              ) : (
+                <ul className="grid gap-3 sm:grid-cols-2">
+                  {missions.map((mission) => (
+                    <li key={mission.id}>
+                      <MissionCard mission={mission} onStart={() => navigate(mission.route)} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Reveal>
+
+            {isDevMode && (
+              <Reveal>
+                <BadgeShelf />
+              </Reveal>
             )}
-
-            {/* Action cards */}
-            <h3 id="dashboard-actions" className="text-sm font-semibold uppercase tracking-widest text-slate-400 mb-4 scroll-mt-28">
-              Какво искаш да правиш?
-            </h3>
-            <div className="space-y-5">
-              <button
-                onClick={() => navigate('/nvo/practice')}
-                className="group relative bg-[#1c4270] text-white rounded-xl p-6 shadow-md hover:bg-slate-700 hover:shadow-lg transition-all text-left overflow-hidden w-full"
-              >
-                <div className="relative">
-                  <div className="inline-block text-xs font-bold uppercase tracking-widest bg-white/15 px-2 py-1 rounded-md mb-3 text-white/70">
-                    Основен модул
-                  </div>
-                  <h3 className="text-xl font-bold mb-1">НВО</h3>
-                  <p className="text-white/60 text-sm">
-                    Национално външно оценяване: тренировки в изпитен формат
-                  </p>
-                  <div className="mt-4 flex items-center gap-1 text-sm font-semibold text-white/80 group-hover:text-white transition-colors">
-                    Стартирай НВО тренировка
-                    <span className="group-hover:translate-x-1 transition-transform inline-block">→</span>
-                  </div>
-                </div>
-              </button>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-
-              <button
-                onClick={() => navigate('/grades')}
-                className="group relative bg-slate-600 text-white rounded-xl p-6 shadow-sm hover:bg-[#1c4270] hover:shadow-md transition-all text-left overflow-hidden"
-              >
-                <div className="relative">
-                  <h3 className="text-base font-bold mb-1">Упражнения</h3>
-                  <p className="text-white/60 text-sm">Практикувай с AI-генерирани задачи</p>
-                  <div className="mt-4 flex items-center gap-1 text-sm font-semibold text-white/70 group-hover:text-white transition-colors">
-                    Започни
-                    <span className="group-hover:translate-x-1 transition-transform inline-block">→</span>
-                  </div>
-                </div>
-              </button>
-
-              <button
-                onClick={() => navigate('/learn/grades')}
-                className="group relative bg-slate-600 text-white rounded-xl p-6 shadow-sm hover:bg-[#1c4270] hover:shadow-md transition-all text-left overflow-hidden"
-              >
-                <div className="relative">
-                  <h3 className="text-base font-bold mb-1">Теория</h3>
-                  <p className="text-white/60 text-sm">Учи концепциите стъпка по стъпка</p>
-                  <div className="mt-4 flex items-center gap-1 text-sm font-semibold text-white/70 group-hover:text-white transition-colors">
-                    Отвори
-                    <span className="group-hover:translate-x-1 transition-transform inline-block">→</span>
-                  </div>
-                </div>
-              </button>
-
-              <button
-                onClick={() => navigate('/progress')}
-                className="group relative bg-slate-600 text-white rounded-xl p-6 shadow-sm hover:bg-[#1c4270] hover:shadow-md transition-all text-left overflow-hidden"
-              >
-                <div className="relative">
-                  <h3 className="text-base font-bold mb-1">Прогрес</h3>
-                  <p className="text-white/60 text-sm">Виж детайлен напредък по теми</p>
-                  <div className="mt-4 flex items-center gap-1 text-sm font-semibold text-white/70 group-hover:text-white transition-colors">
-                    Преглед
-                    <span className="group-hover:translate-x-1 transition-transform inline-block">→</span>
-                  </div>
-                </div>
-              </button>
-              </div>
-            </div>
-          </>
+          </div>
         )}
-      </main>
-    </div>
+      </PageShell>
+    </>
   );
 };
 
-const DashboardPage: React.FC = () => {
-  const { dashboardLayout } = useSettings();
-  if (dashboardLayout === 'coach') return <CoachDashboardPage />;
-  return <ClassicDashboardPage />;
+/* ── Pieces ──────────────────────────────────────────────────────────────── */
+
+const LevelCard: React.FC<{ xp: XpSummary | null }> = ({ xp }) => {
+  const level = xp?.level ?? 1;
+  const intoLevel = xp?.xp_into_level ?? 0;
+  const toNext = xp?.xp_to_next_level ?? 100;
+  const percent = xp?.progress_percentage ?? 0;
+  const span = Math.max(1, intoLevel + toNext);
+
+  return (
+    <section className="flex h-full flex-col justify-between gap-6 rounded-xl border border-line bg-surface p-6 shadow-lift-1">
+      <div>
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-micro font-semibold uppercase tracking-[0.08em] text-ink-faint">
+            Ниво
+          </span>
+          {(xp?.streak_days ?? 0) > 1 && (
+            <Badge variant="warn" numeric>
+              <FireIcon weight="fill" />
+              {xp?.streak_days} дни поред
+            </Badge>
+          )}
+        </div>
+        <p className="tnum mt-2 text-[3rem] font-semibold leading-none text-ink">{level}</p>
+        <p className="mt-2 text-caption text-ink-muted">
+          Общо <span className="tnum font-semibold text-ink">{xp?.total_xp ?? 0}</span> XP, от тях{' '}
+          <span className="tnum font-semibold text-brand-ink">{xp?.today_xp ?? 0}</span> днес.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="tnum text-caption text-ink-muted">
+            {intoLevel} / {span} XP
+          </span>
+          <span className="tnum text-caption text-ink-muted">
+            остават {toNext} до ниво {level + 1}
+          </span>
+        </div>
+        <Progress value={percent} aria-label={`Прогрес към ниво ${level + 1}`} />
+      </div>
+    </section>
+  );
 };
+
+const MetricCard: React.FC<{
+  label: string;
+  value: string;
+  suffix?: string;
+  hint?: string;
+  progress?: number;
+  tone?: 'default' | 'brand' | 'warn' | 'danger';
+  icon?: React.ReactNode;
+  onClick?: () => void;
+}> = ({ label, value, suffix, hint, progress, tone = 'default', icon, onClick }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className="flex flex-col justify-between gap-4 rounded-xl border border-line bg-surface p-5 text-left shadow-lift-1 transition-[border-color,box-shadow] duration-200 hover:border-brand hover:shadow-lift-2"
+  >
+    <span className="flex items-center justify-between gap-2">
+      <span className="text-micro font-semibold uppercase tracking-[0.08em] text-ink-faint">
+        {label}
+      </span>
+      <span aria-hidden="true" className="text-ink-faint [&_svg]:size-4">
+        {icon}
+      </span>
+    </span>
+
+    <span>
+      <span className="flex items-baseline gap-1.5">
+        <span
+          className={cn(
+            'tnum text-[2rem] font-semibold leading-none',
+            tone === 'brand' && 'text-brand-ink',
+            tone === 'warn' && 'text-warn',
+            tone === 'danger' && 'text-danger',
+            tone === 'default' && 'text-ink'
+          )}
+        >
+          {value}
+        </span>
+        {suffix && <span className="tnum text-body text-ink-faint">{suffix}</span>}
+      </span>
+      {typeof progress === 'number' && (
+        <span className="mt-3 block h-1.5 w-full overflow-hidden rounded-full bg-sunken">
+          <span
+            className={cn(
+              'block h-full rounded-full transition-[width] duration-700',
+              tone === 'danger' ? 'bg-danger' : tone === 'warn' ? 'bg-warn' : 'bg-brand'
+            )}
+            style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
+          />
+        </span>
+      )}
+      {hint && <span className="mt-2 block text-caption text-ink-muted">{hint}</span>}
+    </span>
+  </button>
+);
+
+const DIFFICULTY_VARIANT: Record<string, 'brand' | 'warn' | 'danger' | 'neutral'> = {
+  Лесно: 'brand',
+  Средно: 'warn',
+  Трудно: 'danger',
+};
+
+const MissionCard: React.FC<{ mission: DailyMission; onStart: () => void }> = ({
+  mission,
+  onStart,
+}) => {
+  const target = mission.target_count ?? 0;
+  const done = mission.completed_count ?? 0;
+
+  return (
+    <article className="flex h-full flex-col gap-4 rounded-xl border border-line bg-surface p-5 shadow-lift-1">
+      <header className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="text-body font-semibold text-ink">{mission.title}</h3>
+          <p className="mt-0.5 text-caption text-ink-muted">{mission.description}</p>
+        </div>
+        <Badge variant={DIFFICULTY_VARIANT[mission.difficulty] ?? 'neutral'}>
+          {mission.difficulty}
+        </Badge>
+      </header>
+
+      <dl className="flex flex-wrap items-center gap-x-4 gap-y-1 text-caption text-ink-muted">
+        <div className="flex items-center gap-1.5">
+          <dt className="sr-only">Времетраене</dt>
+          <dd className="tnum">{mission.duration}</dd>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <dt className="sr-only">Награда</dt>
+          <dd className="tnum">
+            +{mission.xp_base} XP
+            {mission.xp_bonus > 0 && (
+              <span className="text-brand-ink"> и +{mission.xp_bonus} бонус</span>
+            )}
+          </dd>
+        </div>
+      </dl>
+
+      {target > 0 && (
+        <div className="space-y-1.5">
+          <div className="flex items-baseline justify-between">
+            <span className="text-caption text-ink-muted">
+              {mission.is_completed ? 'Завършена' : 'Прогрес'}
+            </span>
+            <span className="tnum text-caption font-semibold text-ink">
+              {done} / {target}
+            </span>
+          </div>
+          <Progress value={Math.min(100, (done / target) * 100)} />
+        </div>
+      )}
+
+      <Button
+        variant={mission.is_completed ? 'outline' : 'soft'}
+        className="mt-auto w-full"
+        onClick={onStart}
+      >
+        {mission.is_completed ? 'Реши отново' : 'Започни'}
+        <ArrowRightIcon />
+      </Button>
+    </article>
+  );
+};
+
+const DashboardSkeleton: React.FC = () => (
+  <div className="space-y-10" role="status" aria-live="polite">
+    <span className="sr-only">Таблото се зарежда</span>
+    <div className="grid gap-4 lg:grid-cols-12">
+      <Skeleton className="h-56 lg:col-span-4" />
+      <div className="grid gap-4 sm:grid-cols-2 lg:col-span-8">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-[6.5rem]" />
+        ))}
+      </div>
+    </div>
+    <div className="space-y-4">
+      <Skeleton className="h-6 w-48" />
+      <div className="grid gap-3 sm:grid-cols-2">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-28" />
+        ))}
+      </div>
+    </div>
+  </div>
+);
 
 export default DashboardPage;

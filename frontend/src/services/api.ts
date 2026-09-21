@@ -1,25 +1,9 @@
 import axios from 'axios';
 import { logApiFailure } from '../utils/errorLogger';
+import { hasValidSession } from '../utils/auth';
+import { API_BASE_URL } from '../config/api';
 
-const buildDefaultApiBaseUrl = (): string => {
-  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
-    return '/api';
-  }
-  return '/_/backend';
-};
-
-const resolveApiBaseUrl = (): string => {
-  const envBase = import.meta.env.VITE_API_URL;
-  if (!envBase) return buildDefaultApiBaseUrl();
-
-  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && envBase === '/api') {
-    return '/_/backend';
-  }
-
-  return envBase;
-};
-
-export const API_BASE_URL = resolveApiBaseUrl();
+export { API_BASE_URL };
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -58,9 +42,24 @@ apiClient.interceptors.response.use(
     }
 
     if (error.response?.status === 401) {
-      // Handle unauthorized access
-      localStorage.removeItem('token');
-      window.location.href = '/login';
+      // Skip the auth bootstrap calls themselves — a 401 from /auth/google or
+      // /auth/guest means "that credential didn't work", not "your session
+      // expired", and those pages handle their own error state.
+      const isAuthBootstrap = /\/auth\/(google|guest|link-google)$/.test(failedUrl);
+      // Only react when the client believed the session was still good. A
+      // token that was already expired client-side has nothing left to
+      // "yank" — hasValidSession() already cleared it — so a background poll
+      // hitting this after the fact should not force-navigate someone away
+      // from what they're doing (e.g. mid-exam).
+      if (!isAuthBootstrap && hasValidSession()) {
+        // A full page reload here (the old behavior) destroys React state —
+        // in particular the in-progress NVO exam answers. AuthContext listens
+        // for this event and clears the session without reloading; RequireAuth
+        // then does a client-side redirect that preserves everything else.
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.dispatchEvent(new Event('auth:unauthorized'));
+      }
     }
     return Promise.reject(error);
   }

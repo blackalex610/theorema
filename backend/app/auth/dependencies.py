@@ -111,45 +111,89 @@ def require_admin(
 
 # ─── Limit-gated dependencies ─────────────────────────────────────────────────
 
-def _check_and_increment(user: User, db: Session, feature: str) -> User:
+def _has_capacity(user: User, feature: str) -> bool:
+    limits = _get_limits(user)
+    used: int = getattr(user, f"{feature}_today")
+    return used < limits[feature]
+
+
+def _raise_limit_reached(user: User, feature: str) -> None:
     limits = _get_limits(user)
     used: int = getattr(user, f"{feature}_today")
     limit: int = limits[feature]
     label = FEATURE_LABELS.get(feature, feature)
+    raise HTTPException(
+        status_code=429,
+        detail={
+            "code": "LIMIT_REACHED",
+            "feature": feature,
+            "limit": limit,
+            "used": used,
+            "plan": user.plan,
+            "remaining": 0,
+            # No `upgrade_url` here on purpose: it used to hardcode
+            # https://smartnvo.vercel.app/settings#upgrade, a route that
+            # never existed (Settings is a modal, not a page) on a domain
+            # nothing confirms is even the real deployment — and no
+            # frontend code ever read the field. The actual upgrade path
+            # is UpgradePrompt.tsx dispatching OPEN_SETTINGS_MODAL_EVENT,
+            # which needs no URL at all.
+            "message": (
+                f"Достигнахте дневния лимит от {limit} {label}. "
+                "Надградете до Premium за неограничен достъп."
+            ),
+        },
+    )
 
-    if used >= limit:
-        raise HTTPException(
-            status_code=429,
-            detail={
-                "code": "LIMIT_REACHED",
-                "feature": feature,
-                "limit": limit,
-                "used": used,
-                "plan": user.plan,
-                "remaining": 0,
-                "upgrade_url": "https://smartnvo.vercel.app/settings#upgrade",
-                "message": (
-                    f"Достигнахте дневния лимит от {limit} {label}. "
-                    "Надградете до Premium за неограничен достъп."
-                ),
-            },
-        )
 
-    setattr(user, f"{feature}_today", used + 1)
+def _check_and_increment(user: User, db: Session, feature: str) -> User:
+    if not _has_capacity(user, feature):
+        _raise_limit_reached(user, feature)
+    setattr(user, f"{feature}_today", getattr(user, f"{feature}_today") + 1)
     db.commit()
     return user
 
 
-def _optional_limit_check(
+def _check_capacity_only(user: User, feature: str) -> User:
+    """Verify the daily limit isn't already exhausted, without spending it.
+
+    Used where the credit must only be charged after the paid-for work
+    actually succeeds — see require_nvo_exam_capacity / increment_usage
+    below and nvo.py's create_nvo_generation_job. Charging up front made a
+    student whose generation failed lose their one-exam-per-day credit for
+    nothing.
+    """
+    if not _has_capacity(user, feature):
+        _raise_limit_reached(user, feature)
+    return user
+
+
+def increment_usage(user: User, db: Session, feature: str) -> None:
+    """Charge one credit for `feature` after the work it pays for succeeded.
+
+    Re-checks capacity rather than trusting the earlier _check_capacity_only
+    call: defends against a race where the same user's other credit-consuming
+    request spent the last slot in between the check and this call.
+    """
+    if not _has_capacity(user, feature):
+        _raise_limit_reached(user, feature)
+    setattr(user, f"{feature}_today", getattr(user, f"{feature}_today") + 1)
+    db.commit()
+
+
+def _require_auth_and_limit(
     authorization: str = Header(None),
     db: Session = Depends(get_db),
     feature: str = "",
 ) -> User:
-    """Enforce limits for any caller. No valid JWT -> 401, never free pass.
+    """Enforce auth + the per-feature daily limit. No valid JWT -> 401.
 
-    SECURITY: previously returned None when no Authorization header was sent,
-    which let anyone bypass every plan limit. Now a missing/invalid token is a
-    hard 401 so the monetization gating cannot be skipped.
+    SECURITY: this used to be `_optional_limit_check`, which returned None when
+    no Authorization header was sent and thereby let anyone bypass every plan
+    limit. A missing/invalid token is now a hard 401 and the credit is always
+    metered, so the monetization gating cannot be skipped. There is deliberately
+    no "skip limit" path here: any endpoint that must bypass metering has to opt
+    out explicitly by depending on something other than this helper.
     """
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(
@@ -211,25 +255,66 @@ def enforce_ai_exercise_generation(
     return _check_and_increment(user, db, "ai_exercises")
 
 
+def enforce_ai_examples_generation(
+    authorization: Optional[str],
+    db: Session,
+) -> User:
+    """Require auth + daily limit before generating uncached AI example problems.
+
+    Shares the ai_theory budget (examples are lesson content), but deliberately
+    skips check_theory_cooldown: the lesson page fires the theory and examples
+    requests concurrently, so applying the theory cooldown here would 429 the
+    examples request every time a lesson is opened.
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=401,
+            detail={
+                "code": "AUTH_REQUIRED",
+                "message": "Влезте в профил, за да генерирате AI примери.",
+            },
+        )
+    user = get_current_user(authorization=authorization, db=db)
+    return _check_and_increment(user, db, "ai_theory")
+
+
 def require_ai_chat(
     authorization: Optional[str] = Header(default=None),
     db: Session = Depends(get_db),
-) -> Optional[User]:
-    return _optional_limit_check(authorization, db, "ai_chat")
+) -> User:
+    return _require_auth_and_limit(authorization, db, "ai_chat")
 
 
 def require_nvo_exam(
     authorization: Optional[str] = Header(default=None),
     db: Session = Depends(get_db),
-) -> Optional[User]:
-    return _optional_limit_check(authorization, db, "nvo_exams")
+) -> User:
+    return _require_auth_and_limit(authorization, db, "nvo_exams")
+
+
+def require_nvo_exam_capacity(
+    authorization: Optional[str] = Header(default=None),
+    db: Session = Depends(get_db),
+) -> User:
+    """Like require_nvo_exam, but only verifies the daily limit — it does not
+    spend the credit. NVO generation charges it only once an exam actually
+    exists (see nvo.py's create_nvo_generation_job + increment_usage), so a
+    generation failure (AI error and the pool fallback both failing) does not
+    cost the student their one-exam-per-day allowance for nothing.
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required to use this feature.",
+        )
+    return _check_capacity_only(get_current_user(authorization=authorization, db=db), "nvo_exams")
 
 
 def require_image_scan(
     authorization: Optional[str] = Header(default=None),
     db: Session = Depends(get_db),
-) -> Optional[User]:
-    return _optional_limit_check(authorization, db, "image_scans")
+) -> User:
+    return _require_auth_and_limit(authorization, db, "image_scans")
 
 
 def enforce_ai_theory_generation(

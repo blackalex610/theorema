@@ -1,6 +1,13 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { GoogleOAuthProvider } from '@react-oauth/google'
+
+// Self-hosted variable fonts. Each package ships Cyrillic subsets, which the
+// Bulgarian UI needs and most "default" web fonts do not carry.
+import '@fontsource-variable/onest'
+import '@fontsource-variable/manrope'
+import '@fontsource-variable/jetbrains-mono'
+
 import './index.css'
 import App from './App.tsx'
 import { GOOGLE_CLIENT_ID } from './config/google'
