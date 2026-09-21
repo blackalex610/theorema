@@ -75,12 +75,12 @@ def tri_height_and_bisector(rng: random.Random, slot: Slot) -> GeneratedItem:
     if key <= 20 or abc <= 10 or key + abc + gamma != 180:
         raise Retry("angle chase must stay inside a valid triangle")
 
-    f = triangle_for_cevians()
+    f = triangle_for_cevians(rng=rng)
     A, B, C = f.points["A"], f.points["B"], f.points["C"]
     H = f.put("H", foot_of_perpendicular(B, A, C))
     # L sits between A and H, as it does in the official figure — the bisector
     # from B meets AC nearer A than the height does whenever ∠A < ∠C.
-    f.put("L", lerp(A, H, 0.62))
+    f.put("L", lerp(A, H, rng.uniform(0.50, 0.74)))
     f.path(["A", "B", "C"], close=True)
     f.seg("B", "H")
     f.seg("B", "L")
@@ -97,7 +97,7 @@ def tri_height_and_bisector(rng: random.Random, slot: Slot) -> GeneratedItem:
               f"$\\sphericalangle HCB = {gamma}^\\circ$, то мярката на $\\sphericalangle BAC$ е:"),
         options=options, correct_answer=letter, difficulty="hard",
         scene=f.to_spec(aria=(f"Триъгълник ABC с височина BH и ъглополовяща BL към страната AC; "
-                              f"отбелязани са ъгъл {lbh} градуса при B и {gamma} градуса при C")),
+                              f"отбелязани са ъгъл {lbh} градуса при B и {gamma} градуса при C"), rng=rng),
         solution=(rf"$\sphericalangle HBC = 90^\circ - {gamma}^\circ = {hbc}^\circ$, "
                   rf"$\sphericalangle LBC = {lbh}^\circ + {hbc}^\circ = {lbc}^\circ$, "
                   rf"$\sphericalangle ABC = {abc}^\circ$ и "
@@ -121,9 +121,9 @@ def tri_bisector_isosceles(rng: random.Random, slot: Slot) -> GeneratedItem:
     if key <= 10 or acb <= 10:
         raise Retry("degenerate triangle")
 
-    f = scalene_triangle()
+    f = scalene_triangle(rng=rng)
     A, B, C = f.points["A"], f.points["B"], f.points["C"]
-    f.put("N", lerp(A, B, 0.52), dot=True)
+    f.put("N", lerp(A, B, rng.uniform(0.44, 0.60)), dot=True)
     f.path(["A", "B", "C"], close=True)
     f.seg("C", "N")
     f.tick("A", "N", count=1)
@@ -141,7 +141,7 @@ def tri_bisector_isosceles(rng: random.Random, slot: Slot) -> GeneratedItem:
               f"и $AN = CN$. Мярката на $\\sphericalangle ABC$ е:"),
         options=options, correct_answer=letter, difficulty="hard",
         scene=f.to_spec(aria=("Триъгълник ABC с ъглополовяща CN към страната AB, "
-                              f"като AN = CN и ъгъл CNB е {cnb} градуса")),
+                              f"като AN = CN и ъгъл CNB е {cnb} градуса"), rng=rng),
         solution=(rf"$\sphericalangle ANC = {anc}^\circ$, а от $AN = CN$ следва "
                   rf"$\sphericalangle NAC = \sphericalangle NCA = {nac}^\circ$. "
                   rf"Тогава $\sphericalangle ACB = {acb}^\circ$ и "
@@ -169,7 +169,7 @@ def incentre_angle(rng: random.Random, slot: Slot) -> GeneratedItem:
     if gamma % 2:
         raise Retry("γ must be even so ∠AOB is whole")
 
-    f = scalene_triangle()
+    f = scalene_triangle(rng=rng)
     A, B, C = f.points["A"], f.points["B"], f.points["C"]
     fa = angle_bisector_point(A, B, C, 200.0)
     fb = angle_bisector_point(B, A, C, 200.0)
@@ -208,7 +208,7 @@ def incentre_angle(rng: random.Random, slot: Slot) -> GeneratedItem:
             topic=slot.topic, kind="short", points=slot.points,
             stem=stem + " Намерете мярката на $\\sphericalangle ACB$.",
             correct_answer=f"{gamma}°", difficulty="hard",
-            scene=f.to_spec(aria=aria), solution=solution,
+            scene=f.to_spec(aria=aria, rng=rng), solution=solution,
             signature=f"incentre:{gamma}",
         )
 
@@ -217,7 +217,7 @@ def incentre_angle(rng: random.Random, slot: Slot) -> GeneratedItem:
         topic=slot.topic, kind="mc", points=slot.points,
         stem=stem + " Мярката на $\\sphericalangle ACB$ е:",
         options=options, correct_answer=letter, difficulty="hard",
-        scene=f.to_spec(aria=aria), solution=solution,
+        scene=f.to_spec(aria=aria, rng=rng), solution=solution,
         signature=f"incentre:{gamma}",
     )
 
@@ -238,7 +238,7 @@ def parallels_zigzag(rng: random.Random, slot: Slot) -> GeneratedItem:
     if key <= 15 or key >= 170:
         raise Retry("the zigzag angle must be clearly drawable")
 
-    f = two_parallel_lines()
+    f = two_parallel_lines(rng=rng)
     f.put("B", (108.0, 38.0), dot=True)
     f.put("A", (78.0, 140.0), dot=True)
     f.put("C", (176.0, 88.0), dot=True)
@@ -258,7 +258,7 @@ def parallels_zigzag(rng: random.Random, slot: Slot) -> GeneratedItem:
               "мярката на $\\sphericalangle ACB$ е:"),
         options=options, correct_answer=letter, difficulty="medium",
         scene=f.to_spec(aria=(f"Две успоредни прави a и b, свързани с начупена линия през точка C; "
-                              f"отбелязани са {beta} градуса при B и {alpha} градуса при A")),
+                              f"отбелязани са {beta} градуса при B и {alpha} градуса при A"), rng=rng),
         solution=(rf"През $C$ построяваме права, успоредна на $a$ и $b$. Тогава "
                   rf"$\sphericalangle ACB = (180^\circ - {beta}^\circ) + "
                   rf"(180^\circ - {alpha}^\circ) = {key}^\circ$"),
@@ -323,7 +323,7 @@ def angle_equals_neighbours(rng: random.Random, slot: Slot) -> GeneratedItem:
               "равна на сбора от мерките на двата му съседни ъгъла. Мярката на "
               "по-големия от ъглите е:"),
         options=options, correct_answer=letter, difficulty="medium",
-        scene=f.to_spec(aria="Две пресичащи се прави с отбелязан един от получените ъгли"),
+        scene=f.to_spec(aria="Две пресичащи се прави с отбелязан един от получените ъгли", rng=rng),
         solution=(r"Съседните ъгли са по $180^\circ - x$, значи "
                   r"$x = 2(180^\circ - x)$, откъдето $3x = 360^\circ$ и $x = 120^\circ$"),
         signature="angle_eq_neigh",
@@ -361,7 +361,7 @@ def concurrent_lines_angle(rng: random.Random, slot: Slot) -> GeneratedItem:
               "мярката на ъгъл $\\alpha$ е:"),
         options=options, correct_answer=letter, difficulty="medium",
         scene=f.to_spec(aria=(f"Три прави, пресичащи се в точка O, с отбелязани ъгли "
-                              f"{a} и {b} градуса и търсен ъгъл алфа")),
+                              f"{a} и {b} градуса и търсен ъгъл алфа"), rng=rng),
         solution=(rf"Трите ъгъла при $O$ от едната страна на права $c$ дават "
                   rf"$180^\circ$: $\alpha = 180^\circ - {a}^\circ - {b}^\circ = {key}^\circ$"),
         signature=f"concurrent:{a}:{b}",
@@ -386,7 +386,7 @@ def perp_bisector_of_hypotenuse(rng: random.Random, slot: Slot) -> GeneratedItem
         raise Retry("AC must divide by 3 for a whole answer")
     key = ac // 3
 
-    f = right_triangle()
+    f = right_triangle(rng=rng)
     A, B, C = f.points["A"], f.points["B"], f.points["C"]
     mid_ab = midpoint(A, B)
     # The perpendicular bisector of AB is vertical here (AB is horizontal), so
@@ -417,7 +417,7 @@ def perp_bisector_of_hypotenuse(rng: random.Random, slot: Slot) -> GeneratedItem
               f"$\\sphericalangle BAC = {alpha}^\\circ$, то дължината на $CM$ е:"),
         options=options, correct_answer=letter, difficulty="hard",
         scene=f.to_spec(aria=("Правоъгълен триъгълник ABC с прав ъгъл при C, симетрала "
-                              "на хипотенузата AB, пресичаща катета AC в точка M")),
+                              "на хипотенузата AB, пресичаща катета AC в точка M"), rng=rng),
         solution=(rf"$MA = MB$, значи $\sphericalangle MBA = {alpha}^\circ$ и "
                   rf"$\sphericalangle BMC = {2 * alpha}^\circ$. В правоъгълния "
                   rf"$\triangle BMC$ катетът $CM$ лежи срещу ъгъл "
@@ -444,7 +444,7 @@ def median_to_hypotenuse(rng: random.Random, slot: Slot) -> GeneratedItem:
     if ab % 2 or cmb >= 90:
         raise Retry("keep CM whole and ∠CMB acute so the figure reads")
 
-    f = right_triangle()
+    f = right_triangle(rng=rng)
     A, B, C = f.points["A"], f.points["B"], f.points["C"]
     f.put("M", midpoint(A, B), dot=True)
     f.path(["A", "B", "C"], close=True)
@@ -470,7 +470,7 @@ def median_to_hypotenuse(rng: random.Random, slot: Slot) -> GeneratedItem:
             parts=["А) Намерете дължината на $CM$.",
                    "Б) Намерете мярката на $\\sphericalangle CMB$."],
             correct_answer=[f"{cm} cm", f"{cmb}°"],
-            difficulty="medium", scene=f.to_spec(aria=aria), solution=solution,
+            difficulty="medium", scene=f.to_spec(aria=aria, rng=rng), solution=solution,
             signature=f"median_hyp:{ab}:{alpha}",
         )
 
@@ -482,7 +482,7 @@ def median_to_hypotenuse(rng: random.Random, slot: Slot) -> GeneratedItem:
         stem=(f"В правоъгълния $\\triangle ABC$ хипотенузата $AB$ има дължина ${ab}$ cm "
               f"и точка $M$ е средата на $AB$. Дължината на $CM$ е:"),
         options=options, correct_answer=letter, difficulty="easy",
-        scene=f.to_spec(aria=aria), solution=solution,
+        scene=f.to_spec(aria=aria, rng=rng), solution=solution,
         signature=f"median_hyp:{ab}:{alpha}",
     )
 
@@ -497,7 +497,7 @@ def right_triangle_perimeter(rng: random.Random, slot: Slot) -> GeneratedItem:
     options, letter = numeric_options(
         key, [a + b, c * 2, a + b + c - a, a * b], rng=rng, positive_only=True,
         fmt=str, suffix="cm")
-    f = right_triangle()
+    f = right_triangle(rng=rng)
     f.path(["A", "B", "C"], close=True)
     f.right_angle("C", "A", "B")
     # Plain text, not LaTeX: scene labels are drawn as SVG <text>, so "$12$"
@@ -510,7 +510,7 @@ def right_triangle_perimeter(rng: random.Random, slot: Slot) -> GeneratedItem:
               f"$(\\sphericalangle ACB = 90^\\circ)$ са ${a}$ cm и ${b}$ cm. "
               f"Периметърът на триъгълника е:"),
         options=options, correct_answer=letter, difficulty="medium",
-        scene=f.to_spec(aria=f"Правоъгълен триъгълник с катети {a} и {b}"),
+        scene=f.to_spec(aria=f"Правоъгълен триъгълник с катети {a} и {b}", rng=rng),
         solution=(rf"$AB = \sqrt{{{a}^2 + {b}^2}} = {c}$ cm, а периметърът е "
                   rf"${a} + {b} + {c} = {key}$ cm"),
         signature=f"rt_perim:{a}:{b}",
@@ -532,9 +532,9 @@ def parallelogram_isosceles_cut(rng: random.Random, slot: Slot) -> GeneratedItem
     if key <= 20:
         raise Retry("the parallelogram angle must stay drawable")
 
-    f = parallelogram()
+    f = parallelogram(rng=rng)
     A, B, C, D = (f.points[k] for k in "ABCD")
-    f.put("M", lerp(A, B, 0.44), dot=True)
+    f.put("M", lerp(A, B, rng.uniform(0.36, 0.52)), dot=True)
     f.path(["A", "B", "C", "D"], close=True)
     f.seg("D", "M")
     f.angle("D", "M", "C", label=deg(mdc), radius=24)
@@ -550,7 +550,7 @@ def parallelogram_isosceles_cut(rng: random.Random, slot: Slot) -> GeneratedItem
               f"$\\sphericalangle BCD$ е:"),
         options=options, correct_answer=letter, difficulty="hard",
         scene=f.to_spec(aria=("Успоредник ABCD с точка M върху AB, отсечка DM и "
-                              f"отбелязан ъгъл MDC от {mdc} градуса")),
+                              f"отбелязан ъгъл MDC от {mdc} градуса"), rng=rng),
         solution=(rf"$DC \parallel AB$, значи $\sphericalangle DMA = "
                   rf"\sphericalangle MDC = {mdc}^\circ$. От $AD = AM$ следва "
                   rf"$\sphericalangle ADM = {mdc}^\circ$ и "
@@ -574,7 +574,7 @@ def rhombus_bisector_angle(rng: random.Random, slot: Slot) -> GeneratedItem:
     if key <= 5:
         raise Retry("degenerate")
 
-    f = parallelogram(rhombus=True)
+    f = parallelogram(rhombus=True, rng=rng)
     A, B, C, D = (f.points[k] for k in "ABCD")
     f.path(["A", "B", "C", "D"], close=True)
     f.seg("A", "C")
@@ -593,7 +593,7 @@ def rhombus_bisector_angle(rng: random.Random, slot: Slot) -> GeneratedItem:
               f"Мярката на $\\sphericalangle ALB$ е:"),
         options=options, correct_answer=letter, difficulty="hard",
         scene=f.to_spec(aria=(f"Ромб ABCD с диагонал AC и ъглополовяща AL, "
-                              f"като ъгъл BAD е {bad} градуса")),
+                              f"като ъгъл BAD е {bad} градуса"), rng=rng),
         solution=(rf"Диагоналът $AC$ е ъглополовяща, значи "
                   rf"$\sphericalangle BAC = {bac}^\circ$ и "
                   rf"$\sphericalangle BAL = {bal}^\circ$. В $\triangle ABL$ имаме "
@@ -615,7 +615,7 @@ def parallelogram_angle_ratio(rng: random.Random, slot: Slot) -> GeneratedItem:
     small, big = p * unit_deg, q * unit_deg
     key = big - small
 
-    f = parallelogram()
+    f = parallelogram(rng=rng)
     f.path(["A", "B", "C", "D"], close=True)
     f.angle("A", "B", "D", arcs=1, radius=24)
     f.angle("B", "C", "A", arcs=2, radius=24)
@@ -626,7 +626,7 @@ def parallelogram_angle_ratio(rng: random.Random, slot: Slot) -> GeneratedItem:
         stem=(f"Мерките на два от ъглите на успоредник се отнасят както ${p} : {q}$. "
               f"Разликата от мерките на двата ъгъла е:"),
         options=options, correct_answer=letter, difficulty="medium",
-        scene=f.to_spec(aria="Успоредник ABCD с отбелязани два съседни ъгъла"),
+        scene=f.to_spec(aria="Успоредник ABCD с отбелязани два съседни ъгъла", rng=rng),
         solution=(rf"Съседните ъгли са със сбор $180^\circ$, значи една част е "
                   rf"${unit_deg}^\circ$ и ъглите са ${small}^\circ$ и ${big}^\circ$; "
                   rf"разликата е ${key}^\circ$"),
@@ -676,7 +676,7 @@ def congruent_triangles_angle(rng: random.Random, slot: Slot) -> GeneratedItem:
               f"Мярката на $\\sphericalangle NMP$ е:"),
         options=options, correct_answer=letter, difficulty="medium",
         scene=f.to_spec(aria=("Два триъгълника ABC и MNP с равни съответни страни "
-                              "и равни ъгли при C и P")),
+                              "и равни ъгли при C и P"), rng=rng),
         solution=(rf"По първи признак $\triangle ABC \cong \triangle NMP$, значи "
                   rf"$\sphericalangle NMP = \sphericalangle ABC = 180^\circ - "
                   rf"{alpha}^\circ - {gamma}^\circ = {key}^\circ$"),
@@ -698,9 +698,9 @@ def isosceles_from_equal_segments(rng: random.Random, slot: Slot) -> GeneratedIt
     if key <= 20:
         raise Retry("∠ACB must stay positive and readable")
 
-    f = scalene_triangle(flat=True)
+    f = scalene_triangle(flat=True, rng=rng)
     A, B, C = f.points["A"], f.points["B"], f.points["C"]
-    f.put("F", lerp(A, B, 0.55), dot=True)
+    f.put("F", lerp(A, B, rng.uniform(0.46, 0.62)), dot=True)
     f.path(["A", "B", "C"], close=True)
     f.seg("C", "F")
     f.tick("A", "C", count=1)
@@ -719,7 +719,7 @@ def isosceles_from_equal_segments(rng: random.Random, slot: Slot) -> GeneratedIt
               f"$\\sphericalangle ACB$ е:"),
         options=options, correct_answer=letter, difficulty="hard",
         scene=f.to_spec(aria=("Триъгълник ABC с точка F върху AB, като AC = CF = BF, "
-                              f"и отбелязан ъгъл при B от {x} градуса")),
+                              f"и отбелязан ъгъл при B от {x} градуса"), rng=rng),
         solution=(rf"От $CF = BF$ следва $\sphericalangle FCB = {x}^\circ$, а от "
                   rf"$AC = CF$ — $\sphericalangle CAF = {2 * x}^\circ$. В "
                   rf"$\triangle ABC$: $\sphericalangle ACB = 180^\circ - "
@@ -760,7 +760,7 @@ def order_sides_by_angles(rng: random.Random, slot: Slot) -> GeneratedItem:
     ]
     options, letter = shuffle_options(f"${correct}$", [f"${o}$" for o in others], rng=rng)
 
-    f = scalene_triangle()
+    f = scalene_triangle(rng=rng)
     f.path(["A", "B", "C"], close=True)
     f.angle("B", "A", "C", label=deg(beta), radius=24)
 
@@ -770,7 +770,7 @@ def order_sides_by_angles(rng: random.Random, slot: Slot) -> GeneratedItem:
               f"$\\sphericalangle BAC : \\sphericalangle ACB = {p} : {q}$. "
               f"Вярното неравенство за страните на триъгълника е:"),
         options=options, correct_answer=letter, difficulty="hard",
-        scene=f.to_spec(aria=f"Триъгълник ABC с отбелязан ъгъл при B от {beta} градуса"),
+        scene=f.to_spec(aria=f"Триъгълник ABC с отбелязан ъгъл при B от {beta} градуса", rng=rng),
         solution=(rf"$\sphericalangle BAC = {alpha}^\circ$ и "
                   rf"$\sphericalangle ACB = {gamma}^\circ$. Срещу по-малък ъгъл лежи "
                   rf"по-малка страна, откъдето ${correct}$"),
@@ -944,7 +944,7 @@ def parallels_transversal_cointerior(rng: random.Random, slot: Slot) -> Generate
         [106, 113, 119, 127, 134, 143, 151]))
     key = 180 - alpha
 
-    f = two_parallel_lines()
+    f = two_parallel_lines(rng=rng)
     # P sits on b, Q on a, to the left of it — so the transversal leans the way
     # the printed figures draw it and the two marked angles are the co-interior
     # pair rather than a corresponding one.
@@ -965,7 +965,7 @@ def parallels_transversal_cointerior(rng: random.Random, slot: Slot) -> Generate
         options=options, correct_answer=letter, difficulty="easy",
         scene=f.to_spec(aria=(f"Две успоредни прави a и b, пресечени от правата PQ; "
                               f"при P е отбелязан ъгъл {alpha} градуса, а при Q — "
-                              f"търсеният ъгъл")),
+                              f"търсеният ъгъл"), rng=rng),
         solution=(rf"Двата отбелязани ъгъла са вътрешни едностранни, затова "
                   rf"сборът им е $180^\circ$ и търсеният ъгъл е "
                   rf"$180^\circ - {alpha}^\circ = {key}^\circ$"),
@@ -991,7 +991,7 @@ def parallels_zigzag_reverse(rng: random.Random, slot: Slot) -> GeneratedItem:
         raise Retry("the zigzag angle must be clearly drawable")
     key = alpha
 
-    f = two_parallel_lines()
+    f = two_parallel_lines(rng=rng)
     f.put("B", (108.0, 38.0), dot=True)
     f.put("A", (78.0, 140.0), dot=True)
     f.put("C", (176.0, 88.0), dot=True)
@@ -1012,7 +1012,7 @@ def parallels_zigzag_reverse(rng: random.Random, slot: Slot) -> GeneratedItem:
         options=options, correct_answer=letter, difficulty="hard",
         scene=f.to_spec(aria=(f"Две успоредни прави a и b, свързани с начупена линия през "
                               f"точка C; отбелязани са {beta} градуса при B и {acb} градуса "
-                              f"при C, търси се ъгълът при A")),
+                              f"при C, търси се ъгълът при A"), rng=rng),
         solution=(rf"През $C$ построяваме права, успоредна на $a$ и $b$, откъдето "
                   rf"$\sphericalangle ACB = (180^\circ - {beta}^\circ) + "
                   rf"(180^\circ - \alpha)$. От ${acb}^\circ = {180 - beta}^\circ + "
@@ -1049,7 +1049,7 @@ def order_angles_by_sides(rng: random.Random, slot: Slot) -> GeneratedItem:
     ]
     options, letter = shuffle_options(f"${correct}$", [f"${o}$" for o in others], rng=rng)
 
-    f = scalene_triangle()
+    f = scalene_triangle(rng=rng)
     f.path(["A", "B", "C"], close=True)
     f.label_along("B", "C", f"{a} cm")
     f.label_along("A", "C", f"{b} cm")
@@ -1061,7 +1061,7 @@ def order_angles_by_sides(rng: random.Random, slot: Slot) -> GeneratedItem:
               f"$AB = {c}$ cm. Вярното неравенство за ъглите на триъгълника е:"),
         options=options, correct_answer=letter, difficulty="easy",
         scene=f.to_spec(aria=(f"Триъгълник ABC със страни BC = {a} cm, AC = {b} cm "
-                              f"и AB = {c} cm")),
+                              f"и AB = {c} cm"), rng=rng),
         solution=(rf"Срещу по-малка страна лежи по-малък ъгъл. От "
                   rf"${by_side[0][0]} < {by_side[1][0]} < {by_side[2][0]}$ "
                   rf"следва ${correct}$"),
@@ -1093,7 +1093,7 @@ def order_sides_two_given_angles(rng: random.Random, slot: Slot) -> GeneratedIte
     ]
     options, letter = shuffle_options(f"${correct}$", [f"${o}$" for o in others], rng=rng)
 
-    f = scalene_triangle()
+    f = scalene_triangle(rng=rng)
     f.path(["A", "B", "C"], close=True)
     f.angle("A", "B", "C", label=deg(alpha), radius=24)
     f.angle("B", "A", "C", label=deg(beta), radius=24)
@@ -1105,7 +1105,7 @@ def order_sides_two_given_angles(rng: random.Random, slot: Slot) -> GeneratedIte
               f"страните на триъгълника е:"),
         options=options, correct_answer=letter, difficulty="medium",
         scene=f.to_spec(aria=(f"Триъгълник ABC с ъгъл {alpha} градуса при A и "
-                              f"{beta} градуса при B")),
+                              f"{beta} градуса при B"), rng=rng),
         solution=(rf"$\sphericalangle ACB = 180^\circ - {alpha}^\circ - {beta}^\circ "
                   rf"= {gamma}^\circ$. Срещу по-малък ъгъл лежи по-малка страна, "
                   rf"откъдето ${correct}$"),
@@ -1124,7 +1124,7 @@ def median_hypotenuse_from_median(rng: random.Random, slot: Slot) -> GeneratedIt
     alpha = rng.choice([20, 25, 30, 35, 40, 50])
     ab = 2 * cm
 
-    f = right_triangle()
+    f = right_triangle(rng=rng)
     A, B, C = f.points["A"], f.points["B"], f.points["C"]
     f.put("M", midpoint(A, B), dot=True)
     f.path(["A", "B", "C"], close=True)
@@ -1148,7 +1148,7 @@ def median_hypotenuse_from_median(rng: random.Random, slot: Slot) -> GeneratedIt
             parts=["А) Намерете дължината на $AB$.",
                    "Б) Намерете мярката на $\\sphericalangle ACM$."],
             correct_answer=[f"{ab} cm", f"{alpha}°"],
-            difficulty="medium", scene=f.to_spec(aria=aria), solution=solution,
+            difficulty="medium", scene=f.to_spec(aria=aria, rng=rng), solution=solution,
             signature=f"median_from_cm:{cm}:{alpha}",
         )
 
@@ -1161,7 +1161,7 @@ def median_hypotenuse_from_median(rng: random.Random, slot: Slot) -> GeneratedIt
               f"$M$ е средата на хипотенузата $AB$ и $CM = {cm}$ cm. "
               f"Дължината на $AB$ е:"),
         options=options, correct_answer=letter, difficulty="medium",
-        scene=f.to_spec(aria=aria), solution=solution,
+        scene=f.to_spec(aria=aria, rng=rng), solution=solution,
         signature=f"median_from_cm:{cm}:{alpha}",
     )
 
@@ -1182,7 +1182,7 @@ def median_hypotenuse_equilateral(rng: random.Random, slot: Slot) -> GeneratedIt
     if ab % 2:
         raise Retry("keep the half-hypotenuse whole")
 
-    f = right_triangle()
+    f = right_triangle(rng=rng)
     A, B, C = f.points["A"], f.points["B"], f.points["C"]
     f.put("M", midpoint(A, B), dot=True)
     f.path(["A", "B", "C"], close=True)
@@ -1210,7 +1210,7 @@ def median_hypotenuse_equilateral(rng: random.Random, slot: Slot) -> GeneratedIt
             parts=["А) Намерете мярката на $\\sphericalangle CMB$.",
                    "Б) Намерете дължината на $BC$."],
             correct_answer=[f"{cmb}°", f"{bc} cm"],
-            difficulty="hard", scene=f.to_spec(aria=aria), solution=solution,
+            difficulty="hard", scene=f.to_spec(aria=aria, rng=rng), solution=solution,
             signature=f"median_equilat:{ab}",
         )
 
@@ -1223,16 +1223,16 @@ def median_hypotenuse_equilateral(rng: random.Random, slot: Slot) -> GeneratedIt
               f"хипотенузата $AB$ има дължина ${ab}$ cm и "
               f"$\\sphericalangle CAB = 30^\\circ$. Дължината на $BC$ е:"),
         options=options, correct_answer=letter, difficulty="hard",
-        scene=f.to_spec(aria=aria), solution=solution,
+        scene=f.to_spec(aria=aria, rng=rng), solution=solution,
         signature=f"median_equilat:{ab}",
     )
 
 
 # ─── the incentre angle, at two more levels ──────────────────────────────────
 
-def _incentre_figure() -> "Figure":
+def _incentre_figure(rng: random.Random) -> "Figure":
     """Triangle ABC with the bisectors from A and B meeting at O."""
-    f = scalene_triangle()
+    f = scalene_triangle(rng=rng)
     A, B, C = f.points["A"], f.points["B"], f.points["C"]
     fa = angle_bisector_point(A, B, C, 200.0)
     fb = angle_bisector_point(B, A, C, 200.0)
@@ -1267,7 +1267,7 @@ def incentre_angle_from_base_angles(rng: random.Random, slot: Slot) -> Generated
     key = 180 - (alpha + beta) // 2
     gamma = 180 - alpha - beta
 
-    f = _incentre_figure()
+    f = _incentre_figure(rng)
     f.angle("A", "O", "B", arcs=1, fill=True, radius=20)
 
     aria = (f"Триъгълник ABC с ъглополовящи от A и B, които се пресичат в точка O; "
@@ -1287,7 +1287,7 @@ def incentre_angle_from_base_angles(rng: random.Random, slot: Slot) -> Generated
         return GeneratedItem(
             topic=slot.topic, kind="short", points=slot.points,
             stem=stem, correct_answer=f"{key}°", difficulty="medium",
-            scene=f.to_spec(aria=aria), solution=solution,
+            scene=f.to_spec(aria=aria, rng=rng), solution=solution,
             signature=f"incentre_fwd:{alpha}:{beta}",
         )
 
@@ -1298,7 +1298,7 @@ def incentre_angle_from_base_angles(rng: random.Random, slot: Slot) -> Generated
         stem=stem.replace("намерете мярката на $\\sphericalangle AOB$.",
                           "то мярката на $\\sphericalangle AOB$ е:"),
         options=options, correct_answer=letter, difficulty="medium",
-        scene=f.to_spec(aria=aria), solution=solution,
+        scene=f.to_spec(aria=aria, rng=rng), solution=solution,
         signature=f"incentre_fwd:{alpha}:{beta}",
     )
 
@@ -1320,7 +1320,7 @@ def incentre_find_second_angle(rng: random.Random, slot: Slot) -> GeneratedItem:
         raise Retry("the second angle must fit inside a valid triangle")
     gamma = 180 - alpha - key
 
-    f = _incentre_figure()
+    f = _incentre_figure(rng)
     f.angle("A", "O", "B", label=deg(aob), radius=22)
 
     aria = (f"Триъгълник ABC с ъглополовящи от A и B, пресичащи се в точка O; "
@@ -1341,7 +1341,7 @@ def incentre_find_second_angle(rng: random.Random, slot: Slot) -> GeneratedItem:
             topic=slot.topic, kind="short", points=slot.points,
             stem=stem + " Намерете мярката на $\\sphericalangle ABC$.",
             correct_answer=f"{key}°", difficulty="hard",
-            scene=f.to_spec(aria=aria), solution=solution,
+            scene=f.to_spec(aria=aria, rng=rng), solution=solution,
             signature=f"incentre_second:{aob}:{alpha}",
         )
 
@@ -1351,7 +1351,7 @@ def incentre_find_second_angle(rng: random.Random, slot: Slot) -> GeneratedItem:
         topic=slot.topic, kind="mc", points=slot.points,
         stem=stem + " Мярката на $\\sphericalangle ABC$ е:",
         options=options, correct_answer=letter, difficulty="hard",
-        scene=f.to_spec(aria=aria), solution=solution,
+        scene=f.to_spec(aria=aria, rng=rng), solution=solution,
         signature=f"incentre_second:{aob}:{alpha}",
     )
 
@@ -1437,7 +1437,7 @@ def two_triangles_on_a_line(rng: random.Random, slot: Slot) -> GeneratedItem:
               "По данните от чертежа мярката на $\\sphericalangle BCD$ е:"),
         options=options, correct_answer=letter, difficulty="medium",
         scene=f.to_spec(aria=(f"Триъгълници ABC и CDE с общ връх C върху правата AE; "
-                              f"отбелязани са ъгли {alpha}, {beta}, {delta} и {gamma} градуса")),
+                              f"отбелязани са ъгли {alpha}, {beta}, {delta} и {gamma} градуса"), rng=rng),
         solution=(rf"$\sphericalangle BCA = 180^\circ - {alpha}^\circ - {beta}^\circ "
                   rf"= {180 - alpha - beta}^\circ$ и $\sphericalangle DCE = "
                   rf"{180 - gamma - delta}^\circ$. Понеже $A$, $C$ и $E$ са на една "

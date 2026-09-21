@@ -337,19 +337,19 @@ def two_brigades_work(rng: random.Random) -> Part2Item:
 # OPEN GEOMETRY PROOF — 12 points
 # ═══════════════════════════════════════════════════════════════════════════
 
-def _rectangle_with_bisectors() -> dict:
-    f = parallelogram(rect=True)
+def _rectangle_with_bisectors(rng: random.Random) -> dict:
+    f = parallelogram(rect=True, rng=rng)
     A, B, C, D = (f.points[k] for k in "ABCD")
     O = f.put("O", midpoint(A, C), dot=True)
     f.path(["A", "B", "C", "D"], close=True)
     f.seg("A", "C")
     f.seg("B", "D")
-    f.put("P", lerp(D, C, 0.62), dot=True)
-    f.put("Q", lerp(A, B, 0.38), dot=True)
+    f.put("P", lerp(D, C, rng.uniform(0.54, 0.70)), dot=True)
+    f.put("Q", lerp(A, B, rng.uniform(0.30, 0.46)), dot=True)
     f.seg("B", "P")
     f.seg("D", "Q")
     return f.to_spec(aria=("Правоъгълник ABCD с пресечна точка O на диагоналите и "
-                           "ъглополовящи BP и DQ"))
+                           "ъглополовящи BP и DQ"), rng=rng)
 
 
 @part2("open_geometry_proof")
@@ -386,19 +386,19 @@ def rectangle_bisectors_proof(rng: random.Random) -> Part2Item:
             "Г) Намиране, че $\\sphericalangle ABD = 30^\\circ$ — 1 т.; $DQ = QB = 2AQ$ — 1 т.; "
             "$AQ : AB = 1 : 3$ — 1 т.; $\\sphericalangle RAC = 60^\\circ$ — 1 т."
         ),
-        scene=_rectangle_with_bisectors(),
+        scene=_rectangle_with_bisectors(rng),
     )
 
 
-def isosceles_with_cevian() -> Figure:
+def isosceles_with_cevian(rng: random.Random) -> Figure:
     """Triangle ABC, bisector BL to AC, and the perpendicular PQ through its midpoint."""
-    f = scalene_triangle()
+    f = scalene_triangle(rng=rng)
     A, B, C = f.points["A"], f.points["B"], f.points["C"]
-    L = f.put("L", lerp(A, C, 0.55), dot=True)
+    L = f.put("L", lerp(A, C, rng.uniform(0.48, 0.62)), dot=True)
     f.path(["A", "B", "C"], close=True)
     f.seg("B", "L")
-    f.put("P", lerp(A, B, 0.34), dot=True)
-    f.put("Q", lerp(B, C, 0.46), dot=True)
+    f.put("P", lerp(A, B, rng.uniform(0.28, 0.40)), dot=True)
+    f.put("Q", lerp(B, C, rng.uniform(0.40, 0.54)), dot=True)
     f.seg("P", "Q", dash=True)
     return f
 
@@ -407,7 +407,7 @@ def isosceles_with_cevian() -> Figure:
 def isosceles_rhombus_proof(rng: random.Random) -> Part2Item:
     """A bisector, a perpendicular through its midpoint, and a rhombus — 2023 Q23."""
     blc = rng.choice([60, 66, 72])
-    f = isosceles_with_cevian()
+    f = isosceles_with_cevian(rng)
     return Part2Item(
         code=f"geo_iso_rhombus_{blc}",
         topic="open_geometry_proof",
@@ -432,7 +432,7 @@ def isosceles_rhombus_proof(rng: random.Random) -> Part2Item:
             "Г) Сравняване на страни срещу различни ъгли — 2 т.; извод — 1 т."
         ),
         scene=f.to_spec(aria=("Триъгълник ABC с ъглополовяща BL и права PQ, "
-                              "перпендикулярна на BL през средата ѝ")),
+                              "перпендикулярна на BL през средата ѝ"), rng=rng),
     )
 
 
@@ -473,7 +473,7 @@ def parallelogram_height_proof(rng: random.Random) -> Part2Item:
             "В) Лице на $\\triangle DLC$ — 2 т.; лице на успоредника — 2 т."
         ),
         scene=f.to_spec(aria=("Успоредник ABCD с височина DK към AB и диагонал AC, "
-                              "пресичащи се в точка F")),
+                              "пресичащи се в точка F"), rng=rng),
     )
 
 

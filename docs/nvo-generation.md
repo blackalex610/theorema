@@ -153,27 +153,67 @@ Seven scene kinds: `figure` (plane geometry), `grid`, `bars`, `pie`, `solid`,
 `schematic`, `table`.
 
 ```python
-f = triangle_for_cevians()
+f = triangle_for_cevians(rng=rng)
 A, B, C = f.points["A"], f.points["B"], f.points["C"]
 H = f.put("H", foot_of_perpendicular(B, A, C))
-f.put("L", lerp(A, H, 0.62))
+f.put("L", lerp(A, H, rng.uniform(0.50, 0.74)))
 f.path(["A", "B", "C"], close=True)
 f.seg("B", "H"); f.seg("B", "L")
 f.right_angle("H", "B", "C")
 f.angle("C", "H", "B", label=deg(gamma), radius=22)
-scene = f.to_spec(aria="Триъгълник ABC с височина BH и ъглополовяща BL…")
+scene = f.to_spec(aria="Триъгълник ABC с височина BH и ъглополовяща BL…", rng=rng)
 ```
 
-Two traps worth knowing:
+### Layouts are sampled, not fixed
 
-* **Pick a layout whose topology matches the construction.** The generic
-  `scalene_triangle()` is nearly right-angled at C, so the foot of the
-  perpendicular from B lands *on* C. `triangle_for_cevians()` exists because of
-  that; `right_triangle()` puts C on the circle with diameter AB so the
-  right-angle mark sits on a real right angle.
+A layout used to return the same three points every time, so every paper
+printed the same triangle with different numbers on it — all 21 plane-geometry
+templates emitted exactly one geometry across 60 papers. They now sample per
+draw, and every figure is additionally *posed*: mirrored, rotated a few degrees
+and rescaled in `to_spec(rng=...)`. A similarity transform preserves everything
+a figure asserts, so posing is safe even for figures built point by point
+rather than from a named layout.
+
+Sampling is only safe because each layout **declares its contract**, and the
+decorator resamples until it holds:
+
+```python
+@layout(invariants=[
+    angle_below("A", "B", "C", 85.0),    # both base angles comfortably acute,
+    angle_below("C", "A", "B", 85.0),    # so a perpendicular's foot lands inside
+    angle_above("B", "A", "C", 24.0),
+    sides_differ("A", "B", "C"),         # a scalene triangle must look scalene
+    points_inside(),
+])
+def scalene_triangle(fig=None, *, flat=False, rng=None): ...
+```
+
+That contract used to live in a docstring, which is exactly why it broke once:
+the old `scalene_triangle()` was 87.9° at C, so the foot of the perpendicular
+from B landed on top of C and the figure contradicted its own stem —
+`triangle_for_cevians()` exists because of that. As a predicate it fails in CI
+instead. Called with no rng a layout still returns a fixed canonical sample,
+and that sample is checked against the same contract.
+
+A layout that cannot close raises `LayoutError`, which is a `Retry`: the
+assembler resamples rather than failing the paper.
+
+Three traps worth knowing:
+
 * **Scene labels are plain SVG text.** `"$12$"` renders with the dollar signs
   showing. The verifier rejects markup in figure labels. Table cells are the
   exception — they are real DOM and go through KaTeX.
+* **Guardrails are errors, not warnings.** Nobody eyeballs each figure now, so
+  `verify.py` rejects any scene with overlapping labels (`MIN_LABEL_GAP`), a
+  point near the box edge (`MIN_BOX_MARGIN`) or an arc too thin to read
+  (`MIN_ANGLE_DEG`). The three constants are the tightest values the old
+  hand-tuned figures produced, rounded down, so nothing that was acceptable
+  before became an error.
+* **Two items may not print the same picture.** `check_paper` compares
+  `scene.geometry_hash()`, which ignores labels — so "same triangle, different
+  angle written on it" counts as a repeat. This used to fire on half of all
+  papers: `median_to_hypotenuse` and `median_hypotenuse_from_median` both drew
+  the canonical right triangle.
 
 ### Looking at the figures
 

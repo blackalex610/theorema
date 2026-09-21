@@ -29,15 +29,36 @@ Scene kinds
 """
 from __future__ import annotations
 
+import functools
+import hashlib
+import json
 import math
+import random
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Sequence
+
+from app.nvo_gen.registry import Retry
 
 Pt = tuple[float, float]
 
 # Default drawing box. Chosen to match the proportions of the figures printed
 # beside a question in the real papers — roughly 3:2, a little wider than tall.
 W, H = 260.0, 170.0
+
+# ─── legibility guardrails ───────────────────────────────────────────────────
+# Layouts are sampled rather than hand-placed, so nobody is eyeballing each
+# figure any more. These are the limits the verifier enforces on every scene.
+# They are not invented: they are the tightest values the hand-tuned figures
+# actually produced, measured across 80 papers and rounded down, so nothing
+# that was acceptable before becomes an error now.
+#   label gap 47.6 → 22 · box margin 14.0 → 10 · marked angle 15.8° → 14
+
+#: Minimum distance between two drawn point labels, in viewBox units.
+MIN_LABEL_GAP = 22.0
+#: Minimum clearance between any point and the edge of the drawing box.
+MIN_BOX_MARGIN = 10.0
+#: Narrowest marked angle whose arc is still readable.
+MIN_ANGLE_DEG = 14.0
 
 
 # ─── vector helpers ──────────────────────────────────────────────────────────
@@ -242,7 +263,75 @@ class Figure:
             out[name] = [round(best[0] * 11.0, 2), round(best[1] * 13.0 + 4.0, 2)]
         return out
 
-    def to_spec(self, *, aria: str) -> dict[str, Any]:
+    # ── pose ─────────────────────────────────────────────────────────────
+    def pose(self, rng: random.Random) -> None:
+        """Mirror, rotate and rescale the whole figure a little.
+
+        A similarity transform preserves everything a figure asserts — equal
+        segments stay equal, a right angle stays right, a point between two
+        others stays between them — so it is the one variation that is safe to
+        apply to *any* figure, including the ones built point by point rather
+        than from a named layout. The official papers orient the same
+        construction differently from year to year, so this is fidelity as much
+        as variety.
+
+        Rotation is kept small because printed NVO figures are very nearly
+        axis-aligned: a triangle tilted 30° reads as a mistake, not a variant.
+        The mirror is the bigger lever and costs nothing.
+        """
+        flip = -1.0 if rng.random() < 0.5 else 1.0
+        theta = math.radians(rng.uniform(-7.0, 7.0))
+        k = rng.uniform(0.94, 1.06)
+        cos, sin = math.cos(theta) * k, math.sin(theta) * k
+        cx, cy = self._centroid()
+
+        def move(p: Pt) -> Pt:
+            x, y = (p[0] - cx) * flip, p[1] - cy
+            return (cx + x * cos - y * sin, cy + x * sin + y * cos)
+
+        self.points = {n: move(p) for n, p in self.points.items()}
+        for t in self.texts:
+            t["x"], t["y"] = (round(v, 2) for v in move((t["x"], t["y"])))
+        self._refit()
+
+    def _refit(self) -> None:
+        """Bring every point back inside the box, shrinking only if it must.
+
+        A pose can push a corner past the edge. Translating is free and keeps
+        the figure the size it was drawn; scaling is the fallback, applied
+        uniformly so proportions survive.
+        """
+        pad = MIN_BOX_MARGIN + 6.0
+        pts = list(self.points.values()) + [(t["x"], t["y"]) for t in self.texts]
+        if not pts:
+            return
+        lo_x, hi_x = min(p[0] for p in pts), max(p[0] for p in pts)
+        lo_y, hi_y = min(p[1] for p in pts), max(p[1] for p in pts)
+
+        span_x, span_y = hi_x - lo_x, hi_y - lo_y
+        room_x, room_y = self.width - 2 * pad, self.height - 2 * pad
+        k = min(1.0, room_x / span_x if span_x else 1.0, room_y / span_y if span_y else 1.0)
+
+        # Scale about the bounding box's centre, then centre it in the box.
+        mid_x, mid_y = (lo_x + hi_x) / 2.0, (lo_y + hi_y) / 2.0
+        to_x, to_y = self.width / 2.0, self.height / 2.0
+
+        def fit(p: Pt) -> Pt:
+            return (to_x + (p[0] - mid_x) * k, to_y + (p[1] - mid_y) * k)
+
+        self.points = {n: fit(p) for n, p in self.points.items()}
+        for t in self.texts:
+            t["x"], t["y"] = (round(v, 2) for v in fit((t["x"], t["y"])))
+
+    def to_spec(self, *, aria: str, rng: random.Random | None = None) -> dict[str, Any]:
+        """Freeze the figure into the spec the client renderer speaks.
+
+        Passing an rng poses the figure first, which is what stops two papers
+        printing the same picture. It is applied here rather than in each
+        builder so that a figure assembled by hand gets it too.
+        """
+        if rng is not None:
+            self.pose(rng)
         return {
             "kind": "figure",
             "width": self.width,
@@ -262,92 +351,349 @@ class Figure:
         }
 
 
+#: Scene keys that say what a figure *says* rather than what it *looks like*.
+#: Dropped before hashing, so "same picture, different numbers on it" collapses
+#: to one hash — which is what figure-level dedup has to mean. Comparing raw
+#: JSON would be satisfied by relabelling a single angle.
+_LABEL_KEYS = frozenset({"aria", "texts", "labelOffsets", "labels", "unitLabel",
+                         "yLabel", "title", "headers", "rows"})
+
+
+def geometry_hash(scene: dict[str, Any]) -> str:
+    """A stable fingerprint of the picture a scene draws, ignoring its labels.
+
+    Two items on one paper may not print the same figure. Before this existed
+    nothing compared them, and half of all papers shipped with one repeated —
+    ``median_to_hypotenuse`` and ``median_hypotenuse_from_median`` both drew the
+    canonical right triangle, down to the pixel.
+    """
+    def strip(value: Any) -> Any:
+        if isinstance(value, dict):
+            return {k: strip(v) for k, v in sorted(value.items())
+                    if k not in _LABEL_KEYS and k != "label"}
+        if isinstance(value, (list, tuple)):
+            return [strip(v) for v in value]
+        if isinstance(value, float):
+            # Pose transforms leave irrational coordinates; round so that two
+            # figures identical to within a rendering pixel hash alike.
+            return round(value, 1)
+        return value
+
+    payload = json.dumps(strip(scene), sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.blake2s(payload.encode("utf-8"), digest_size=8).hexdigest()
+
+
 def deg(value: float) -> str:
     """Format an angle the way the papers print it."""
     return f"{value:g}°"
 
 
-# ─── canonical layouts ───────────────────────────────────────────────────────
-# Each returns a Figure with the named points already placed. Builders below
-# add the marks. Coordinates are chosen once, by eye, to look like the printed
-# figures — never derived from the stem's numbers, which is exactly the licence
-# the scale notice grants.
+# ─── layout contracts ────────────────────────────────────────────────────────
+# A layout used to be a constant: `scalene_triangle()` returned the same three
+# points every time, so every paper printed the same triangle with different
+# numbers written on it. Layouts are now *sampled* per draw.
+#
+# That is only safe because each one declares what must stay true of every
+# sample it produces. The contract used to live in a docstring, which is why it
+# broke silently once: the old scalene layout was 87.9° at C, so the foot of the
+# perpendicular from B landed on top of C and the figure contradicted its own
+# stem. `triangle_for_cevians` exists because of that. Stated as a predicate
+# instead, the same mistake fails in CI.
+#
+# Called with no rng a layout still returns a fixed canonical sample, and that
+# sample is checked against the same contract — so a hand-written layout cannot
+# drift out of its own family either.
 
-def scalene_triangle(fig: Figure | None = None, *, flat: bool = False) -> Figure:
-    """A, B along the bottom; C up and to the right. The default triangle."""
+
+class LayoutError(Retry):
+    """A layout could not produce a sample satisfying its own invariants.
+
+    A ``Retry``, like ``distractors.DistractorError``: a parameter draw the
+    layout cannot close is a bad draw, not a broken template. Left as an
+    ordinary exception it would reach ``assemble._try_template``, become an
+    ``AssemblyError``, fail the whole paper, and send the student down the
+    router's OpenAI fallback — a worse paper, generated slower, for a condition
+    that means nothing more than "sample again".
+    """
+
+
+def _angle_deg(vertex: Pt, a: Pt, b: Pt) -> float:
+    d1, d2 = sub(a, vertex), sub(b, vertex)
+    n1, n2 = norm(d1), norm(d2)
+    if not n1 or not n2:
+        return 0.0
+    cos = max(-1.0, min(1.0, (d1[0] * d2[0] + d1[1] * d2[1]) / (n1 * n2)))
+    return math.degrees(math.acos(cos))
+
+
+def angle_below(vertex: str, a: str, b: str, limit: float) -> Any:
+    """∠a-vertex-b must stay under `limit`. 85° is "comfortably acute"."""
+    def check(f: "Figure") -> str | None:
+        d = _angle_deg(f.points[vertex], f.points[a], f.points[b])
+        return None if d < limit else f"angle {a}{vertex}{b} is {d:.1f}°, wanted < {limit}°"
+    return check
+
+
+def angle_above(vertex: str, a: str, b: str, limit: float) -> Any:
+    """∠a-vertex-b must stay over `limit` — a sliver of a triangle reads badly."""
+    def check(f: "Figure") -> str | None:
+        d = _angle_deg(f.points[vertex], f.points[a], f.points[b])
+        return None if d > limit else f"angle {a}{vertex}{b} is {d:.1f}°, wanted > {limit}°"
+    return check
+
+
+def points_inside(margin: float = MIN_BOX_MARGIN + 6.0) -> Any:
+    """Every visible point must sit clear of the drawing box's edge.
+
+    Hidden points are exempt: they are layout anchors for lines that are meant
+    to run out to the edge of the figure.
+    """
+    def check(f: "Figure") -> str | None:
+        for name, (x, y) in f.points.items():
+            if name in f.hidden:
+                continue
+            if min(x, y, f.width - x, f.height - y) < margin:
+                return f"point {name} at ({x:.0f}, {y:.0f}) is too near the edge"
+        return None
+    return check
+
+
+def sides_differ(a: str, b: str, c: str, *, by: float = 12.0) -> Any:
+    """A scalene triangle has to *look* scalene, or its tick marks mislead."""
+    def check(f: "Figure") -> str | None:
+        pa, pb, pc = f.points[a], f.points[b], f.points[c]
+        lengths = sorted((norm(sub(pa, pb)), norm(sub(pb, pc)), norm(sub(pc, pa))))
+        if lengths[1] - lengths[0] < by or lengths[2] - lengths[1] < by:
+            return f"sides {[round(v) for v in lengths]} are too close to equal"
+        return None
+    return check
+
+
+def legs_equal(apex: str, a: str, b: str, *, tol: float = 1.5) -> Any:
+    """The two legs from `apex` must be drawn equal, since ticks will say so."""
+    def check(f: "Figure") -> str | None:
+        la = norm(sub(f.points[a], f.points[apex]))
+        lb = norm(sub(f.points[b], f.points[apex]))
+        return None if abs(la - lb) <= tol else f"legs differ by {abs(la - lb):.1f}"
+    return check
+
+
+#: How many samples a layout may draw before it admits defeat. Generous: a
+#: rejected sample costs microseconds, a LayoutError costs a whole paper.
+LAYOUT_TRIES = 80
+
+
+def layout(*, invariants: Sequence[Any] = (), tries: int = LAYOUT_TRIES) -> Any:
+    """Re-sample the decorated layout until every invariant holds.
+
+    With no rng the function is deterministic, so it is called once and its
+    canonical sample is still checked — a canonical layout that violates its
+    own contract is a bug that should fail at test time, not a figure that
+    quietly contradicts its stem.
+    """
+    def decorate(fn):
+        @functools.wraps(fn)
+        def build(*args: Any, **kw: Any) -> "Figure":
+            attempts = tries if kw.get("rng") is not None else 1
+            problem = ""
+            for _ in range(attempts):
+                f = fn(*args, **kw)
+                problem = next((msg for inv in invariants if (msg := inv(f))), "")
+                if not problem:
+                    return f
+            raise LayoutError(f"{fn.__name__} after {attempts} tries: {problem}")
+        return build
+    return decorate
+
+
+# ─── the layouts ─────────────────────────────────────────────────────────────
+# Each returns a Figure with the named points already placed; the builders in
+# templates/ add the marks. Coordinates are never derived from the stem's
+# numbers — that is exactly the licence the scale notice grants.
+
+@layout(invariants=[
+    angle_below("A", "B", "C", 85.0),
+    angle_below("C", "A", "B", 85.0),
+    angle_above("B", "A", "C", 24.0),
+    sides_differ("A", "B", "C"),
+    points_inside(),
+])
+def scalene_triangle(fig: "Figure | None" = None, *, flat: bool = False,
+                     rng: random.Random | None = None) -> "Figure":
+    """A, B along the bottom; C up and to the right. The default triangle.
+
+    Both base angles are kept comfortably acute, which is exactly the condition
+    for the foot of a perpendicular from either base vertex to land strictly
+    inside the opposite side. The old fixed layout missed that by a hair.
+    """
     f = fig or Figure()
-    f.put("A", (26.0, 138.0))
-    f.put("B", (228.0, 138.0))
-    f.put("C", (176.0, 46.0) if not flat else (196.0, 60.0))
+    if rng is None:
+        base_y, ax, bx = 138.0, 26.0, 228.0
+        t, cy = (0.74, 38.0) if not flat else (0.78, 44.0)
+    else:
+        base_y = rng.uniform(130.0, 143.0)
+        ax = rng.uniform(22.0, 34.0)
+        bx = rng.uniform(210.0, 236.0)
+        t = rng.uniform(0.56, 0.78) if not flat else rng.uniform(0.70, 0.80)
+        cy = rng.uniform(26.0, 48.0) if not flat else rng.uniform(34.0, 48.0)
+    f.put("A", (ax, base_y))
+    f.put("B", (bx, base_y))
+    f.put("C", (ax + t * (bx - ax), cy))
     return f
 
 
-def right_triangle(fig: Figure | None = None) -> Figure:
+@layout(invariants=[
+    angle_above("A", "B", "C", 20.0),
+    angle_above("B", "A", "C", 20.0),
+    points_inside(),
+])
+def right_triangle(fig: "Figure | None" = None, *,
+                   rng: random.Random | None = None) -> "Figure":
     """Right angle at C, hypotenuse AB along the bottom.
 
-    C sits on the circle with diameter AB, so the angle at C really is 90° and
-    the right-angle mark lands on a right angle. The figure needn't be to
-    scale, but a square drawn on a visibly 96° corner reads as a mistake.
+    C is placed *on* the circle with diameter AB, so the angle at C really is
+    90° and the right-angle mark lands on a right angle. The figure needn't be
+    to scale, but a square drawn on a visibly 96° corner reads as a mistake —
+    which is why C is constructed from the circle rather than sampled freely.
     """
     f = fig or Figure()
-    f.put("A", (26.0, 138.0))
-    f.put("B", (234.0, 138.0))
-    # Centre (130, 138), radius 104, at 55° — up and to the right, matching how
-    # the official papers orient this triangle.
-    f.put("C", (190.0, 53.0))
+    if rng is None:
+        base_y, ax, bx, bearing = 138.0, 26.0, 234.0, 55.0
+    else:
+        base_y = rng.uniform(130.0, 142.0)
+        ax = rng.uniform(22.0, 34.0)
+        bx = rng.uniform(214.0, 238.0)
+        # Keeps both acute angles roughly between 25° and 65°.
+        bearing = rng.uniform(42.0, 138.0)
+    f.put("A", (ax, base_y))
+    f.put("B", (bx, base_y))
+    f.put("C", polar(((ax + bx) / 2.0, base_y), (bx - ax) / 2.0, bearing))
     return f
 
 
-def triangle_for_cevians(fig: Figure | None = None) -> Figure:
+@layout(invariants=[
+    angle_below("A", "B", "C", 80.0),
+    angle_below("C", "A", "B", 80.0),
+    angle_above("A", "B", "C", 26.0),
+    angle_above("C", "A", "B", 26.0),
+    points_inside(),
+])
+def triangle_for_cevians(fig: "Figure | None" = None, *,
+                         rng: random.Random | None = None) -> "Figure":
     """A triangle whose angles at A and C are both clearly acute.
 
-    That is exactly the condition for the foot of the height from B to land
-    strictly *inside* AC. The generic scalene layout is nearly right-angled at
-    C, which put the foot on top of C and made the figure contradict its own
-    stem.
+    Tighter than `scalene_triangle` on purpose: two cevian feet — the height's
+    and the bisector's — have to fit between the vertices without their labels
+    colliding, so both base angles get more room than the generic layout needs.
     """
     f = fig or Figure()
-    f.put("A", (30.0, 140.0))
-    f.put("B", (200.0, 140.0))
-    f.put("C", (130.0, 26.0))
+    if rng is None:
+        ax, bx, base_y, cx, cy = 30.0, 200.0, 140.0, 130.0, 26.0
+    else:
+        ax = rng.uniform(24.0, 38.0)
+        bx = rng.uniform(186.0, 214.0)
+        base_y = rng.uniform(132.0, 145.0)
+        cx = ax + rng.uniform(0.44, 0.66) * (bx - ax)
+        cy = rng.uniform(22.0, 42.0)
+    f.put("A", (ax, base_y))
+    f.put("B", (bx, base_y))
+    f.put("C", (cx, cy))
     return f
 
 
-def isosceles_triangle(fig: Figure | None = None) -> Figure:
+@layout(invariants=[
+    legs_equal("C", "A", "B"),
+    angle_above("C", "A", "B", 30.0),
+    angle_below("C", "A", "B", 108.0),
+    points_inside(),
+])
+def isosceles_triangle(fig: "Figure | None" = None, *,
+                       rng: random.Random | None = None) -> "Figure":
     """AC = BC, apex C centred over AB."""
     f = fig or Figure()
-    f.put("A", (44.0, 138.0))
-    f.put("B", (216.0, 138.0))
-    f.put("C", (130.0, 36.0))
+    if rng is None:
+        ax, bx, base_y, cy = 44.0, 216.0, 138.0, 36.0
+    else:
+        half = rng.uniform(76.0, 92.0)
+        centre_x = rng.uniform(124.0, 136.0)
+        ax, bx = centre_x - half, centre_x + half
+        base_y = rng.uniform(132.0, 144.0)
+        cy = rng.uniform(28.0, 56.0)
+    f.put("A", (ax, base_y))
+    f.put("B", (bx, base_y))
+    f.put("C", ((ax + bx) / 2.0, cy))
     return f
 
 
-def parallelogram(fig: Figure | None = None, *, rhombus: bool = False,
-                  rect: bool = False) -> Figure:
-    """ABCD counter-clockwise from the bottom-left, D above A."""
+@layout(invariants=[points_inside()])
+def parallelogram(fig: "Figure | None" = None, *, rhombus: bool = False,
+                  rect: bool = False, rng: random.Random | None = None) -> "Figure":
+    """ABCD counter-clockwise from the bottom-left, D above A.
+
+    A rhombus is drawn with all four sides genuinely equal and a rectangle with
+    genuine right angles, because in both cases the marks on the figure assert
+    it. Only the generic parallelogram is free to vary its skew.
+    """
     f = fig or Figure()
     if rect:
-        f.put("A", (40.0, 136.0))
-        f.put("B", (222.0, 136.0))
-        f.put("C", (222.0, 42.0))
-        f.put("D", (40.0, 42.0))
+        if rng is None:
+            ax, bx, top, bottom = 40.0, 222.0, 42.0, 136.0
+        else:
+            ax = rng.uniform(32.0, 48.0)
+            bx = rng.uniform(204.0, 230.0)
+            top = rng.uniform(32.0, 52.0)
+            bottom = rng.uniform(128.0, 142.0)
+        f.put("A", (ax, bottom))
+        f.put("B", (bx, bottom))
+        f.put("C", (bx, top))
+        f.put("D", (ax, top))
+        return f
+
+    if rhombus:
+        # A real rhombus, with all four sides equal — the old layout drew sides
+        # of 150 and 104 and called it one, which reads as a plain
+        # parallelogram next to a stem that says „ромб“. Equal sides force the
+        # skew, and the skew makes the figure wide, so it is centred in the box
+        # rather than pinned to a left margin that would push C off the edge.
+        if rng is None:
+            side, rise, bottom = 118.0, 86.0, 132.0
+        else:
+            side = rng.uniform(106.0, 126.0)
+            rise = rng.uniform(78.0, 96.0)
+            bottom = rng.uniform(126.0, 138.0)
+        skew = math.sqrt(max(side * side - rise * rise, 1.0))
+        base = side
+        ax = (f.width - (skew + base)) / 2.0
+    elif rng is None:
+        ax, bottom, rise, skew, base = 34.0, 136.0, 90.0, 42.0, 158.0
     else:
-        skew = 42.0 if not rhombus else 52.0
-        base = 150.0 if rhombus else 158.0
-        f.put("A", (34.0, 136.0))
-        f.put("B", (34.0 + base, 136.0))
-        f.put("D", (34.0 + skew, 46.0))
-        f.put("C", (34.0 + skew + base, 46.0))
+        ax = rng.uniform(26.0, 42.0)
+        bottom = rng.uniform(130.0, 142.0)
+        rise = rng.uniform(78.0, 98.0)
+        skew = rng.uniform(28.0, 56.0)
+        base = rng.uniform(144.0, 166.0)
+
+    f.put("A", (ax, bottom))
+    f.put("B", (ax + base, bottom))
+    f.put("D", (ax + skew, bottom - rise))
+    f.put("C", (ax + skew + base, bottom - rise))
     return f
 
 
-def two_parallel_lines(fig: Figure | None = None) -> Figure:
+@layout(invariants=[])
+def two_parallel_lines(fig: "Figure | None" = None, *,
+                       rng: random.Random | None = None) -> "Figure":
     """Horizontal lines b (top) and a (bottom), with anchors for a transversal."""
     f = fig or Figure()
-    f.put("bL", (18.0, 38.0), hidden=True)
-    f.put("bR", (242.0, 38.0), hidden=True)
-    f.put("aL", (18.0, 140.0), hidden=True)
-    f.put("aR", (242.0, 140.0), hidden=True)
+    if rng is None:
+        top, bottom = 38.0, 140.0
+    else:
+        top = rng.uniform(30.0, 48.0)
+        bottom = rng.uniform(126.0, 146.0)
+    f.put("bL", (18.0, top), hidden=True)
+    f.put("bR", (242.0, top), hidden=True)
+    f.put("aL", (18.0, bottom), hidden=True)
+    f.put("aR", (242.0, bottom), hidden=True)
     return f
 
 

@@ -24,6 +24,7 @@ there.
 """
 from __future__ import annotations
 
+import math
 import re
 from collections import Counter
 from dataclasses import dataclass, field
@@ -32,7 +33,15 @@ from typing import Iterable, Sequence
 from app.nvo_gen.blueprints import Blueprint, Slot
 from app.nvo_gen.distractors import OPTION_LETTERS
 from app.nvo_gen.registry import GeneratedItem
-from app.nvo_gen.scene import SCENE_KINDS, SCHEMATIC_SHAPES, SOLID_SHAPES
+from app.nvo_gen.scene import (
+    MIN_ANGLE_DEG,
+    MIN_BOX_MARGIN,
+    MIN_LABEL_GAP,
+    SCENE_KINDS,
+    SCHEMATIC_SHAPES,
+    SOLID_SHAPES,
+    geometry_hash,
+)
 
 _CYRILLIC = re.compile(r"[А-Яа-яЁё]")
 _MATH_SPAN = re.compile(r"\$([^$]*)\$")
@@ -227,11 +236,73 @@ def _check_figure(scene: dict, r: Report) -> None:
     for tick in scene.get("ticks", []):
         ref(tick.get("from"), "tick"); ref(tick.get("to"), "tick")
 
+    _check_inside_box(scene, r)
+    _check_label_clearance(scene, r)
+    _check_angles_are_legible(scene, r)
+
+
+def _check_inside_box(scene: dict, r: Report) -> None:
+    """Anything past the viewBox is simply not drawn, and nothing says so."""
     width = scene.get("width", 0)
     height = scene.get("height", 0)
     for name, (x, y) in scene.get("points", {}).items():
-        if not (-40 <= x <= width + 40 and -40 <= y <= height + 40):
-            r.warnings.append(f"point {name} at ({x}, {y}) sits far outside the {width}×{height} box")
+        margin = min(x, y, width - x, height - y)
+        if margin < MIN_BOX_MARGIN:
+            r.errors.append(
+                f"point {name} at ({x}, {y}) is {margin:.1f} from the edge of the "
+                f"{width}×{height} box, under the {MIN_BOX_MARGIN} minimum")
+
+
+def _check_label_clearance(scene: dict, r: Report) -> None:
+    """No label may be drawn on top of another label, or on another point.
+
+    ``Figure._label_offsets`` scores eight compass directions for clearance and
+    usually separates crowded labels by itself. It cannot when there is nowhere
+    to go — the foot of a height that lands almost on a vertex, say — and the
+    result is a glyph pile rather than a figure.
+    """
+    points = scene.get("points", {})
+    offsets = scene.get("labelOffsets", {})
+    hidden = set(scene.get("hidden", ()))
+    labelled = {n: (points[n][0] + offsets[n][0], points[n][1] + offsets[n][1])
+                for n in points if n in offsets and n not in hidden}
+
+    names = sorted(labelled)
+    for i, a in enumerate(names):
+        for b in names[i + 1:]:
+            gap = math.dist(labelled[a], labelled[b])
+            if gap < MIN_LABEL_GAP:
+                r.errors.append(
+                    f"labels {a} and {b} are {gap:.1f} apart, under the "
+                    f"{MIN_LABEL_GAP} minimum — they will overlap")
+        for other, p in points.items():
+            if other != a and other not in hidden and math.dist(labelled[a], p) < MIN_LABEL_GAP / 2:
+                r.errors.append(
+                    f"label {a} sits on top of point {other}")
+
+
+def _check_angles_are_legible(scene: dict, r: Report) -> None:
+    """An arc across 4° is a smudge — the student cannot tell what is marked."""
+    points = scene.get("points", {})
+    for ang in scene.get("angles", []):
+        if ang.get("reflex"):
+            continue  # the drawn sweep is the 360° complement; not this check
+        try:
+            at, frm, to = (points[ang[k]] for k in ("at", "from", "to"))
+        except KeyError:
+            continue  # undefined point — already reported above
+        d1 = (frm[0] - at[0], frm[1] - at[1])
+        d2 = (to[0] - at[0], to[1] - at[1])
+        n1, n2 = math.hypot(*d1), math.hypot(*d2)
+        if not n1 or not n2:
+            r.errors.append(f"angle at {ang['at']} has a zero-length arm")
+            continue
+        cos = max(-1.0, min(1.0, (d1[0] * d2[0] + d1[1] * d2[1]) / (n1 * n2)))
+        drawn = math.degrees(math.acos(cos))
+        if drawn < MIN_ANGLE_DEG:
+            r.errors.append(
+                f"angle at {ang['at']} is drawn at {drawn:.1f}°, under the "
+                f"{MIN_ANGLE_DEG}° legibility minimum")
 
 
 def _check_bars(scene: dict, r: Report) -> None:
@@ -285,6 +356,17 @@ def check_paper(items: Sequence[GeneratedItem], slots: Sequence[Slot],
     dup_stems = [s for s, n in Counter(stems).items() if n > 1]
     if dup_stems:
         r.errors.append(f"identical stem appears twice: {[s[:50] for s in dup_stems]}")
+
+    # Two items may not print the same picture. Before layouts were sampled this
+    # fired on half of all papers — `median_to_hypotenuse` and
+    # `median_hypotenuse_from_median` both drew the canonical right triangle,
+    # and nothing compared them because their stems and signatures differ.
+    figures = [geometry_hash(i.scene) for i in items if i.scene]
+    dup_figures = [h for h, n in Counter(figures).items() if n > 1]
+    if dup_figures:
+        repeated = [i.template_code for i in items
+                    if i.scene and geometry_hash(i.scene) in dup_figures]
+        r.errors.append(f"the same figure is drawn more than once: {sorted(repeated)}")
 
     r.merge(check_letter_balance(items))
 
