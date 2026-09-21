@@ -35,7 +35,7 @@ const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
 const TermsPage = lazy(() => import('./pages/TermsPage'));
 import SettingsModal from './components/SettingsModal';
 import { AuthProvider } from './context/AuthContext';
-import { PairingProvider } from './context/PairingContext';
+import { ConnectProvider } from './context/ConnectContext';
 import { SettingsProvider } from './context/SettingsContext';
 import { XpProvider } from './context/XpContext';
 import { DeveloperModeProvider, useIsDevMode } from './context/DeveloperModeContext';
@@ -91,6 +91,8 @@ function AppRoutes() {
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
             <Route path="controller" element={<ControllerPage />} />
+            {/* Preferred path; /controller stays for existing bookmarks. */}
+            <Route path="connect" element={<ControllerPage />} />
             {/* Redirect playground to dashboard if not in dev mode */}
             {!isDevMode && <Route path="playground" element={<Navigate to="/dashboard" replace />} />}
           </Routes>
@@ -104,7 +106,7 @@ function App() {
   return (
     <AuthProvider>
       <DeveloperModeProvider>
-        <PairingProvider>
+        <ConnectProvider>
           <SettingsProvider>
             <XpProvider>
               <TooltipProvider delayDuration={200}>
@@ -112,7 +114,7 @@ function App() {
               </TooltipProvider>
             </XpProvider>
           </SettingsProvider>
-        </PairingProvider>
+        </ConnectProvider>
       </DeveloperModeProvider>
     </AuthProvider>
   );
