@@ -215,6 +215,51 @@ Three traps worth knowing:
   papers: `median_to_hypotenuse` and `median_hypotenuse_from_median` both drew
   the canonical right triangle.
 
+### Coverage against the real papers
+
+The figure set is not guesswork about what NVO prints — it was audited against
+the thirteen papers. `scripts/extract_nvo_figures.py` crops every vector-drawing
+cluster out of `NVOS/*.pdf` with its stem text; `scripts/build_contact_sheets.py`
+tiles them; `scripts/build_coverage_report.py` joins a hand classification to
+the template registry and writes `docs/nvo-figures/coverage.md`.
+
+What it found, and what the numbers mean for anyone adding to this:
+
+| | |
+|---|---|
+| figures extracted | 209 |
+| of those, not actually figures | 69 — instruction glyphs, marking tables, formula sheets, prose |
+| real archetypes | 59 |
+| already expressible | 30 |
+| uncovered but recurring in 2+ papers | 9 |
+| uncovered one-offs | 20 |
+
+Seven of the nine were built (`tri_height_bisector_median`,
+`tri_exterior_angle_at_base`, `tri_cevian_exterior_angle`,
+`rect_diagonals_angle`, `tri_perpendicular_from_side_point`,
+`tri_circumcentre_central_angle`, `line_through_vertex_angles`) on three new
+layouts. **Two were not**, and they are the interesting ones: a piecewise
+distance–time graph and shaded rectilinear composite areas both need a *new
+scene kind*, not a new layout — `scene.py` has no line-graph kind and no shaded
+region, so they would touch `SceneRenderer.tsx` as well.
+
+The one-off archetypes are catalogued rather than built, on the reasoning that
+a layout builder generating one item ever is worse value than a hand-authored
+entry in `part2_bank.py`.
+
+Two lessons from building the seven are worth carrying forward:
+
+* **A hidden point that gets an arc drawn round it needs `inside_box`.**
+  `points_inside` deliberately exempts hidden points, since they anchor lines
+  meant to run off the figure. The exterior-angle layout's anchor is hidden and
+  yet must be reachable; extending a slanted side instead of the base put it
+  off the box in 137 of 200 draws.
+* **Solve for a constrained position, don't sample and hope.** In
+  `tri_height_bisector_median` the bisector's foot must clear `M` by 25 for the
+  labels and sit at least `h·tan 16°` from `P` for the arc. Sampling the
+  segment satisfied both so rarely that the template retried on essentially
+  every draw; computing the admissible interval fixed it outright.
+
 ### Looking at the figures
 
 ```bash
@@ -326,7 +371,24 @@ frontend/src/components/
   SceneRenderer.tsx          draws any scene
   NVOBlueprintSelector.tsx   the format picker
   NVODifficultySelector.tsx  the difficulty picker
+
+scripts/                     analysis tools, not shipped with the server
+  extract_nvo_figures.py     crops every figure out of NVOS/*.pdf
+  build_contact_sheets.py    tiles the crops for classification
+  build_coverage_report.py   archetypes × papers, and the gap list
+  dump_new_scenes.py         sample scenes for the renderer contact sheet
+
+docs/nvo-figures/            the audit's evidence
+  crops/                     209 figures, one PNG each, with provenance
+  sheets/                    24 labelled contact sheets
+  inventory.json             provenance, stem text, item number per crop
+  archetypes.json            archetype → papers, crops, covering template
+  coverage.md                the report
 ```
+
+The `scripts/` tools need `pymupdf` and `pillow`, which are deliberately **not**
+in `requirements.txt` — they are analysis dependencies, and the server never
+imports them.
 
 `renderNvoDiagram` routes `diagram_type: "scene"` to `SceneRenderer`; the twelve
 hand-written diagram components stay for anything the legacy catalog generator
@@ -357,3 +419,22 @@ difficulty changes the items, never the format — plus two things worth naming:
   distractor pools sat entirely outside the plausibility band, so
   `numeric_options` raised on every draw and the slot silently fell through to
   another template while `coverage_report` still counted them.
+
+`backend/tests/test_nvo_figures.py` holds the figure guarantees. Beyond the
+three guardrails and `geometry_hash`, the one to know about is
+`test_a_new_figure_asserts_what_its_stem_claims`.
+
+The scale notice („Чертежите са само за илюстрация…”) licenses a figure whose
+angles do not match its stem's numbers. It does **not** license one where `M` is
+not really the midpoint, or where a segment the stem calls a perpendicular is
+not perpendicular — a student reading that picture is reading a lie, and no
+guardrail in `verify.py` would notice. So each figure template declares the
+topology its stem promises as a predicate over the drawn points, and it is
+checked on the *posed* output: every claim used — betweenness, midpoints,
+perpendicularity, equal radii, collinearity — survives the similarity transform
+`to_spec` applies, which is exactly why posing is safe.
+
+`test_a_new_layout_closes_on_every_draw` is a lower bar than it looks. A layout
+whose contract holds only sometimes still "works", because the decorator
+resamples — but it burns tries per figure and raises `LayoutError` under load.
+Every draw closing is the real bar.

@@ -413,3 +413,82 @@ def test_the_audit_templates_are_all_registered():
     registered = {t.code for t in all_templates()}
     missing = [c for c in NEW_TEMPLATES if c not in registered]
     assert not missing, f"not registered: {missing}"
+
+
+# ─── a figure must assert what its stem claims ───────────────────────────────
+
+def _dist(a, b):
+    return math.hypot(a[0] - b[0], a[1] - b[1])
+
+
+def _between(p, a, b, tol=1.0):
+    """p lies on segment ab (within tolerance)."""
+    return abs(_dist(a, p) + _dist(p, b) - _dist(a, b)) < tol
+
+
+def _perpendicular(p, q, a, b, tol=0.02):
+    u = (q[0] - p[0], q[1] - p[1])
+    v = (b[0] - a[0], b[1] - a[1])
+    return abs(u[0] * v[0] + u[1] * v[1]) / (math.hypot(*u) * math.hypot(*v)) < tol
+
+
+def _mid(a, b):
+    return ((a[0] + b[0]) / 2.0, (a[1] + b[1]) / 2.0)
+
+
+#: What each stem promises, as a predicate over the drawn points. Every one of
+#: these survives the similarity transform `to_spec` applies, so they are
+#: checked on the posed output rather than the raw layout.
+STEM_CLAIMS = {
+    "tri_height_bisector_median": lambda p: (
+        _between(p["P"], p["A"], p["B"])
+        and _between(p["L"], p["P"], p["M"])
+        and _perpendicular(p["C"], p["P"], p["A"], p["B"])
+        and _dist(p["M"], _mid(p["A"], p["B"])) < 0.6
+    ),
+    "tri_exterior_angle_at_base": lambda p: _between(p["B"], p["A"], p["E"]),
+    "tri_cevian_exterior_angle": lambda p: _between(p["D"], p["A"], p["B"]),
+    "rect_diagonals_angle": lambda p: (
+        max(_dist(p["O"], p[v]) for v in "ABCD")
+        - min(_dist(p["O"], p[v]) for v in "ABCD") < 0.8
+    ),
+    "tri_perpendicular_from_side_point": lambda p: (
+        _between(p["N"], p["B"], p["C"])
+        and _between(p["M"], p["A"], p["B"])
+        and _perpendicular(p["N"], p["M"], p["A"], p["B"])
+    ),
+    "tri_circumcentre_central_angle": lambda p: (
+        max(_dist(p["O"], p[v]) for v in "ABC")
+        - min(_dist(p["O"], p[v]) for v in "ABC") < 0.8
+        and _dist(p["P"], _mid(p["A"], p["B"])) < 0.6
+        and _dist(p["Q"], _mid(p["A"], p["C"])) < 0.6
+    ),
+    "line_through_vertex_angles": lambda p: _between(p["C"], p["K"], p["M"]),
+}
+
+
+@pytest.mark.parametrize("code", NEW_TEMPLATES)
+def test_a_new_figure_asserts_what_its_stem_claims(code):
+    """The figure need not be to scale, but it must be topologically honest.
+
+    „Чертежите са само за илюстрация…” licenses a figure whose angles do not
+    match its stem's numbers. It does not license one where M is not actually
+    the midpoint, or where a segment called a perpendicular is not one — a
+    student reading the picture would be reading a lie. This is the guarantee
+    the scale notice does *not* cover, so it is asserted directly.
+    """
+    claim = STEM_CLAIMS[code]
+    tpl = get_template(code)
+    slot = next(s for bp in BLUEPRINTS.values() for s in bp.slots
+                if s.topic in tpl.topics and s.kind in tpl.kinds)
+
+    checked = 0
+    for seed in range(250):
+        try:
+            item = tpl.build(_random.Random(seed), slot)
+        except Retry:
+            continue
+        points = {k: tuple(v) for k, v in item.scene["points"].items()}
+        assert claim(points), f"{code} seed {seed}: figure contradicts its stem"
+        checked += 1
+    assert checked >= 25, f"{code} produced only {checked} figures to check"
