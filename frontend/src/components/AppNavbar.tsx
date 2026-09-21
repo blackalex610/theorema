@@ -1,8 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowLeftIcon,
-  ArrowsClockwiseIcon,
   BookOpenIcon,
   ChalkboardTeacherIcon,
   ChartLineUpIcon,
@@ -17,7 +16,7 @@ import {
 } from '@phosphor-icons/react';
 
 import { useSettings } from '../context/SettingsContext';
-import { usePairing } from '../context/PairingContext';
+import { useConnect } from '../context/ConnectContext';
 import { useXp } from '../context/XpContext';
 import { useAuth } from '../context/AuthContext';
 import { usePlan } from '../hooks/usePlan';
@@ -366,50 +365,31 @@ const Avatar: React.FC<{ user: { name?: string | null; picture?: string | null }
   );
 
 /**
- * Phone pairing code. The digits are set in the mono face at a fixed width so
- * regenerating the code does not reflow the header.
+ * Phone connection status. Shows the linked device, or a button that opens the
+ * settings panel where the device list lives.
  */
 const PairingChip: React.FC = () => {
-  const { roomCode, devices, status, ensureRoom, regenerateRoom } = usePairing();
-  const paired = devices.length > 0;
+  const { linkedDevice, status } = useConnect();
+  const { openSettings } = useSettings();
 
-  useEffect(() => {
-    void ensureRoom();
-    // Runs once: the room is created lazily and then kept by the context.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  if (paired) {
+  if (linkedDevice) {
     return (
       <Badge variant="brand" className="hidden h-9 gap-1.5 px-2.5 xl:inline-flex">
         <DeviceMobileIcon weight="fill" />
-        <span className="max-w-24 truncate normal-case">{devices[0]?.name ?? 'Телефон'}</span>
+        <span className="max-w-24 truncate normal-case">{linkedDevice.name}</span>
       </Badge>
     );
   }
 
   return (
-    <div className="hidden h-9 items-center gap-1.5 rounded-lg border border-line bg-surface px-2 xl:flex">
-      <DeviceMobileIcon className="size-4 text-ink-faint" />
-      {roomCode ? (
-        <span className="tnum text-caption font-semibold tracking-[0.14em] text-ink">
-          {roomCode}
-        </span>
-      ) : (
-        <span className="text-caption text-ink-faint">
-          {status === 'connecting' ? 'Свързване' : 'Няма код'}
-        </span>
-      )}
-      <button
-        type="button"
-        onClick={() => void regenerateRoom()}
-        aria-label="Генерирай нов код за сдвояване"
-        title="Нов код"
-        className="rounded text-ink-faint transition-colors hover:text-ink"
-      >
-        <ArrowsClockwiseIcon className="size-3.5" />
-      </button>
-    </div>
+    <button
+      type="button"
+      onClick={() => openSettings()}
+      className="hidden h-9 items-center gap-1.5 rounded-lg border border-line bg-surface px-2 text-caption text-ink-muted transition-colors hover:text-ink xl:flex"
+    >
+      <DeviceMobileIcon className="size-4" />
+      <span>{status === 'connecting' ? 'Свързване' : 'Свържи телефон'}</span>
+    </button>
   );
 };
 
