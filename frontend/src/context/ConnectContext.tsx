@@ -48,9 +48,24 @@ const reasonMessage: Record<string, string> = {
   UNAUTHORIZED: 'Свързването беше отказано — влез отново в профила си.',
 };
 
+/**
+ * Why the feature cannot start, or null if it can.
+ *
+ * Resolved once up front rather than inside an effect: both conditions are
+ * known at first render, and setting state synchronously in an effect body
+ * costs a second render pass for no benefit.
+ */
+const startupBlocker = (): string | null => {
+  if (!REALTIME_AVAILABLE) return 'Свързването с телефон не е конфигурирано (VITE_REALTIME_URL).';
+  if (!getStoredPairingUserId()) return 'Свързването с телефон изисква вписан профил.';
+  return null;
+};
+
 export const ConnectProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
-  const [status, setStatus] = useState<ConnectStatus>('idle');
-  const [error, setError] = useState('');
+  const [status, setStatus] = useState<ConnectStatus>(() =>
+    startupBlocker() ? 'error' : 'connecting'
+  );
+  const [error, setError] = useState(() => startupBlocker() ?? '');
   const [devices, setDevices] = useState<DiscoveredDevice[]>([]);
   const [linkedDevice, setLinkedDevice] = useState<LinkedDevice | null>(null);
   const [pendingRequest, setPendingRequest] = useState<PendingRequest | null>(null);
@@ -146,21 +161,14 @@ export const ConnectProvider: React.FC<React.PropsWithChildren> = ({ children })
   }, [pushExamProblems, subscribe]);
 
   useEffect(() => {
-    if (!REALTIME_AVAILABLE) {
-      setStatus('error');
-      setError('Свързването с телефон не е конфигурирано (VITE_REALTIME_URL).');
-      return;
-    }
-    if (!getStoredPairingUserId()) {
-      setStatus('error');
-      setError('Свързването с телефон изисква вписан профил.');
-      return;
-    }
+    if (startupBlocker()) return;
 
-    setStatus('connecting');
     const socket = createSocketClient();
     socketRef.current = socket;
     attachListeners(socket);
+    // subscribe() only setStates after awaiting the server ack, so this is a
+    // later microtask, not the synchronous cascade the rule guards against.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (socket.connected) void subscribe(socket);
     else socket.connect();
 
