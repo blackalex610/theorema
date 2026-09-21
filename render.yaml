@@ -1,0 +1,41 @@
+# Render Blueprint for the realtime pairing server.
+#
+# Exists because the service was once created by hand without
+# REALTIME_JWT_SECRET, and the server — correctly — refuses to start without
+# it, so the deploy crash-looped with no indication of which variable was
+# missing. Declaring the service here makes the required variables part of the
+# repo instead of tribal knowledge.
+#
+# `sync: false` means "required, but never stored in git": Render prompts for
+# the value when the blueprint is applied and will not create the service
+# without it.
+services:
+  - type: web
+    name: matematika-realtime-server
+    runtime: node
+    rootDir: realtime-server
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+
+    envVars:
+      # MUST be byte-identical to the backend's SECRET_KEY. The realtime server
+      # verifies the same HS256 JWTs the backend signs, so a mismatch means
+      # every socket is rejected with UNAUTHORIZED even though the service
+      # starts cleanly — a far more confusing failure than not booting at all.
+      - key: REALTIME_JWT_SECRET
+        sync: false
+
+      # Comma-separated exact origins allowed to open a socket, e.g.
+      # https://smartnvo.vercel.app. Without this the server falls back to a
+      # localhost-only allowlist and the deployed frontend is blocked at the
+      # handshake.
+      - key: CORS_ORIGINS
+        sync: false
+
+      # The private-network origin regex (192.168.*/10.*) exists so a phone can
+      # reach a developer's machine by LAN IP. In production nothing legitimate
+      # connects from a private address, so it is disabled here.
+      - key: ALLOW_LOCAL_NETWORK
+        value: "false"

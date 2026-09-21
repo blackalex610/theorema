@@ -170,11 +170,54 @@ The real-time server (WebSocket) needs separate hosting since Vercel's serverles
 
 ### Option 2: Render
 
+Easiest path is the blueprint: **New → Blueprint**, point it at this repo, and
+Render reads `render.yaml` and prompts for the two required secrets.
+
+Creating the service by hand instead:
+
 1. Go to https://render.com
 2. New → Web Service
 3. Connect GitHub
-4. Select `realtime-server` directory
-5. Deploy
+4. Set `Root Directory` to `realtime-server`
+5. Build command `npm install`, start command `npm start`
+6. **Add the environment variables below — the service will not start without them**
+7. Deploy
+
+#### Required environment variables
+
+| Variable | Value |
+|---|---|
+| `REALTIME_JWT_SECRET` | Exactly the backend's `SECRET_KEY` |
+| `CORS_ORIGINS` | Comma-separated frontend origins, e.g. `https://smartnvo.vercel.app` |
+| `ALLOW_LOCAL_NETWORK` | `false` in production |
+
+`REALTIME_JWT_SECRET` must be **byte-identical** to the backend's `SECRET_KEY`.
+The realtime server verifies the same HS256 tokens the backend signs, so a
+mismatch produces a service that starts cleanly and then rejects every socket
+with `UNAUTHORIZED` — which looks nothing like a configuration problem.
+
+Note that on Vercel a *Sensitive* environment variable cannot be read back by
+anyone, dashboard or CLI. If `SECRET_KEY` was created that way and was not
+saved elsewhere, the only way to get a value you can also give Render is to
+rotate it: set a new one on both Vercel and Render, and redeploy both. Rotating
+signs out every logged-in user, because tokens last 7 days and there is no
+revocation — so do it when nobody is part-way through a 150-minute practice
+exam.
+
+#### Troubleshooting
+
+**`❌ REALTIME_JWT_SECRET (or SECRET_KEY) is not set` then `Exited with status 1`**
+The variable is missing. This is deliberate — the alternative is a server that
+runs but rejects every socket. Add it under Environment and redeploy.
+
+**Sockets rejected with `UNAUTHORIZED` although the service is up**
+The secret does not match the backend's, or the backend was not redeployed
+after its `SECRET_KEY` changed. Vercel environment changes do not reach a
+running deployment until it is redeployed.
+
+**`Blocked disallowed origin` in the logs**
+`CORS_ORIGINS` is missing or does not list the frontend's exact origin
+(scheme and host must match, no trailing slash).
 
 ### Option 3: Heroku
 
