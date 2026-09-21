@@ -417,13 +417,22 @@ class LayoutError(Retry):
     """
 
 
-def _angle_deg(vertex: Pt, a: Pt, b: Pt) -> float:
+def angle_deg(vertex: Pt, a: Pt, b: Pt) -> float:
+    """Degrees in ∠a-vertex-b, as drawn.
+
+    Public because a template sometimes has to check an angle it just built:
+    `verify.py` rejects an arc under MIN_ANGLE_DEG, and an item that would draw
+    one is better off raising Retry than failing the paper.
+    """
     d1, d2 = sub(a, vertex), sub(b, vertex)
     n1, n2 = norm(d1), norm(d2)
     if not n1 or not n2:
         return 0.0
     cos = max(-1.0, min(1.0, (d1[0] * d2[0] + d1[1] * d2[1]) / (n1 * n2)))
     return math.degrees(math.acos(cos))
+
+
+_angle_deg = angle_deg
 
 
 def angle_below(vertex: str, a: str, b: str, limit: float) -> Any:
@@ -475,6 +484,76 @@ def legs_equal(apex: str, a: str, b: str, *, tol: float = 1.5) -> Any:
         la = norm(sub(f.points[a], f.points[apex]))
         lb = norm(sub(f.points[b], f.points[apex]))
         return None if abs(la - lb) <= tol else f"legs differ by {abs(la - lb):.1f}"
+    return check
+
+
+def circumcentre(a: Pt, b: Pt, c: Pt) -> Pt | None:
+    """Where the three perpendicular bisectors meet, or None if degenerate."""
+    mab, mac = midpoint(a, b), midpoint(a, c)
+    dab, dac = sub(b, a), sub(c, a)
+    nab, nac = (-dab[1], dab[0]), (-dac[1], dac[0])
+    return line_intersection(mab, add(mab, nab), mac, add(mac, nac))
+
+
+def inside_box(name: str, margin: float = MIN_BOX_MARGIN + 6.0) -> Any:
+    """One named point must sit clear of the edge, hidden or not.
+
+    `points_inside` exempts hidden points because they are anchors for lines
+    meant to run off the figure. An extension point that an arc will be drawn
+    around is the opposite case: it is hidden, but it must be reachable.
+    """
+    def check(f: "Figure") -> str | None:
+        x, y = f.points[name]
+        if min(x, y, f.width - x, f.height - y) < margin:
+            return f"point {name} at ({x:.0f}, {y:.0f}) is too near the edge"
+        return None
+    return check
+
+
+def points_apart(a: str, b: str, *, by: float = 20.0) -> Any:
+    """Two points must be far enough apart that their labels do not collide.
+
+    `verify.py` rejects a scene whose labels overlap, which would turn a layout
+    that occasionally draws two cevian feet on top of each other into an
+    intermittent paper failure. Asserting the separation here makes it a
+    resample instead.
+    """
+    def check(f: "Figure") -> str | None:
+        d = norm(sub(f.points[a], f.points[b]))
+        return None if d >= by else f"{a} and {b} are {d:.1f} apart, wanted >= {by}"
+    return check
+
+
+def foot_and_midpoint_apart(apex: str, a: str, b: str, *, by: float = 22.0) -> Any:
+    """The altitude's foot and the median's must be visibly different points.
+
+    A triangle near-isosceles about `apex` puts them on top of each other, and
+    a figure captioned "CP is a height and CM is a median" that draws one
+    segment contradicts its own stem.
+    """
+    def check(f: "Figure") -> str | None:
+        pa, pb, pc = f.points[a], f.points[b], f.points[apex]
+        d = norm(sub(foot_of_perpendicular(pc, pa, pb), midpoint(pa, pb)))
+        return None if d >= by else f"foot and midpoint are {d:.1f} apart, wanted >= {by}"
+    return check
+
+
+def circumcentre_inside(a: str, b: str, c: str, *, margin: float = 16.0) -> Any:
+    """The circumcentre must land strictly inside, clear of every side.
+
+    True exactly when the triangle is acute. An obtuse one puts the meeting
+    point of the perpendicular bisectors outside the triangle, which is
+    correct mathematics and an unreadable figure at this size.
+    """
+    def check(f: "Figure") -> str | None:
+        pa, pb, pc = f.points[a], f.points[b], f.points[c]
+        o = circumcentre(pa, pb, pc)
+        if o is None:
+            return "degenerate triangle has no circumcentre"
+        for p, q in ((pa, pb), (pb, pc), (pc, pa)):
+            if norm(sub(o, foot_of_perpendicular(o, p, q))) < margin:
+                return f"circumcentre sits {margin:.0f} or less from a side"
+        return None
     return check
 
 
@@ -694,6 +773,134 @@ def two_parallel_lines(fig: "Figure | None" = None, *,
     f.put("bR", (242.0, top), hidden=True)
     f.put("aL", (18.0, bottom), hidden=True)
     f.put("aR", (242.0, bottom), hidden=True)
+    return f
+
+
+@layout(invariants=[
+    angle_below("A", "B", "C", 80.0),
+    angle_below("B", "A", "C", 80.0),
+    angle_above("A", "B", "C", 27.0),
+    angle_above("B", "A", "C", 27.0),
+    foot_and_midpoint_apart("C", "A", "B"),
+    points_inside(),
+])
+def triangle_for_three_cevians(fig: "Figure | None" = None, *, lopsided: bool = False,
+                               apex_left: bool = False,
+                               rng: random.Random | None = None) -> "Figure":
+    """A triangle that can carry a height, a median and a bisector from C at once.
+
+    Three feet have to fit along AB with their labels legible, which is a
+    stronger demand than `triangle_for_cevians` makes for two. Both base angles
+    are held between 30° and 78° so every foot lands strictly inside AB, and
+    the triangle is kept away from isosceles so the height's foot and the
+    median's are visibly different points — see `foot_and_midpoint_apart`.
+
+    This is the shape of the densest recurring figure in the corpus: it appears
+    in the 2015, 2017, 2019, 2020 and 2023 papers.
+
+    `lopsided` pushes the apex further off-centre. An item that *marks* the
+    angle between two of the cevians needs that: the arc it draws spans roughly
+    the foot-to-foot distance over the height, so a merely off-centre triangle
+    yields 8°, under the legibility floor `verify.py` enforces.
+
+    `apex_left` fixes which side the apex falls on. Since AB is horizontal, the
+    height's foot sits directly under C, so an apex left of centre is exactly
+    the condition "∠A > ∠B" — which a stem that names both angles has already
+    committed to. Letting the layout choose freely and rejecting half the draws
+    in the template wastes half the samples for nothing.
+    """
+    f = fig or Figure()
+    if rng is None:
+        ax, bx, base_y, cy = 28.0, 214.0, 140.0, 28.0
+        t = (0.24 if apex_left else 0.76) if lopsided else 0.62
+    else:
+        ax = rng.uniform(22.0, 34.0)
+        bx = rng.uniform(200.0, 222.0)
+        base_y = rng.uniform(134.0, 146.0)
+        # Deliberately off-centre: t near 0.5 is the near-isosceles case the
+        # foot/midpoint invariant would reject anyway.
+        spread = (0.16, 0.28) if lopsided else (0.30, 0.42)
+        left = rng.uniform(*spread)
+        t = left if apex_left else rng.choice((left, 1.0 - left))
+        cy = rng.uniform(24.0, 44.0)
+    f.put("A", (ax, base_y))
+    f.put("B", (bx, base_y))
+    f.put("C", (ax + t * (bx - ax), cy))
+    return f
+
+
+@layout(invariants=[
+    angle_above("A", "B", "C", 26.0),
+    angle_above("B", "A", "C", 26.0),
+    angle_below("C", "A", "B", 96.0),
+    inside_box("E"),
+    points_apart("B", "E", by=26.0),
+    points_inside(),
+])
+def triangle_with_extended_side(fig: "Figure | None" = None, *,
+                                rng: random.Random | None = None) -> "Figure":
+    """Triangle ABC with AB produced beyond B to a hidden anchor E.
+
+    The exterior angle the papers mark is ∠CBE, supplementary to ∠ABC. The
+    base is the side to produce: extending a slanted side instead runs the
+    anchor off the top of a 260×170 box within a few tries, since the apex is
+    already near it. B is therefore kept left of centre to leave the extension
+    room.
+
+    E is hidden, so `points_inside` exempts it — but an arc gets drawn around
+    it, so it must actually be reachable. `inside_box("E")` asserts that, and
+    `points_apart` keeps the extension long enough for the arc to read.
+    """
+    f = fig or Figure()
+    if rng is None:
+        ax, bx, base_y, t, cy, reach = 28.0, 168.0, 140.0, 0.40, 46.0, 0.34
+    else:
+        ax = rng.uniform(24.0, 34.0)
+        bx = rng.uniform(150.0, 175.0)
+        base_y = rng.uniform(130.0, 144.0)
+        t = rng.uniform(0.30, 0.55)
+        cy = rng.uniform(34.0, 60.0)
+        reach = rng.uniform(0.25, 0.42)
+    A = f.put("A", (ax, base_y))
+    B = f.put("B", (bx, base_y))
+    f.put("C", (ax + t * (bx - ax), cy))
+    f.put("E", add(B, scale(sub(B, A), reach)), hidden=True)
+    return f
+
+
+@layout(invariants=[
+    angle_below("A", "B", "C", 76.0),
+    angle_below("B", "A", "C", 76.0),
+    angle_below("C", "A", "B", 76.0),
+    angle_above("A", "B", "C", 34.0),
+    circumcentre_inside("A", "B", "C"),
+    points_inside(),
+])
+def triangle_for_circumcentre(fig: "Figure | None" = None, *,
+                              rng: random.Random | None = None) -> "Figure":
+    """An acute triangle whose perpendicular bisectors meet well inside it.
+
+    Every angle is held under 76°, which is what puts the circumcentre inside
+    with room to spare; `circumcentre_inside` then checks the consequence
+    rather than trusting the bound. The 2019 and 2025 papers both print this
+    figure with two of the three bisectors drawn.
+    """
+    f = fig or Figure()
+    # Holding every angle under 76° is a constraint on the *proportions*: for an
+    # apex over the middle of the base it needs height > 1.28 × half-base. A
+    # triangle as wide as the generic layouts draw cannot satisfy it inside a
+    # 260×170 box, so this one is deliberately narrower and taller.
+    if rng is None:
+        ax, bx, base_y, t, cy = 42.0, 192.0, 140.0, 0.50, 22.0
+    else:
+        ax = rng.uniform(36.0, 48.0)
+        bx = rng.uniform(185.0, 200.0)
+        base_y = rng.uniform(134.0, 144.0)
+        t = rng.uniform(0.42, 0.58)
+        cy = rng.uniform(18.0, 30.0)
+    f.put("A", (ax, base_y))
+    f.put("B", (bx, base_y))
+    f.put("C", (ax + t * (bx - ax), cy))
     return f
 
 

@@ -32,6 +32,8 @@ from app.nvo_gen.scene import (
     Figure,
     add,
     angle_bisector_point,
+    angle_deg,
+    circumcentre,
     coordinate_grid,
     deg,
     foot_of_perpendicular,
@@ -39,6 +41,7 @@ from app.nvo_gen.scene import (
     lerp,
     line_intersection,
     midpoint,
+    norm,
     parallelogram,
     polar,
     right_triangle,
@@ -47,6 +50,9 @@ from app.nvo_gen.scene import (
     solid,
     sub,
     triangle_for_cevians,
+    triangle_for_circumcentre,
+    triangle_for_three_cevians,
+    triangle_with_extended_side,
     two_parallel_lines,
     unit,
 )
@@ -1444,4 +1450,427 @@ def two_triangles_on_a_line(rng: random.Random, slot: Slot) -> GeneratedItem:
                   rf"права, $\sphericalangle BCD = 180^\circ - "
                   rf"{180 - alpha - beta}^\circ - {180 - gamma - delta}^\circ = {key}^\circ$"),
         signature=f"two_tri_line:{alpha}:{beta}:{gamma}:{delta}",
+    )
+
+
+# ─── archetypes the coverage audit found missing ─────────────────────────────
+# Seven figures that recur across two or more of the thirteen official papers
+# but that no template could draw. See docs/nvo-figures/coverage.md for the
+# archetype × paper matrix these were chosen from.
+
+#: A marked arc needs more room than `verify.MIN_ANGLE_DEG` strictly demands.
+#: Checking against the bare minimum leaves a draw that passes the verifier and
+#: still reads as a smudge, so templates that mark an angle they constructed
+#: hold themselves to this instead.
+MIN_MARKED_ANGLE = 16.0
+
+#: Two cevian feet on the same side need at least this much room, a little over
+#: `verify.MIN_LABEL_GAP`, or their labels are rejected for overlapping.
+MIN_FOOT_LABEL_GAP = 25.0
+
+
+@template("tri_height_bisector_median",
+          topics=["geom_triangle_cevians"], kinds=["mc"], weight=1.3, band="hard")
+def tri_height_bisector_median(rng: random.Random, slot: Slot) -> GeneratedItem:
+    """CP height, CL bisector, CM median from one vertex; find ∠PCL.
+
+    The densest recurring figure in the corpus — 2015, 2017, 2019, 2020 and
+    2023 all print a triangle carrying three cevians from the same vertex.
+
+    The chase collapses to a small identity worth knowing: ∠ACL is half of
+    ∠ACB and ∠ACP is 90° − α, so
+
+        ∠PCL = (180 − α − β)/2 − (90 − α) = (α − β)/2
+
+    — the angle between a vertex's height and its bisector is half the
+    difference of the other two angles, and the median is along for the ride.
+    """
+    alpha = rng.choice(slot.profile.tier(
+        [60, 64, 70], [58, 60, 64, 70, 72],
+        [54, 56, 58, 60, 62, 64, 68, 70, 72],
+        [53, 57, 59, 61, 63, 67, 69, 71, 73]))          # ∠BAC
+    beta = rng.choice(slot.profile.tier(
+        [40, 44], [38, 40, 44, 46],
+        [32, 34, 36, 38, 40, 42, 44, 46],
+        [31, 33, 35, 37, 39, 41, 43, 45, 47]))          # ∠ABC
+    if (alpha - beta) % 2 or alpha - beta < 8:
+        raise Retry("∠PCL must be a whole number of degrees, and readable")
+    gamma = 180 - alpha - beta
+    if gamma <= 30 or alpha <= beta:
+        raise Retry("∠ACB must stay a healthy angle and α must exceed β")
+    key = (alpha - beta) // 2
+
+    # α > β means the height's foot really does fall nearer A than the median's
+    # (AP < PB reduces to sin(β − α) < 0), which is what `apex_left` asks for.
+    f = triangle_for_three_cevians(lopsided=True, apex_left=True, rng=rng)
+    A, B, C = f.points["A"], f.points["B"], f.points["C"]
+    P = f.put("P", foot_of_perpendicular(C, A, B))
+    M = f.put("M", midpoint(A, B))
+    # The bisector's foot always lies between the height's and the median's,
+    # and where exactly is not free: too near P and the marked ∠PCL is a
+    # smudge, too near M and the two labels are rejected for overlapping.
+    # Both bounds are known in closed form, so solve for the interval rather
+    # than sampling the segment and hoping — blind sampling satisfies both at
+    # once so rarely that the template retries essentially always.
+    span = norm(sub(M, P))
+    height = norm(sub(C, P))
+    near = height * math.tan(math.radians(MIN_MARKED_ANGLE))   # ∠PCL readable
+    far = span - MIN_FOOT_LABEL_GAP                            # L clear of M
+    if far <= near:
+        raise Retry("no room on PM for a bisector foot that is both marked and labelled")
+    f.put("L", lerp(P, M, rng.uniform(near, far) / span))
+    f.path(["A", "B", "C"], close=True)
+    f.segs([("C", "P"), ("C", "L"), ("C", "M")])
+    f.right_angle("P", "C", "B")
+    f.tick("A", "M")
+    f.tick("M", "B")
+    f.angle("A", "B", "C", label=deg(alpha), radius=24)
+    f.angle("B", "C", "A", label=deg(beta), radius=24)
+    f.angle("C", "P", "L", arcs=1, fill=True, radius=30)
+
+    options, letter = angle_options(
+        key, extras=[alpha - beta, gamma // 2, 90 - alpha, alpha + beta - 90], rng=rng)
+    return GeneratedItem(
+        topic=slot.topic, kind="mc", points=slot.points,
+        stem=("На чертежа $CP$ е височина, $CL$ е ъглополовяща, а $CM$ е медиана "
+              "в $\\triangle ABC$. Ако $\\sphericalangle BAC = "
+              f"{alpha}^\\circ$ и $\\sphericalangle ABC = {beta}^\\circ$, то мярката "
+              "на $\\sphericalangle PCL$ е:"),
+        options=options, correct_answer=letter, difficulty="hard",
+        scene=f.to_spec(aria=(f"Триъгълник ABC с височина CP, ъглополовяща CL и медиана CM "
+                              f"от върха C; отбелязани са ъгли {alpha} и {beta} градуса "
+                              f"при основата"), rng=rng),
+        solution=(rf"$\sphericalangle ACB = 180^\circ - {alpha}^\circ - {beta}^\circ "
+                  rf"= {gamma}^\circ$, значи $\sphericalangle ACL = {gamma // 2}^\circ$. "
+                  rf"От правоъгълния $\triangle APC$ следва $\sphericalangle ACP = "
+                  rf"90^\circ - {alpha}^\circ = {90 - alpha}^\circ$. Тогава "
+                  rf"$\sphericalangle PCL = {gamma // 2}^\circ - ({90 - alpha}^\circ) "
+                  rf"= {key}^\circ$"),
+        signature=f"tri_hbm:{alpha}:{beta}",
+    )
+
+
+@template("tri_exterior_angle_at_base",
+          topics=["geom_lines_angles"], kinds=["mc"], weight=1.2, band="easy")
+def tri_exterior_angle_at_base(rng: random.Random, slot: Slot) -> GeneratedItem:
+    """AB produced past B; given the exterior angle at B and ∠BAC, find ∠ACB.
+
+    The exterior angle theorem as the 2015, 2022 and 2023 papers pose it: the
+    exterior angle equals the sum of the two remote interior ones, so the
+    answer is a single subtraction — which is why this one is banded easy.
+    """
+    ext = rng.choice(slot.profile.tier(
+        [100, 110, 120], [100, 105, 110, 120, 125],
+        [95, 100, 105, 110, 115, 120, 125, 130, 135],
+        [97, 101, 103, 107, 113, 117, 119, 127, 133]))
+    alpha = rng.choice(slot.profile.tier(
+        [40, 50], [35, 40, 45, 50],
+        [30, 35, 40, 45, 50, 55, 60],
+        [28, 32, 37, 43, 47, 53, 58, 62]))
+    key = ext - alpha                                   # ∠ACB
+    beta = 180 - ext                                    # ∠ABC, supplementary
+    if key <= 20 or beta <= 20 or alpha + beta + key != 180:
+        raise Retry("every angle of the triangle must stay readable")
+
+    f = triangle_with_extended_side(rng=rng)
+    f.path(["A", "B", "C"], close=True)
+    f.seg("B", "E")
+    f.angle("A", "B", "C", label=deg(alpha), radius=24)
+    f.angle("B", "C", "E", label=deg(ext), radius=22)
+    f.angle("C", "A", "B", arcs=1, fill=True, radius=22)
+
+    options, letter = angle_options(
+        key, extras=[beta, ext, alpha, 180 - alpha], rng=rng)
+    return GeneratedItem(
+        topic=slot.topic, kind="mc", points=slot.points,
+        stem=("На чертежа точката $E$ лежи върху продължението на страната $AB$ "
+              "отвъд върха $B$. Ако $\\sphericalangle CBE = "
+              f"{ext}^\\circ$ и $\\sphericalangle BAC = {alpha}^\\circ$, то мярката "
+              "на $\\sphericalangle ACB$ е:"),
+        options=options, correct_answer=letter, difficulty="easy",
+        scene=f.to_spec(aria=(f"Триъгълник ABC със страна AB, продължена отвъд B до точка E; "
+                              f"външният ъгъл при B е {ext} градуса, ъгълът при A е "
+                              f"{alpha} градуса"), rng=rng),
+        solution=(rf"Външният ъгъл при $B$ е равен на сбора от двата несъседни "
+                  rf"вътрешни ъгъла: $\sphericalangle CBE = \sphericalangle BAC + "
+                  rf"\sphericalangle ACB$, откъдето $\sphericalangle ACB = "
+                  rf"{ext}^\circ - {alpha}^\circ = {key}^\circ$"),
+        signature=f"tri_ext_base:{ext}:{alpha}",
+    )
+
+
+@template("tri_cevian_exterior_angle",
+          topics=["geom_triangle_cevians"], kinds=["mc"], weight=1.1, band="medium")
+def tri_cevian_exterior_angle(rng: random.Random, slot: Slot) -> GeneratedItem:
+    """A cevian CD splits the base; ∠CDB is exterior to △ACD, so it is α + ∠ACD.
+
+    The 2017, 2018 and 2024 shape. The exterior angle here is not made by
+    producing a side but by the cevian itself — ∠ADC and ∠CDB are the two
+    angles on the straight line AB at D.
+    """
+    alpha = rng.choice(slot.profile.tier(
+        [40, 50], [35, 40, 45, 50, 55],
+        [30, 35, 40, 45, 50, 55, 60, 65],
+        [28, 33, 37, 42, 47, 52, 58, 63, 67]))          # ∠BAC
+    delta = rng.choice(slot.profile.tier(
+        [20, 30], [20, 25, 30, 35],
+        [15, 20, 25, 30, 35, 40],
+        [13, 17, 22, 27, 32, 38, 43]))                  # ∠ACD
+    key = alpha + delta                                 # ∠CDB
+    if key >= 155 or key <= 40:
+        raise Retry("∠CDB must be a readable angle strictly inside a straight one")
+
+    f = triangle_for_three_cevians(rng=rng)
+    A, B = f.points["A"], f.points["B"]
+    f.put("D", lerp(A, B, rng.uniform(0.34, 0.56)))
+    f.path(["A", "B", "C"], close=True)
+    f.seg("C", "D")
+    f.angle("A", "B", "C", label=deg(alpha), radius=24)
+    f.angle("C", "A", "D", label=deg(delta), radius=26)
+    f.angle("D", "C", "B", arcs=1, fill=True, radius=22)
+
+    options, letter = angle_options(
+        key, extras=[180 - key, alpha, delta, 180 - alpha - delta], rng=rng)
+    return GeneratedItem(
+        topic=slot.topic, kind="mc", points=slot.points,
+        stem=("На чертежа точката $D$ лежи върху страната $AB$ на $\\triangle ABC$. "
+              f"Ако $\\sphericalangle BAC = {alpha}^\\circ$ и $\\sphericalangle ACD "
+              f"= {delta}^\\circ$, то мярката на $\\sphericalangle CDB$ е:"),
+        options=options, correct_answer=letter, difficulty="medium",
+        scene=f.to_spec(aria=(f"Триъгълник ABC с отсечка CD към страната AB; отбелязани са "
+                              f"ъгъл {alpha} градуса при A и {delta} градуса при C"), rng=rng),
+        solution=(rf"$\sphericalangle CDB$ е външен ъгъл за $\triangle ACD$ при върха "
+                  rf"$D$, затова е равен на сбора от несъседните вътрешни ъгли: "
+                  rf"$\sphericalangle CDB = {alpha}^\circ + {delta}^\circ = {key}^\circ$"),
+        signature=f"tri_cev_ext:{alpha}:{delta}",
+    )
+
+
+@template("rect_diagonals_angle",
+          topics=["geom_quadrilateral"], kinds=["mc"], weight=1.2, band="medium")
+def rect_diagonals_angle(rng: random.Random, slot: Slot) -> GeneratedItem:
+    """Rectangle diagonals meet at O; given ∠AOB, find ∠ACB.
+
+    The 2017 and 2026 figure. It turns on the property that makes a rectangle's
+    diagonals special: they are equal and bisect each other, so all four
+    half-diagonals are equal and every triangle at O is isosceles. ∠BOC is
+    supplementary to ∠AOB, which hands back ∠OCB = ∠AOB/2.
+    """
+    theta = rng.choice(slot.profile.tier(
+        [60, 80, 100], [60, 70, 80, 100, 110],
+        [50, 60, 70, 80, 90, 100, 110, 120, 130],
+        [54, 58, 66, 74, 86, 94, 106, 114, 126]))       # ∠AOB
+    if theta % 2:
+        raise Retry("∠ACB must be a whole number of degrees")
+    key = theta // 2                                    # ∠ACB
+    if key <= 20 or key >= 70:
+        raise Retry("∠ACB must stay clear of the degenerate ends")
+
+    f = parallelogram(rect=True, rng=rng)
+    A, B, C, D = (f.points[n] for n in "ABCD")
+    O = line_intersection(A, C, B, D)
+    if O is None:
+        raise Retry("degenerate rectangle has no diagonal crossing")
+    f.put("O", O, dot=True)
+    f.path(["A", "B", "C", "D"], close=True)
+    f.segs([("A", "C"), ("B", "D")])
+    f.angle("O", "A", "B", label=deg(theta), radius=22)
+    f.angle("C", "A", "B", arcs=1, fill=True, radius=26)
+
+    options, letter = angle_options(
+        key, extras=[theta, 180 - theta, (180 - theta) // 2, 90 - key], rng=rng)
+    return GeneratedItem(
+        topic=slot.topic, kind="mc", points=slot.points,
+        stem=("На чертежа $ABCD$ е правоъгълник, а диагоналите му се пресичат в "
+              f"точка $O$. Ако $\\sphericalangle AOB = {theta}^\\circ$, то мярката "
+              "на $\\sphericalangle ACB$ е:"),
+        options=options, correct_answer=letter, difficulty="medium",
+        scene=f.to_spec(aria=(f"Правоъгълник ABCD с двата диагонала и пресечната им точка O; "
+                              f"ъгълът AOB е {theta} градуса"), rng=rng),
+        solution=(rf"Диагоналите на правоъгълник са равни и се разполовяват, затова "
+                  rf"$OB = OC$ и $\triangle BOC$ е равнобедрен. От "
+                  rf"$\sphericalangle BOC = 180^\circ - {theta}^\circ = "
+                  rf"{180 - theta}^\circ$ следва $\sphericalangle ACB = "
+                  rf"\dfrac{{180^\circ - {180 - theta}^\circ}}{{2}} = {key}^\circ$"),
+        signature=f"rect_diag:{theta}",
+    )
+
+
+@template("tri_perpendicular_from_side_point",
+          topics=["geom_triangle_cevians"], kinds=["mc"], weight=1.1, band="medium")
+def tri_perpendicular_from_side_point(rng: random.Random, slot: Slot) -> GeneratedItem:
+    """N on BC, NM ⟂ AB; given ∠BAC and ∠ACB, find ∠MNB.
+
+    The 2018 and 2025 shape. Two steps: the triangle's angle sum gives ∠ABC,
+    then the right triangle BMN gives ∠MNB as its complement.
+    """
+    alpha = rng.choice(slot.profile.tier(
+        [60, 70], [55, 60, 65, 70],
+        [50, 55, 60, 65, 70, 75],
+        [48, 53, 58, 63, 68, 73, 77]))                  # ∠BAC
+    gamma = rng.choice(slot.profile.tier(
+        [60, 70], [55, 60, 65, 70],
+        [50, 55, 60, 65, 70, 75],
+        [48, 53, 58, 63, 68, 73, 77]))                  # ∠ACB
+    beta = 180 - alpha - gamma
+    key = 90 - beta                                     # ∠MNB
+    if beta <= 20 or key <= 20 or key >= 80:
+        raise Retry("both the triangle and the right triangle must stay readable")
+
+    f = triangle_for_three_cevians(rng=rng)
+    A, B, C = f.points["A"], f.points["B"], f.points["C"]
+    N = f.put("N", lerp(B, C, rng.uniform(0.38, 0.58)))
+    f.put("M", foot_of_perpendicular(N, A, B))
+    f.path(["A", "B", "C"], close=True)
+    f.seg("N", "M")
+    f.right_angle("M", "N", "B")
+    f.angle("A", "B", "C", label=deg(alpha), radius=24)
+    f.angle("C", "A", "B", label=deg(gamma), radius=22)
+    f.angle("N", "M", "B", arcs=1, fill=True, radius=20)
+
+    options, letter = angle_options(
+        key, extras=[beta, 90 - alpha, 90 - gamma, alpha + gamma - 90], rng=rng)
+    return GeneratedItem(
+        topic=slot.topic, kind="mc", points=slot.points,
+        stem=("На чертежа точката $N$ лежи върху страната $BC$ на $\\triangle ABC$, "
+              "а $NM \\perp AB$. Ако $\\sphericalangle BAC = "
+              f"{alpha}^\\circ$ и $\\sphericalangle ACB = {gamma}^\\circ$, то мярката "
+              "на $\\sphericalangle MNB$ е:"),
+        options=options, correct_answer=letter, difficulty="medium",
+        scene=f.to_spec(aria=(f"Триъгълник ABC с точка N върху BC и перпендикуляр NM към AB; "
+                              f"отбелязани са ъгли {alpha} градуса при A и {gamma} градуса "
+                              f"при C"), rng=rng),
+        solution=(rf"$\sphericalangle ABC = 180^\circ - {alpha}^\circ - {gamma}^\circ "
+                  rf"= {beta}^\circ$. В правоъгълния $\triangle BMN$ острите ъгли се "
+                  rf"допълват до $90^\circ$, затова $\sphericalangle MNB = 90^\circ - "
+                  rf"{beta}^\circ = {key}^\circ$"),
+        signature=f"tri_perp_side:{alpha}:{gamma}",
+    )
+
+
+@template("tri_circumcentre_central_angle",
+          topics=["geom_bisectors_incentre"], kinds=["mc", "short"],
+          weight=1.2, band="hard")
+def tri_circumcentre_central_angle(rng: random.Random, slot: Slot) -> GeneratedItem:
+    """The perpendicular bisectors meet at O; given ∠BAC and ∠ABC, find ∠AOB.
+
+    The 2019 and 2025 figure, both of which draw two of the three bisectors and
+    call their meeting point O. The central angle over AB is twice the
+    inscribed ∠ACB — the one genuinely non-obvious fact in the geometry that
+    the seventh-grade syllabus reaches.
+    """
+    alpha = rng.choice(slot.profile.tier(
+        [50, 60], [50, 55, 60, 65],
+        [45, 50, 55, 60, 65, 70],
+        [47, 52, 58, 63, 68, 72]))                      # ∠BAC
+    beta = rng.choice(slot.profile.tier(
+        [50, 60], [50, 55, 60, 65],
+        [45, 50, 55, 60, 65, 70],
+        [47, 52, 58, 63, 68, 72]))                      # ∠ABC
+    gamma = 180 - alpha - beta
+    key = 2 * gamma                                     # ∠AOB
+    if gamma <= 30 or gamma >= 85 or key >= 175:
+        raise Retry("the triangle must be acute for O to sit inside it")
+
+    f = triangle_for_circumcentre(rng=rng)
+    A, B, C = f.points["A"], f.points["B"], f.points["C"]
+    O = circumcentre(A, B, C)
+    if O is None:
+        raise Retry("degenerate triangle has no circumcentre")
+    f.put("O", O, dot=True)
+    f.put("P", midpoint(A, B))
+    f.put("Q", midpoint(A, C))
+    f.path(["A", "B", "C"], close=True)
+    f.segs([("O", "A"), ("O", "B")])
+    f.segs([("O", "P"), ("O", "Q")], dash=True)
+    f.tick("A", "P")
+    f.tick("P", "B")
+    f.tick("A", "Q", count=2)
+    f.tick("Q", "C", count=2)
+    f.angle("A", "B", "C", label=deg(alpha), radius=22)
+    f.angle("B", "C", "A", label=deg(beta), radius=22)
+    f.angle("O", "A", "B", arcs=1, fill=True, radius=20)
+
+    stem = ("На чертежа симетралите на страните $AB$ и $AC$ на $\\triangle ABC$ "
+            "се пресичат в точка $O$. Ако $\\sphericalangle BAC = "
+            f"{alpha}^\\circ$ и $\\sphericalangle ABC = {beta}^\\circ$,")
+    aria = (f"Остроъгълен триъгълник ABC със симетралите на AB и AC, пресичащи се "
+            f"в точка O; отбелязани са ъгли {alpha} и {beta} градуса")
+    solution = (rf"$\sphericalangle ACB = 180^\circ - {alpha}^\circ - {beta}^\circ "
+                rf"= {gamma}^\circ$. Точката $O$ е центърът на описаната окръжност, "
+                rf"защото $OA = OB = OC$. Централният ъгъл е два пъти вписания над "
+                rf"същата дъга: $\sphericalangle AOB = 2 \cdot {gamma}^\circ "
+                rf"= {key}^\circ$")
+
+    if slot.kind == "short":
+        return GeneratedItem(
+            topic=slot.topic, kind="short", points=slot.points,
+            stem=stem + " намерете мярката на $\\sphericalangle AOB$.",
+            correct_answer=f"{key}°", difficulty="hard",
+            scene=f.to_spec(aria=aria, rng=rng), solution=solution,
+            signature=f"tri_circum:{alpha}:{beta}",
+        )
+
+    options, letter = angle_options(
+        key, extras=[gamma, 180 - gamma, 2 * alpha, 2 * beta], rng=rng)
+    return GeneratedItem(
+        topic=slot.topic, kind="mc", points=slot.points,
+        stem=stem + " то мярката на $\\sphericalangle AOB$ е:",
+        options=options, correct_answer=letter, difficulty="hard",
+        scene=f.to_spec(aria=aria, rng=rng), solution=solution,
+        signature=f"tri_circum:{alpha}:{beta}",
+    )
+
+
+@template("line_through_vertex_angles",
+          topics=["geom_lines_angles"], kinds=["mc"], weight=1.1, band="easy")
+def line_through_vertex_angles(rng: random.Random, slot: Slot) -> GeneratedItem:
+    """K, C, M collinear through the apex; the three angles at C fill a straight one.
+
+    The 2019 and 2025 shape. No parallelism is needed and none is claimed — the
+    whole content is that ∠KCA, ∠ACB and ∠BCM sit on one straight line at C.
+    """
+    alpha = rng.choice(slot.profile.tier(
+        [40, 50], [35, 40, 45, 50, 55],
+        [30, 35, 40, 45, 50, 55, 60],
+        [28, 33, 38, 43, 48, 53, 58, 62]))              # ∠KCA
+    gamma = rng.choice(slot.profile.tier(
+        [60, 70], [55, 60, 65, 70, 75],
+        [50, 55, 60, 65, 70, 75, 80],
+        [48, 52, 57, 63, 68, 72, 78, 82]))              # ∠ACB
+    key = 180 - alpha - gamma                           # ∠BCM
+    if key <= 20:
+        raise Retry("∠BCM must remain a readable angle")
+
+    f = triangle_for_three_cevians(rng=rng)
+    A, B, C = f.points["A"], f.points["B"], f.points["C"]
+    # The line is drawn parallel to AB because that is how the papers draw it,
+    # but the item never uses the parallelism — only that K, C, M are collinear.
+    d = unit(sub(B, A))
+    reach = min(C[0] - 30.0, 230.0 - C[0], 58.0)
+    if reach < 34.0:
+        raise Retry("no room either side of C for the line and its labels")
+    f.put("K", add(C, scale(d, -reach)))
+    f.put("M", add(C, scale(d, reach)))
+    f.path(["A", "B", "C"], close=True)
+    f.segs([("K", "C"), ("C", "M")])
+    f.angle("C", "K", "A", label=deg(alpha), radius=24)
+    f.angle("C", "A", "B", label=deg(gamma), radius=32)
+    f.angle("C", "B", "M", arcs=1, fill=True, radius=24)
+
+    options, letter = angle_options(
+        key, extras=[alpha, gamma, alpha + gamma, 180 - gamma], rng=rng)
+    return GeneratedItem(
+        topic=slot.topic, kind="mc", points=slot.points,
+        stem=("На чертежа точките $K$, $C$ и $M$ лежат на една права. Ако "
+              f"$\\sphericalangle KCA = {alpha}^\\circ$ и $\\sphericalangle ACB = "
+              f"{gamma}^\\circ$, то мярката на $\\sphericalangle BCM$ е:"),
+        options=options, correct_answer=letter, difficulty="easy",
+        scene=f.to_spec(aria=(f"Триъгълник ABC и права през върха C с точки K и M от двете "
+                              f"страни; отбелязани са ъгли {alpha} и {gamma} градуса при C"),
+                        rng=rng),
+        solution=(rf"Трите ъгъла при $C$ допълват изправен ъгъл, защото $K$, $C$ и $M$ "
+                  rf"лежат на една права: $\sphericalangle BCM = 180^\circ - "
+                  rf"{alpha}^\circ - {gamma}^\circ = {key}^\circ$"),
+        signature=f"line_vertex:{alpha}:{gamma}",
     )

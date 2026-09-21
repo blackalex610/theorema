@@ -261,3 +261,155 @@ def test_a_layout_that_cannot_satisfy_its_contract_costs_only_a_resample():
                         kinds=frozenset({"mc"}), build=always_fails)
     import random
     assert _try_template(tmpl, mc_slot(), random.Random(0), set()) is None
+
+
+# ─── the layouts added by the figure-coverage audit ──────────────────────────
+# docs/nvo-figures/coverage.md found nine archetypes that recur across two or
+# more of the thirteen official papers and that nothing could draw. Seven were
+# built, on three new layouts. Each layout's contract is asserted here rather
+# than described in its docstring, which is the mistake the original
+# scalene_triangle made.
+
+import random as _random
+
+from app.nvo_gen.registry import Retry, all_templates, get_template
+from app.nvo_gen.scene import (
+    angle_deg,
+    circumcentre,
+    foot_of_perpendicular,
+    midpoint,
+    norm,
+    sub,
+    triangle_for_circumcentre,
+    triangle_for_three_cevians,
+    triangle_with_extended_side,
+)
+
+NEW_LAYOUTS = (
+    triangle_for_three_cevians,
+    triangle_with_extended_side,
+    triangle_for_circumcentre,
+)
+
+NEW_TEMPLATES = (
+    "tri_height_bisector_median",
+    "tri_exterior_angle_at_base",
+    "tri_cevian_exterior_angle",
+    "rect_diagonals_angle",
+    "tri_perpendicular_from_side_point",
+    "tri_circumcentre_central_angle",
+    "line_through_vertex_angles",
+)
+
+
+@pytest.mark.parametrize("build", NEW_LAYOUTS, ids=lambda f: f.__name__)
+def test_a_new_layout_closes_on_every_draw(build):
+    """Sampling must not be a coin flip.
+
+    A layout whose contract is satisfiable only occasionally still "works" —
+    the decorator resamples — but it burns 80 tries per figure and eventually
+    raises LayoutError under load. Every draw closing is the real bar.
+    """
+    build()  # the canonical sample is checked against the same contract
+    for seed in range(300):
+        build(rng=_random.Random(seed))
+
+
+def test_three_cevians_layout_keeps_the_feet_apart():
+    """The height's foot and the median's must be visibly different points.
+
+    A near-isosceles triangle puts them on top of each other, and a figure
+    captioned "CP is a height and CM is a median" that draws one segment
+    contradicts its own stem.
+    """
+    for seed in range(300):
+        f = triangle_for_three_cevians(rng=_random.Random(seed))
+        A, B, C = f.points["A"], f.points["B"], f.points["C"]
+        gap = norm(sub(foot_of_perpendicular(C, A, B), midpoint(A, B)))
+        assert gap >= 22.0, f"seed {seed}: feet only {gap:.1f} apart"
+
+
+def test_apex_left_really_puts_the_height_foot_on_the_a_side():
+    """`tri_height_bisector_median` states α > β, and the figure must agree.
+
+    AB is horizontal, so the foot of the height from C sits directly under C:
+    an apex left of the midpoint is exactly ∠A > ∠B. The template relies on
+    this instead of drawing freely and rejecting half its samples.
+    """
+    for seed in range(200):
+        f = triangle_for_three_cevians(lopsided=True, apex_left=True,
+                                       rng=_random.Random(seed))
+        A, B, C = f.points["A"], f.points["B"], f.points["C"]
+        foot = foot_of_perpendicular(C, A, B)
+        assert foot[0] < midpoint(A, B)[0], f"seed {seed}: foot on the wrong side"
+        assert angle_deg(A, B, C) > angle_deg(B, A, C), f"seed {seed}: α must exceed β"
+
+
+def test_extended_side_anchor_stays_reachable():
+    """E is hidden, so `points_inside` exempts it — but an arc is drawn there.
+
+    This is the case that motivated `inside_box`: extending a slanted side
+    instead of the base ran E off the top of the box within a few draws, and
+    nothing in the generic contract would have caught it.
+    """
+    for seed in range(300):
+        f = triangle_with_extended_side(rng=_random.Random(seed))
+        x, y = f.points["E"]
+        assert 16.0 <= x <= f.width - 16.0, f"seed {seed}: E off the box at x={x:.0f}"
+        assert 16.0 <= y <= f.height - 16.0, f"seed {seed}: E off the box at y={y:.0f}"
+        assert norm(sub(f.points["E"], f.points["B"])) >= 26.0, (
+            f"seed {seed}: extension too short for a readable arc")
+
+
+def test_circumcentre_layout_is_acute_and_holds_its_centre_inside():
+    """Only an acute triangle puts O inside, and the figure has to show it."""
+    for seed in range(300):
+        f = triangle_for_circumcentre(rng=_random.Random(seed))
+        A, B, C = f.points["A"], f.points["B"], f.points["C"]
+        for vertex, u, v in (("A", B, C), ("B", A, C), ("C", A, B)):
+            assert angle_deg(f.points[vertex], u, v) < 90.0, (
+                f"seed {seed}: triangle is not acute at {vertex}")
+        o = circumcentre(A, B, C)
+        assert o is not None
+        for p, q in ((A, B), (B, C), (C, A)):
+            assert norm(sub(o, foot_of_perpendicular(o, p, q))) >= 16.0, (
+                f"seed {seed}: circumcentre crowds a side")
+
+
+@pytest.mark.parametrize("code", NEW_TEMPLATES)
+def test_a_new_template_builds_figures_that_clear_the_guardrails(code):
+    """Every draw that is not a declared Retry must pass the item verifier.
+
+    `Retry` is a bad parameter draw and costs a resample. Anything else — a
+    label collision, an arc under the legibility floor, a point off the box —
+    is a bug in the template, and the assembler cannot recover from it by
+    trying again with the same shape.
+    """
+    tpl = get_template(code)
+    slots = [s for bp in BLUEPRINTS.values() for s in bp.slots
+             if s.topic in tpl.topics and s.kind in tpl.kinds]
+    assert slots, f"{code} declares topics/kinds that no blueprint slot offers"
+    slot = slots[0]
+
+    built = 0
+    for seed in range(250):
+        try:
+            item = tpl.build(_random.Random(seed), slot)
+        except Retry:
+            continue
+        report = check_item(item, slot)
+        assert not report.errors, f"{code} seed {seed}: {report.errors}"
+        built += 1
+    assert built >= 25, f"{code} produced only {built} items in 250 draws"
+
+
+def test_the_audit_templates_are_all_registered():
+    """A template that silently fails to register is invisible, not absent.
+
+    `coverage_report` counts what is registered, so a typo'd topic would leave
+    the gap the audit found still open while every test and report claimed it
+    was closed.
+    """
+    registered = {t.code for t in all_templates()}
+    missing = [c for c in NEW_TEMPLATES if c not in registered]
+    assert not missing, f"not registered: {missing}"
