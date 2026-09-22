@@ -1,5 +1,5 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
-from typing import Callable, List, Union, cast
+from typing import Any, Callable, List, Union, cast
 import json
 import logging
 import os
@@ -31,7 +31,8 @@ from app.auth.dependencies import (
 )
 from app.models.user import User
 from app.models.nvo_content import NvoGenerationRun
-from app.models.nvo_exam import NvoAttempt
+from app.models.nvo_exam import NvoAttempt, NvoAttemptItem
+from app.services import nvo_topics
 
 # Exam duration by format, in whole minutes. Mirrors
 # frontend/src/utils/nvoFormat.ts (SHORT/FULL_EXAM_DURATION_SECONDS) — used
@@ -947,6 +948,35 @@ async def get_nvo_questions(_admin: User = Depends(require_admin)) -> dict:
     return load_nvo_questions()
 
 
+def _question_kind(question: NVOQuestion) -> str:
+    """"mc" | "short" | "open" for one question.
+
+    The 2026 blueprint stamps `kind` explicitly; papers from the older
+    catalog path do not, and there the presence of options is what
+    distinguishes a multiple-choice item from an extended one.
+    """
+    if question.kind in ("mc", "short", "open"):
+        return cast(str, question.kind)
+    return "mc" if question.options is not None else "open"
+
+
+def _graded_item(question: NVOQuestion, *, is_correct: bool) -> dict[str, Any]:
+    """One row's worth of per-question outcome, topic already canonicalised.
+
+    Resolving here rather than at read time means a later change to the
+    taxonomy cannot silently re-interpret results a teacher has already
+    acted on.
+    """
+    return {
+        "question_number": question.number,
+        "topic_key": nvo_topics.resolve(question.topic),
+        "kind": _question_kind(question),
+        "is_correct": is_correct,
+        "points_awarded": 1 if is_correct else 0,
+        "points_max": 1,
+    }
+
+
 @router.post("/submit", response_model=NVOExamSubmitResponse)
 async def submit_nvo_exam(
     payload: NVOExamSubmitRequest,
@@ -984,6 +1014,11 @@ async def submit_nvo_exam(
     total_open_max_score = 0
     mcq_score = 0
     mcq_max_score = 0
+    # Per-question outcomes, kept rather than discarded. The loop below has
+    # always decided each of these; until now only the totals survived, and
+    # the paper itself expires after 24h, so nothing could be reconstructed
+    # later. See models/nvo_exam.py::NvoAttemptItem.
+    graded_items: list[dict[str, Any]] = []
 
     for question in exam.questions:
         if question.options is not None:
@@ -995,8 +1030,12 @@ async def submit_nvo_exam(
             submitted = payload.answers.get(str(question.number), "")
             selected = submitted if isinstance(submitted, str) else ""
             correct = question.correct_answer if isinstance(question.correct_answer, str) else ""
-            if selected and _normalize_option_key(selected) == _normalize_option_key(correct):
+            is_right = bool(
+                selected and _normalize_option_key(selected) == _normalize_option_key(correct)
+            )
+            if is_right:
                 mcq_score += 1
+            graded_items.append(_graded_item(question, is_correct=is_right))
             continue
 
         raw_answer = payload.answers.get(str(question.number), "")
@@ -1017,6 +1056,7 @@ async def submit_nvo_exam(
 
         if not student_work and not image_data_url:
             total_open_max_score += 1
+            graded_items.append(_graded_item(question, is_correct=False))
             open_results.append(
                 NVOOpenGradeResult(
                     problemId=question.number,
@@ -1044,6 +1084,7 @@ async def submit_nvo_exam(
         total_open_max_score += 1
         score = 1 if is_correct else 0
         total_open_score += score
+        graded_items.append(_graded_item(question, is_correct=bool(is_correct)))
         open_results.append(
             NVOOpenGradeResult(
                 problemId=question.number,
@@ -1077,6 +1118,28 @@ async def submit_nvo_exam(
     attempt.open_score = total_open_score
     attempt.open_max_score = total_open_max_score
     attempt.percentage_correct = percentage_correct
+    # Flush rather than commit: the attempt needs an id so its items can
+    # reference it, but attempt and items must land in one transaction — a
+    # half-written attempt would show a teacher a score with no breakdown.
+    db.flush()
+
+    # A re-submit re-grades the same sitting (a network retry, or a genuine
+    # re-score), so the previous breakdown is replaced wholesale rather than
+    # appended to. Deleting by attempt_id and rewriting is both simpler and
+    # safer than diffing, and the unique constraint on
+    # (attempt_id, question_number) would reject the accumulate-by-mistake.
+    # Deleted one by one through the ORM rather than with a bulk delete: a
+    # bulk delete leaves the rows in the session's identity map, and the
+    # re-inserted items below then collide with their own predecessors on
+    # primary key. An attempt holds at most 23 items, so this costs nothing.
+    for stale in (
+        db.query(NvoAttemptItem).filter(NvoAttemptItem.attempt_id == attempt.id).all()
+    ):
+        db.delete(stale)
+    db.flush()
+
+    for item in graded_items:
+        db.add(NvoAttemptItem(attempt_id=attempt.id, user_id=current_user.id, **item))
     db.commit()
 
     return NVOExamSubmitResponse(

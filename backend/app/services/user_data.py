@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session
 from app.models.classroom import Classroom, ClassroomMember
 from app.models.curriculum import ExerciseAttempt
 from app.models.event_log import EventLog
-from app.models.nvo_exam import NvoAttempt
+from app.models.nvo_exam import NvoAttempt, NvoAttemptItem
 from app.models.progress import (
     LessonProgress,
     UserBadge,
@@ -53,6 +53,11 @@ USER_OWNED_TABLES = (
     UserBadge,
     UserDailyMission,
     NvoAttempt,
+    # The per-question breakdown behind every teacher-facing diagnostic. It
+    # carries its own user_id precisely so erasure reaches it: the FK to
+    # nvo_attempts declares ON DELETE CASCADE, but nothing in this schema is
+    # deleted by the database, so the cascade never fires.
+    NvoAttemptItem,
 )
 
 # Which of those belong under "progress" in an export, for a shape a human

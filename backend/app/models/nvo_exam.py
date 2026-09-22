@@ -13,7 +13,16 @@ path and the purge.
 """
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 
 from app.database import Base
 
@@ -81,4 +90,48 @@ class NvoAttempt(Base):
 
     __table_args__ = (
         UniqueConstraint("user_id", "exam_id", name="uq_nvo_attempt_user_exam"),
+    )
+
+
+class NvoAttemptItem(Base):
+    """One graded question inside one attempt.
+
+    /nvo/submit already decided, question by question, whether the student
+    was right — and then kept only the three totals on NvoAttempt. That made
+    "Мария: 62%" answerable and "half the class falls over on inequalities"
+    permanently unanswerable: the paper itself is a GeneratedExam row with a
+    24h TTL, so nothing could be reconstructed after the fact. Every teacher-
+    and school-facing diagnostic in the product reads these rows.
+
+    `topic_key` is the CANONICAL key from services/nvo_topics, never the raw
+    generator string: the catalog and the blueprint generator spell the same
+    mathematics differently, so aggregating on the raw value would split one
+    topic into two columns of a teacher's heatmap.
+
+    `user_id` is denormalised off the parent attempt deliberately. No user_id
+    in this schema carries a foreign key and nothing cascades, so erasure is
+    driven by services/user_data.py reading this column — and the per-student
+    topic profile becomes a single-table scan rather than a join.
+    """
+
+    __tablename__ = "nvo_attempt_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    attempt_id = Column(
+        Integer, ForeignKey("nvo_attempts.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id = Column(Integer, nullable=False, index=True)
+    question_number = Column(Integer, nullable=False)
+    #: Canonical key, or "other" when the taxonomy did not recognise the
+    #: generator's label. Never a guess — see services/nvo_topics.resolve.
+    topic_key = Column(String(64), nullable=False, index=True)
+    #: "mc" | "short" | "open".
+    kind = Column(String(16), nullable=False, default="mc")
+    is_correct = Column(Boolean, nullable=False, default=False)
+    points_awarded = Column(Integer, nullable=False, default=0)
+    points_max = Column(Integer, nullable=False, default=1)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("attempt_id", "question_number", name="uq_nvo_attempt_item_question"),
     )

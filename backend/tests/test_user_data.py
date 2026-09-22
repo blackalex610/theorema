@@ -82,6 +82,7 @@ def test_every_user_owned_table_is_registered():
         "user_badges",
         "user_daily_missions",
         "nvo_attempts",
+        "nvo_attempt_items",
     }
 
 
