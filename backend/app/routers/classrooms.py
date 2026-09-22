@@ -19,6 +19,7 @@ from app.auth.dependencies import get_current_user
 from app.database import get_db
 from app.models.classroom import Classroom
 from app.models.user import User
+from app.services import classroom_analytics as analytics
 from app.services import classroom_service as svc
 
 router = APIRouter(prefix="/classrooms", tags=["classrooms"])
@@ -120,6 +121,43 @@ async def get_classroom_roster(
     roster = svc.build_roster(db, classroom_id=classroom_id, teacher_id=int(current_user.id))
     classroom = svc._owned_classroom(db, classroom_id, int(current_user.id))
     return {**_classroom_payload(db, classroom), "roster": roster}
+
+
+@router.get("/{classroom_id}/diagnostics")
+async def get_classroom_diagnostics(
+    classroom_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Which topics this class is failing.
+
+    The roster says how each student scored; this says what to reteach. Both
+    are only possible because /nvo/submit grades server-side — a heatmap
+    built from client-reported scores would be decoration.
+    """
+    return analytics.build_class_diagnostics(
+        db, classroom_id=classroom_id, teacher_id=int(current_user.id)
+    )
+
+
+@router.get("/{classroom_id}/students/{student_id}")
+async def get_student_profile(
+    classroom_id: int,
+    student_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """One student's topic profile, for the teacher whose class they joined.
+
+    Both the class ownership and the student's membership of it are checked:
+    owning any class must not be enough to read any child's record.
+    """
+    return analytics.build_student_profile(
+        db,
+        classroom_id=classroom_id,
+        teacher_id=int(current_user.id),
+        student_id=student_id,
+    )
 
 
 @router.post("/{classroom_id}/archive")

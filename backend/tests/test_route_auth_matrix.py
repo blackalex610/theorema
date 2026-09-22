@@ -86,6 +86,12 @@ ADMIN_ROUTES = [
 # caller-supplied id.
 PERSONAL_DATA_ROUTES = [
     ("GET", "/nvo/attempts"),
+    # Classroom routes hand one adult another person's child's work. The
+    # roster shipped without being listed here — this list does not
+    # auto-discover, so a route stays unchecked until someone adds it.
+    ("GET", "/classrooms/{classroom_id}"),
+    ("GET", "/classrooms/{classroom_id}/diagnostics"),
+    ("GET", "/classrooms/{classroom_id}/students/{student_id}"),
 ]
 
 
