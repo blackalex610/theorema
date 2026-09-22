@@ -54,7 +54,9 @@ const MyHomeworkList: React.FC<{ className?: string; limit?: number }> = ({
         title="Задания от учителя"
         description={
           pending > 0
-            ? `${pending} ${pending === 1 ? 'задание чака' : 'задания чакат'} да ги решиш.`
+            ? pending === 1
+              ? '1 задание чака да го решиш.'
+              : `${pending} задания чакат да ги решиш.`
             : 'Всичко е предадено.'
         }
       />
@@ -64,7 +66,7 @@ const MyHomeworkList: React.FC<{ className?: string; limit?: number }> = ({
           return (
             <li
               key={item.id}
-              className="flex items-center gap-3 rounded-xl border border-line bg-surface p-4"
+              className="flex min-w-0 items-center gap-3 rounded-xl border border-line bg-surface p-4"
             >
               {item.submitted ? (
                 <CheckCircleIcon aria-hidden="true" weight="fill" className="size-5 shrink-0 text-brand" />

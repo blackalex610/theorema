@@ -20,7 +20,11 @@ function Tabs({ className, ...props }: React.ComponentProps<typeof TabsPrimitive
   )
 }
 
-const tabsListVariants = cva("inline-flex items-center", {
+// `group/tabs-list` lets each trigger read its list's variant. The previous
+// triggers stacked two arbitrary variants (`[[data-variant=line]_&][data-state=active]:`),
+// which Tailwind v4 drops without a word — no active-state CSS was generated
+// at all, so the selected tab looked exactly like the others.
+const tabsListVariants = cva("group/tabs-list inline-flex items-center", {
   variants: {
     variant: {
       line: "w-full gap-6 border-b border-line",
@@ -57,12 +61,11 @@ function TabsTrigger({
         "relative inline-flex items-center justify-center gap-2 whitespace-nowrap text-caption font-semibold text-ink-muted transition-colors duration-200 hover:text-ink disabled:pointer-events-none disabled:opacity-50",
         "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         // underline variant
-        "group-data-[variant=line]/tabs:pb-3",
-        "[[data-variant=line]_&]:pb-3 [[data-variant=line]_&]:-mb-px [[data-variant=line]_&]:border-b-2 [[data-variant=line]_&]:border-transparent",
-        "[[data-variant=line]_&][data-state=active]:border-brand [[data-variant=line]_&][data-state=active]:text-ink",
+        "group-data-[variant=line]/tabs-list:-mb-px group-data-[variant=line]/tabs-list:border-b-2 group-data-[variant=line]/tabs-list:border-transparent group-data-[variant=line]/tabs-list:pb-3",
+        "group-data-[variant=line]/tabs-list:data-[state=active]:border-brand group-data-[variant=line]/tabs-list:data-[state=active]:text-ink",
         // pill variant
-        "[[data-variant=pill]_&]:rounded-md [[data-variant=pill]_&]:px-3.5 [[data-variant=pill]_&]:py-1.5",
-        "[[data-variant=pill]_&][data-state=active]:bg-surface [[data-variant=pill]_&][data-state=active]:text-ink [[data-variant=pill]_&][data-state=active]:shadow-lift-1",
+        "group-data-[variant=pill]/tabs-list:rounded-md group-data-[variant=pill]/tabs-list:px-3.5 group-data-[variant=pill]/tabs-list:py-1.5",
+        "group-data-[variant=pill]/tabs-list:data-[state=active]:bg-surface group-data-[variant=pill]/tabs-list:data-[state=active]:text-ink group-data-[variant=pill]/tabs-list:data-[state=active]:shadow-lift-1",
         className
       )}
       {...props}

@@ -103,7 +103,10 @@ const ClassDiagnosticsPanel: React.FC<{ classroomId: number }> = ({ classroomId 
             {data.weakest.map((topic, index) => (
               <li
                 key={topic.key}
-                className="flex items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3"
+                /* min-w-0: a grid item defaults to min-width:auto, so a long
+                   topic name would widen the column past a phone screen
+                   instead of truncating. */
+                className="flex min-w-0 items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3"
               >
                 <span className="tnum text-caption font-semibold text-ink-faint">
                   {index + 1}

@@ -96,6 +96,7 @@ export interface StudentProfile {
   student_id: number;
   name: string;
   joined_at: string;
+  classroom_name: string;
   /** Below this many questions asked, a topic is shown greyed, never ranked. */
   min_asked_for_ranking: number;
   topics: TopicRow[];

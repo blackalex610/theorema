@@ -58,7 +58,6 @@ const StudentProfilePage: React.FC = () => {
     };
   }, [classroomId, studentId, attempt]);
 
-  const classCrumb = { label: 'Клас', to: `/classrooms/${classroomId}` };
 
   if (error) {
     return (
@@ -96,8 +95,12 @@ const StudentProfilePage: React.FC = () => {
         <PageHeader
           kicker="Ученик"
           title={profile.name}
-          crumbs={[{ label: 'Класове', to: '/classrooms' }, classCrumb, { label: profile.name }]}
-          description={`В класа от ${formatDate(profile.joined_at)}. Резултатите са от изпити, оценени на сървъра.`}
+          crumbs={[
+            { label: 'Класове', to: '/classrooms' },
+            { label: profile.classroom_name, to: `/classrooms/${classroomId}` },
+            { label: profile.name },
+          ]}
+          description={`В „${profile.classroom_name}“ от ${formatDate(profile.joined_at)} Резултатите са от изпити, оценени на сървъра.`}
           actions={
             <Button asChild variant="outline" size="sm">
               <Link to={`/classrooms/${classroomId}/students/${studentId}/report`}>

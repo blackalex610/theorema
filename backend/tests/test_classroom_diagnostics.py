@@ -236,6 +236,8 @@ def test_student_profile_is_scoped_to_that_student(db, make_user):
     # The client greys out small samples with the server's own threshold
     # rather than a second copy of the constant that could drift.
     assert profile["min_asked_for_ranking"] == analytics.MIN_ASKED_FOR_RANKING
+    # Named, so the page can say which class the teacher is looking at.
+    assert profile["classroom_name"] == "7А"
 
 
 def test_a_student_who_is_not_in_the_class_is_not_readable(db, make_user):

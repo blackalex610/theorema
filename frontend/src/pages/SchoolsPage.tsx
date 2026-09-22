@@ -173,7 +173,7 @@ const SchoolsPage: React.FC = () => {
               {joined.map((school) => (
                 <li
                   key={school.id}
-                  className="flex items-center gap-3 rounded-xl border border-line bg-surface p-4"
+                  className="flex min-w-0 items-center gap-3 rounded-xl border border-line bg-surface p-4"
                 >
                   <ChalkboardTeacherIcon aria-hidden="true" className="size-5 shrink-0 text-brand" />
                   <div className="min-w-0">
@@ -238,7 +238,7 @@ const SchoolsPage: React.FC = () => {
           ) : (
             <ul className="mt-4 grid gap-3 sm:grid-cols-2">
               {directed.map((school) => (
-                <li key={school.id}>
+                <li key={school.id} className="min-w-0">
                   <Link
                     to={`/schools/${school.id}`}
                     className="flex h-full flex-col gap-3 rounded-xl border border-line bg-surface p-5 transition-[border-color] hover:border-brand"

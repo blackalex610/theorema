@@ -72,7 +72,9 @@ const TopicHeatmap: React.FC<{
             {group.topics.map((topic) => {
               const weak = isSmallSample(topic, minAsked);
               return (
-                <li key={topic.key} className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1.5 sm:grid-cols-[minmax(0,1fr)_8rem_auto]">
+                /* Fixed number column: with `auto`, each row sized it to its
+                   own figures and the bars stopped lining up down the list. */
+                <li key={topic.key} className="grid grid-cols-[minmax(0,1fr)_9.5rem] items-center gap-x-4 gap-y-1.5 sm:grid-cols-[minmax(0,1fr)_8rem_9.5rem]">
                   <span className="col-span-2 flex min-w-0 items-center gap-1.5 sm:col-span-1">
                     <span className="truncate text-caption text-ink">{topic.label}</span>
                     {weak && (

@@ -190,7 +190,7 @@ def build_student_profile(
     db: Session, *, classroom_id: int, teacher_id: int, student_id: int
 ) -> dict[str, Any]:
     """One student's topic profile and sitting history, for their teacher."""
-    _owned_classroom(db, classroom_id, teacher_id)
+    classroom = _owned_classroom(db, classroom_id, teacher_id)
     member = _member_or_404(db, classroom_id, student_id)
 
     user = db.query(User).filter(User.id == student_id).one_or_none()
@@ -207,6 +207,7 @@ def build_student_profile(
         "student_id": student_id,
         "name": getattr(user, "name", None) or "Ученик",
         "joined_at": member.joined_at.isoformat(),
+        "classroom_name": classroom.name,
         "min_asked_for_ranking": MIN_ASKED_FOR_RANKING,
         "topics": topics,
         "weakest": _rankable(topics)[:RANKING_SIZE],

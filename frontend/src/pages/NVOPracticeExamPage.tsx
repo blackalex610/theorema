@@ -26,7 +26,7 @@ import NVOBlueprintSelector from '../components/NVOBlueprintSelector';
 import { getExamDurationSeconds, FULL_EXAM_DURATION_SECONDS } from '../utils/nvoFormat';
 import { mergeServerAttempts, canReview, type AttemptRecord } from '../utils/nvoHistory';
 import { useAuth } from '../context/AuthContext';
-import { openAssignment } from '../services/assignments';
+import { listMyAssignments, openAssignment } from '../services/assignments';
 
 type QuestionOption = {
   key: string;
@@ -90,6 +90,8 @@ type ExamHistoryEntry = {
   markedForReview: number[];
   timeLeft?: number;
   currentQuestion?: number;
+  /** Set when this paper is homework a teacher pinned, so the card can say so. */
+  assignmentTitle?: string;
 };
 
 type PreviousResult = {
@@ -252,6 +254,7 @@ const normalizeHistoryEntry = (entry: Partial<ExamHistoryEntry>): ExamHistoryEnt
   markedForReview: entry.markedForReview ?? [],
   timeLeft: entry.timeLeft,
   currentQuestion: entry.currentQuestion,
+  assignmentTitle: entry.assignmentTitle,
 });
 
 const trimHistory = (entries: ExamHistoryEntry[]): ExamHistoryEntry[] => {
@@ -598,9 +601,14 @@ const NVOPracticeExamPage: React.FC = () => {
 
     (async () => {
       try {
-        const exam = await openAssignment(assignmentId);
+        const [exam, mine] = await Promise.all([
+          openAssignment(assignmentId),
+          // Only for the title on the card; the paper does not depend on it.
+          listMyAssignments().catch(() => []),
+        ]);
         if (cancelled) return;
         const entry: ExamHistoryEntry = {
+          assignmentTitle: mine.find((a) => a.id === assignmentId)?.title ?? 'Задание от учителя',
           id: Date.now(),
           examId: exam.exam_id,
           status: 'ready',
@@ -624,6 +632,9 @@ const NVOPracticeExamPage: React.FC = () => {
         setHistory((prev) =>
           prev.some((item) => item.examId === exam.exam_id) ? prev : upsertHistoryEntry(prev, entry),
         );
+        // 100 so the panel reads as done and shows its start button, exactly
+        // as it does when a generation finishes.
+        setGenerationProgress(100);
         setGenerationMessage('Заданието е готово за старт');
       } catch (error) {
         if (cancelled) return;
@@ -1423,7 +1434,11 @@ const NVOPracticeExamPage: React.FC = () => {
             <section className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm mb-8 dark:border-slate-700/60 dark:bg-slate-800/60">
               <div className="flex items-center justify-between gap-4 mb-3">
                 <div>
-                  <h2 className="text-lg font-bold text-gray-900 dark:text-slate-100">Генериране на ново НВО</h2>
+                  <h2 className="text-lg font-bold text-gray-900 dark:text-slate-100">
+                    {!generationJobId && latestReadyExam?.assignmentTitle
+                      ? `Задание: ${latestReadyExam.assignmentTitle}`
+                      : 'Генериране на ново НВО'}
+                  </h2>
                   <p className="text-sm text-gray-600 dark:text-slate-400">{generationMessage || 'Подготовка...'}</p>
                 </div>
                 <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">{Math.round(smoothProgress)}%</span>
@@ -1490,7 +1505,11 @@ const NVOPracticeExamPage: React.FC = () => {
                   {readyHistory.map((entry) => (
                     <div key={entry.id} className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-700/40 dark:bg-emerald-900/20">
                       <div className="flex items-center justify-between gap-3 mb-2">
-                        <p className="font-semibold text-gray-900 dark:text-slate-100">Готов тест • {formatBgDateTime(entry.createdAt)}</p>
+                        <p className="font-semibold text-gray-900 dark:text-slate-100">
+                          {entry.assignmentTitle
+                            ? `Задание: ${entry.assignmentTitle}`
+                            : `Готов тест • ${formatBgDateTime(entry.createdAt)}`}
+                        </p>
                         <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300">Готов за старт</span>
                       </div>
                       <button
