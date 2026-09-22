@@ -24,9 +24,11 @@ slot total (12 / 11 / 12), which ``verify`` enforces.
 """
 from __future__ import annotations
 
+import math
 import random
 from dataclasses import dataclass
 from fractions import Fraction
+from math import gcd
 from typing import Callable, Sequence
 
 from app.nvo_gen.blueprints import Slot
@@ -509,3 +511,265 @@ def _shuffle_by_band(builders: list[Builder], slot: Slot, rng: random.Random) ->
         reverse=True,
     )
     builders[:] = weighted
+
+
+# ─── two isosceles triangles on the extensions, then a parallelogram ─────────
+# Transcribed from 2025 Q23. The paper fixes the ratio at 1 : 9 : 2, but the
+# whole construction turns out to depend on the obtuse angle alone:
+#
+#     ∠BCP = ∠BAM = ∠MDP = 2β − 180       ∠CBP = ∠CPB = ∠ABM = ∠AMB
+#                                          = ∠DMP = ∠DPM = 180 − β
+#
+# which the ministry's own solution shows in the β = 135 case and which holds
+# for every β > 90 (checked numerically over the whole admissible range, and
+# asserted in tests). So the item parameterises over the ratio rather than
+# being pinned to the one the paper printed.
+
+
+def _angle_ratios(cap: int = 12) -> list[tuple[int, int, int]]:
+    """Ratios p : q : r that make the construction work and read like a paper.
+
+    The middle angle must be obtuse, or P and M do not lie beyond B the way
+    the stem says. It is capped below 160° so the triangle is not a sliver and
+    2β − 180 stays a reportable angle. Components are capped because „1 : 9 : 2”
+    is the register the papers write ratios in — „2 : 19 : 9” is not, even
+    though it produces perfectly good angles.
+    """
+    out: set[tuple[int, int, int]] = set()
+    for total in range(3, 31):
+        if 180 % total:
+            continue
+        k = 180 // total
+        for p in range(1, total):
+            for q in range(1, total):
+                r = total - p - q
+                if r < 1 or gcd(gcd(p, q), r) != 1 or max(p, q, r) > cap:
+                    continue
+                alpha, beta, gamma = p * k, q * k, r * k
+                # 15° is the floor for the two acute angles. Below it the
+                # triangle draws as a sliver: A and B end up almost on top of
+                # each other and the six labels around them stop separating.
+                if not 105 <= beta <= 150 or alpha < 15 or gamma < 15:
+                    continue
+                out.add((p, q, r))
+    return sorted(out)
+
+
+_RATIOS = _angle_ratios()
+
+
+def _two_isosceles_figure(alpha: int, beta: int, gamma: int,
+                          rng: random.Random) -> dict:
+    """Place A, B, C, P, M and D exactly, then let `to_spec` fit them to the box.
+
+    Built from the real construction rather than laid out by eye, because this
+    figure carries several equalities at once — BC = PC, AB = AM, AD = CP — and
+    a drawing that merely suggests them would contradict the tick marks on it.
+    A similarity transform keeps every one of them, so posing is still safe.
+    """
+    a = math.sin(math.radians(alpha))        # BC, opposite A
+    c = math.sin(math.radians(gamma))        # AB, opposite C
+    cb, sb = math.cos(math.radians(beta)), math.sin(math.radians(beta))
+
+    # Maths coordinates, y upward: B at the origin, A along the positive x axis.
+    maths = {
+        "B": (0.0, 0.0),
+        "A": (c, 0.0),
+        "C": (a * cb, a * sb),
+        "P": (2 * a * cb, 0.0),              # CP = CB puts P at twice the foot
+        "M": (2 * c * cb * cb, 2 * c * cb * sb),
+        "D": (c + a * cb, a * sb),           # ABCD is a parallelogram
+    }
+    xs = [p[0] for p in maths.values()]
+    ys = [p[1] for p in maths.values()]
+    span = max(max(xs) - min(xs), max(ys) - min(ys)) or 1.0
+    k = 190.0 / span
+
+    f = Figure()
+    for name, (x, y) in maths.items():
+        f.put(name, (x * k, -y * k))         # SVG y runs downward
+
+    f.path(["A", "B", "P"])
+    f.segs([("A", "C"), ("B", "C"), ("C", "P")])
+    f.segs([("B", "M"), ("A", "M")])
+    f.segs([("A", "D"), ("D", "C")])
+    f.segs([("M", "D"), ("D", "P"), ("M", "P")])
+    f.tick("C", "B")
+    f.tick("C", "P")
+    f.tick("A", "B", count=2)
+    f.tick("A", "M", count=2)
+    if 2 * beta - 180 == 90:
+        f.right_angle("A", "M", "B")
+        f.right_angle("C", "B", "P")
+    return f.to_spec(
+        aria=(f"Триъгълник ABC с ъгли {alpha}, {beta} и {gamma} градуса; точка P върху "
+              f"продължението на AB отвъд B с BC = PC, точка M върху продължението на "
+              f"CB отвъд B с AM = AB, и точка D, в която се пресичат успоредните на AB "
+              f"през C и на BC през A"),
+        # A, B and P are collinear by construction and the papers print that
+        # line horizontal; posing would tilt it by up to 7° for no gain, since
+        # the mirror and the rescale already vary the figure between papers.
+        rng=rng, upright=True,
+    )
+
+
+@part2("open_geometry_proof")
+def two_isosceles_and_parallelogram(rng: random.Random) -> Part2Item:
+    """2025 Q23, generalised: the whole chain depends only on the obtuse angle.
+
+    Part В is the one that earns the marks. It is not an angle chase — it needs
+    the congruence △MAD ≅ △DCP, which the ministry's solution gets from
+    AD = CP, AM = DC and ∠DAM = ∠PCD = β. MD = DP follows, and ∠MDP is then
+    ∠ADC less the two angles that the congruence shows sum to 180 − β.
+    """
+    p, q, r = rng.choice(_RATIOS)
+    k = 180 // (p + q + r)
+    alpha, beta, gamma = p * k, q * k, r * k
+    base = 180 - beta                       # the equal angles, everywhere
+    apex = 2 * beta - 180                   # ∠BCP = ∠BAM = ∠MDP
+
+    return Part2Item(
+        code=f"geo_two_iso_{p}_{q}_{r}",
+        topic="open_geometry_proof",
+        stem=("В $\\triangle ABC$ отношението на ъглите е, както следва "
+              f"$\\sphericalangle BAC : \\sphericalangle ABC : \\sphericalangle ACB "
+              f"= {p} : {q} : {r}$. Точка $P$ лежи на лъча $AB$, като $B$ е между $A$ "
+              "и $P$ и $BC = PC$. Точка $M$ лежи на лъча $CB$, като $B$ е между $C$ "
+              "и $M$ и $AM = AB$."),
+        parts=(
+            "А) Намерете мерките на ъглите на $\\triangle ABC$.",
+            "Б) Намерете мерките на ъглите на $\\triangle BCP$ и на $\\triangle AMB$.",
+            "В) През точка $C$ е построена права $c \\parallel AB$, а през точка $A$ — "
+            "права $a \\parallel BC$, като $a \\cap c = D$. Намерете мерките на "
+            "ъглите на $\\triangle MDP$.",
+        ),
+        points=(3, 4, 5),
+        answers=(
+            f"{alpha}°, {beta}°, {gamma}°",
+            f"△BCP: {base}°, {base}°, {apex}°; △AMB: {base}°, {base}°, {apex}°",
+            f"{apex}°, {base}°, {base}°",
+        ),
+        marking=(
+            f"А) От $\\alpha : \\beta : \\gamma = {p} : {q} : {r}$ следва "
+            f"$({p} + {q} + {r})k = 180^\\circ$ — 1 т.; $k = {k}^\\circ$ — 1 т.; "
+            f"$\\sphericalangle BAC = {alpha}^\\circ$, $\\sphericalangle ABC = "
+            f"{beta}^\\circ$, $\\sphericalangle ACB = {gamma}^\\circ$ — 1 т.\n"
+            f"Б) $\\sphericalangle CBP = 180^\\circ - {beta}^\\circ = {base}^\\circ$ "
+            f"като съседен на $\\sphericalangle ABC$ — 1 т.; от $BC = PC$ следва, че "
+            f"$\\triangle BCP$ е равнобедрен, значи $\\sphericalangle BPC = "
+            f"{base}^\\circ$ — 1 т.; $\\sphericalangle BCP = {apex}^\\circ$ — 1 т.; "
+            f"аналогично за $\\triangle AMB$ от $AM = AB$: $\\sphericalangle ABM = "
+            f"\\sphericalangle AMB = {base}^\\circ$ и $\\sphericalangle MAB = "
+            f"{apex}^\\circ$ — 1 т.\n"
+            f"В) $ABCD$ е успоредник, защото $DC \\parallel AB$ и $AD \\parallel BC$ "
+            f"— 1 т.; $AD = BC = CP$ и $AM = AB = DC$ — 1 т.; $\\sphericalangle DAM = "
+            f"\\sphericalangle PCD = {beta}^\\circ$ — 1 т.; следователно "
+            f"$\\triangle MAD \\cong \\triangle DCP$ по I признак, откъдето $MD = DP$ "
+            f"— 1 т.; $\\sphericalangle ADM + \\sphericalangle PDC = 180^\\circ - "
+            f"{beta}^\\circ = {base}^\\circ$, значи $\\sphericalangle MDP = "
+            f"\\sphericalangle ADC - {base}^\\circ = {beta}^\\circ - {base}^\\circ = "
+            f"{apex}^\\circ$, а $\\triangle MDP$ е равнобедрен с ъгли при основата "
+            f"{base}$^\\circ$ — 1 т."
+        ),
+        scene=_two_isosceles_figure(alpha, beta, gamma, rng),
+    )
+
+
+# ─── right triangle, bisector, parallel, midpoint ────────────────────────────
+# Transcribed from 2022 Q23. Unlike the 2025 item, this one does *not*
+# generalise: NA = NL and LM = BN/2 hold for any acute angle, but
+# △AML ≅ △BNL and the equilateral △NML are both specific to ∠CAB = 60°
+# (checked numerically at 50°, 60° and 70° — only 60° closes). So the ratio
+# stays as the paper printed it and the given length is what varies, which is
+# the honest parameterisation rather than a wider one that would be wrong.
+
+
+@part2("open_geometry_proof", band="medium")
+def right_triangle_bisector_midpoint(rng: random.Random) -> Part2Item:
+    """A 30–60–90 triangle whose bisector and midline produce an equilateral one.
+
+    The chain: LN ∥ AC makes ∠ALN = ∠CAL, so △ALN is isosceles on NA = NL.
+    LN ∥ AC and AC ⊥ CB give ∠NLB = 90°, so LM is the median to the hypotenuse
+    of △NLB and LM = BN/2. At ∠CAB = 60° the side NL is also BN/2, and △NML
+    comes out equilateral — which is what makes part Г a single multiplication
+    rather than a surd.
+    """
+    bn = rng.choice([4, 6, 8, 10, 12, 14, 16])
+    perimeter = 3 * bn // 2
+
+    # The construction, solved rather than sketched: right angle at C, ∠A = 60°.
+    tan60 = math.sqrt(3.0)
+    ac, ab, cb = 1.0, 2.0, tan60
+    cl = cb * ac / (ac + ab)                 # bisector theorem: CL:LB = AC:AB
+    maths = {
+        "C": (0.0, 0.0),
+        "A": (1.0, 0.0),
+        "B": (0.0, cb),
+        "L": (0.0, cl),
+        "N": (1.0 - cl / cb, cl),            # LN ∥ AC, so N is at L's height
+    }
+    maths["M"] = ((maths["B"][0] + maths["N"][0]) / 2.0,
+                  (maths["B"][1] + maths["N"][1]) / 2.0)
+
+    xs = [p[0] for p in maths.values()]
+    ys = [p[1] for p in maths.values()]
+    k = min(196.0 / (max(xs) - min(xs)), 132.0 / (max(ys) - min(ys)))
+
+    f = Figure()
+    for name, (x, y) in maths.items():
+        f.put(name, (x * k, -y * k), dot=name in {"L", "N", "M"})
+    f.path(["A", "B", "C"], close=True)
+    f.segs([("A", "L"), ("L", "N"), ("L", "M")])
+    f.right_angle("C", "A", "B")
+    f.right_angle("L", "N", "B")
+    f.angle("A", "C", "L", arcs=2, radius=26)
+    f.angle("A", "L", "B", arcs=2, radius=34)
+    f.tick("N", "M")
+    f.tick("M", "B")
+
+    return Part2Item(
+        code=f"geo_rt_bisector_{bn}",
+        topic="open_geometry_proof",
+        stem=("Правоъгълният $\\triangle ABC$ е с хипотенуза $AB$, $AL$ "
+              "$(L \\in BC)$ е ъглополовящата на $\\sphericalangle CAB$ и "
+              "$\\sphericalangle CAB : \\sphericalangle ABC = 2 : 1$. През точка $L$ "
+              "е построена права, успоредна на $AC$, която пресича $AB$ в точка $N$, "
+              "а точка $M$ е средата на $BN$."),
+        parts=(
+            "А) Намерете градусните мерки на острите ъгли на $\\triangle ABC$.",
+            "Б) Определете вида на $\\triangle ALN$ според страните и според ъглите.",
+            "В) Докажете, че $\\triangle AML \\cong \\triangle BNL$.",
+            f"Г) Пресметнете периметъра на $\\triangle NML$, ако $BN = {bn}$ cm.",
+        ),
+        points=(3, 3, 3, 3),
+        answers=(
+            "60° и 30°",
+            "равнобедрен (NA = NL) и тъпоъгълен (∠ANL = 120°)",
+            "△AML ≅ △BNL по III признак",
+            f"{perimeter} cm",
+        ),
+        marking=(
+            "А) Острите ъгли се допълват до $90^\\circ$ и са в отношение $2 : 1$ — 1 т.; "
+            "$3k = 90^\\circ$, $k = 30^\\circ$ — 1 т.; $\\sphericalangle CAB = 60^\\circ$ "
+            "и $\\sphericalangle ABC = 30^\\circ$ — 1 т.\n"
+            "Б) От $LN \\parallel AC$ следва $\\sphericalangle ALN = \\sphericalangle CAL "
+            "= 30^\\circ$ — 1 т.; заедно с $\\sphericalangle LAN = 30^\\circ$ дава "
+            "$NA = NL$, т.е. равнобедрен — 1 т.; $\\sphericalangle ANL = 120^\\circ$, "
+            "значи е тъпоъгълен — 1 т.\n"
+            "В) $LN \\parallel AC$ и $AC \\perp CB$ дават $\\sphericalangle NLB = 90^\\circ$, "
+            "затова $LM$ е медиана към хипотенузата и $LM = \\dfrac{BN}{2} = NL$ — 1 т.; "
+            "$AL = BL$, защото $\\triangle ALB$ е равнобедрен "
+            "($\\sphericalangle LAB = \\sphericalangle LBA = 30^\\circ$) — 1 т.; "
+            "$AM = BN$ и извод по III признак — 1 т.\n"
+            f"Г) $NM = MB = \\dfrac{{BN}}{{2}} = {bn // 2}$ cm — 1 т.; "
+            f"$LM = \\dfrac{{BN}}{{2}} = {bn // 2}$ cm като медиана към хипотенузата и "
+            f"$NL = \\dfrac{{BN}}{{2}} = {bn // 2}$ cm срещу ъгъл от $30^\\circ$ — 1 т.; "
+            f"$\\triangle NML$ е равностранен и периметърът му е ${perimeter}$ cm — 1 т."
+        ),
+        scene=f.to_spec(
+            aria=("Правоъгълен триъгълник ABC с прав ъгъл при C, ъглополовяща AL към "
+                  "страната BC, отсечка LN успоредна на AC с N върху AB, и точка M — "
+                  "среда на BN"),
+            rng=rng, upright=True,
+        ),
+    )

@@ -50,10 +50,18 @@ def main() -> int:
 
         for slot in bp.slots:
             if slot.kind == "open":
-                n = len(part2_bank.bank_for(slot.topic))
-                per_slot.append(max(n, 1))
+                # Counting builders under-reports: a Part 2 builder carries its
+                # parameters in `code`, so one builder can reach dozens of
+                # distinct items. The *shape* count is what a student notices
+                # repeating, so both are reported.
+                builders = part2_bank.bank_for(slot.topic)
+                codes: set[str] = set()
+                for build in builders:
+                    for seed in range(DRAWS):
+                        codes.add(build(random.Random(seed)).code)
+                per_slot.append(max(len(codes), 1))
                 print(f"{slot.position:>3} {slot.topic:<30} {slot.kind:<6} "
-                      f"{n:>4} {'(curated bank)':>15}")
+                      f"{len(builders):>4} {len(codes):>15,}  <-- shapes/items")
                 continue
 
             tpls = registry.templates_for(slot)

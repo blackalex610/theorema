@@ -319,6 +319,35 @@ Part 2, which is the right trade — nobody sits enough papers to exhaust a few
 dozen proofs. Items carry light parameterisation where the numbers genuinely do
 not change the reasoning.
 
+### Adding one: transcribe, do not invent
+
+The thirteen papers hold 39 Part 2 items and the *otgovori* editions carry the
+ministry's own marking. Transcribing one is far safer than inventing one, and
+`scripts/extract_part2_items.py` pulls the text out.
+
+The real work is deciding **how far the item generalises**, and the two proofs
+added most recently are the two answers to that:
+
+* `two_isosceles_and_parallelogram` (2025 Q23) printed one angle ratio, but the
+  whole construction depends on the obtuse angle alone — ∠BCP = ∠BAM = ∠MDP =
+  2β − 180 and every other marked angle is 180 − β. So it parameterises over
+  the ratio and reaches **30 variants** from one transcription.
+* `right_triangle_bisector_midpoint` (2022 Q23) does **not** generalise. NA = NL
+  and LM = BN/2 hold for any acute angle, but △AML ≅ △BNL and the equilateral
+  △NML are specific to ∠CAB = 60°. The ratio therefore stays as printed and the
+  given length varies instead — 7 variants, honestly.
+
+Check which case you are in *numerically* before widening a pool, and assert
+the answer in a test. Widening `right_triangle_bisector_midpoint` would leave
+parts В and Г quietly false, which is precisely the failure this file's
+opening paragraphs are about.
+
+**State a real answer.** `correct_answer` is what a human marker and the vision
+grader compare against; `"Доказателство"` gives them nothing. Two older entries
+still carry placeholders — `geo_par_height` and `geo_iso_rhombus` — and
+`test_every_curated_proof_states_a_real_answer` holds the line so the list
+shrinks rather than growing.
+
 Each entry declares its own sub-part points; the sum must equal the blueprint
 slot total (12 / 11 / 12), which the verifier enforces.
 
@@ -376,14 +405,28 @@ number below is a **lower bound**.
 | | `classic` | `nvo2026` |
 |---|---|---|
 | Part 1 combinations | 9.6 × 10⁴⁴ | 6.7 × 10⁴⁷ |
-| Part 2 combinations | **27** | **27** |
-| whole paper | 2.6 × 10⁴⁶ | 1.8 × 10⁴⁹ |
+| Part 2 combinations | 63,812 | 63,812 |
+| whole paper | 6.1 × 10⁴⁹ | 4.2 × 10⁵² |
 
-Part 1 is effectively inexhaustible. **Part 2 is the ceiling, and it is 27** —
-three curated builders per open slot, cubed. That is by design (see *Part 2 is
-curated, not generated*), and it is the right trade, but it should be stated
-plainly rather than hidden behind the Part 1 number: a student sitting fifty
-papers meets every Part 2 shape many times over.
+Part 1 is effectively inexhaustible. **Part 2 is the ceiling**, and there are
+two ways to count it, both of which matter:
+
+| open slot | builders (*shapes*) | distinct items |
+|---|---|---|
+| `open_algebra` | 3 | 28 |
+| `open_word_problem` | 3 | 53 |
+| `open_geometry_proof` | 5 | 43 |
+
+**Count the shapes, not the items.** A Part 2 builder carries its parameters in
+its `code`, so one builder reaches dozens of items — but a student who has seen
+the rectangle-with-bisectors proof recognises it again with different numbers.
+Eleven shapes is the honest figure for "how much Part 2 is there", and it is
+what to raise.
+
+Note that `signature` for a Part 2 item is just `p2:{code}` — deliberately, so
+that two items on one paper cannot be the same *draw*. It is not a content
+hash, so counting signatures across papers under-reports the bank badly. The
+capacity script counts codes for exactly this reason.
 
 The number to watch is not the product but the **thinnest slot**, because that
 is where a student notices repetition first:
@@ -426,6 +469,7 @@ scripts/                     analysis tools, not shipped with the server
   build_coverage_report.py   archetypes × papers, and the gap list
   dump_new_scenes.py         sample scenes for the renderer contact sheet
   measure_capacity.py        how many distinct papers are actually reachable
+  extract_part2_items.py     Part 2 stems and official marking, out of the PDFs
 
 docs/nvo-figures/            the audit's evidence
   crops/                     209 figures, one PNG each, with provenance

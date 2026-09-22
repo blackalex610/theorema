@@ -592,3 +592,117 @@ def test_upright_posing_keeps_horizontals_horizontal():
     # Rescaling must still vary the figure, or upright would make every draw
     # of a rectilinear template print the identical picture.
     assert len(seen_widths) > 5, "upright posing collapsed all draws to one size"
+
+
+# ─── the curated Part 2 geometry proofs ──────────────────────────────────────
+# Part 2 is the generator's ceiling: Part 1 reaches 10^45 combinations and Part
+# 2 reaches tens of thousands, so these items are what a student meets again.
+# They are also the ones where being wrong is expensive -- a flawed proof wastes
+# twenty minutes and teaches a false method -- so the figure is checked against
+# the claim the marking scheme makes, exactly as for Part 1.
+
+from app.nvo_gen import part2_bank as _p2
+
+
+def _p2_slot():
+    return next(s for bp in BLUEPRINTS.values() for s in bp.slots
+                if s.topic == "open_geometry_proof")
+
+
+@pytest.mark.parametrize("build", _p2.bank_for("open_geometry_proof"),
+                         ids=lambda b: b.__name__)
+def test_a_curated_proof_verifies_and_its_points_add_up(build):
+    """Sub-part points must sum to the slot total, and the item must verify.
+
+    `verify` enforces the sum, which is the check that matters: a twelve-point
+    item whose parts add to eleven silently mis-scores every student who sits
+    it, and nothing downstream would notice.
+    """
+    slot = _p2_slot()
+    for seed in range(60):
+        item = build(_random.Random(seed))
+        assert sum(item.points) == slot.total_points, (
+            f"{item.code}: parts sum to {sum(item.points)}, slot wants "
+            f"{slot.total_points}")
+        assert len(item.parts) == len(item.answers), f"{item.code}: parts/answers differ"
+        report = check_item(item.to_generated(slot), slot)
+        assert not report.errors, f"{item.code}: {report.errors}"
+
+
+def test_the_two_isosceles_proof_matches_its_own_figure():
+    """∠BCP = ∠BAM = ∠MDP = 2β − 180, and the equal sides really are equal.
+
+    The 2025 paper states this for β = 135° only. Generalising it is the whole
+    reason the item has 30 variants instead of one, so the generalisation is
+    asserted rather than assumed — on the posed figure, where a similarity
+    transform has already been applied.
+    """
+    import re
+
+    seen: dict[str, object] = {}
+    for seed in range(400):
+        item = _p2.two_isosceles_and_parallelogram(_random.Random(seed))
+        if item.code in seen:
+            continue
+        seen[item.code] = item
+        p = {k: tuple(v) for k, v in item.scene["points"].items()}
+        alpha, beta, gamma = (int(x) for x in re.findall(r"\d+", item.answers[0])[:3])
+        assert alpha + beta + gamma == 180
+        apex, base = 2 * beta - 180, 180 - beta
+
+        assert angle_deg(p["B"], p["A"], p["C"]) == pytest.approx(beta, abs=0.3)
+        assert _dist(p["C"], p["B"]) == pytest.approx(_dist(p["C"], p["P"]), abs=0.5)
+        assert _dist(p["A"], p["B"]) == pytest.approx(_dist(p["A"], p["M"]), abs=0.5)
+        for vertex, u, w in (("C", "B", "P"), ("A", "M", "B"), ("D", "M", "P")):
+            assert angle_deg(p[vertex], p[u], p[w]) == pytest.approx(apex, abs=0.3), (
+                f"{item.code}: apex angle at {vertex}")
+        for vertex, u, w in (("M", "D", "P"), ("P", "D", "M")):
+            assert angle_deg(p[vertex], p[u], p[w]) == pytest.approx(base, abs=0.3)
+    assert len(seen) >= 20, f"only {len(seen)} variants reachable"
+
+
+def test_the_right_triangle_proof_matches_its_own_figure():
+    """NA = NL, LM = BN/2, and △NML equilateral — the last only at ∠CAB = 60°.
+
+    That specificity is the point: the item deliberately does *not* vary the
+    2 : 1 ratio, because △AML ≅ △BNL and the equilateral △NML both fail away
+    from 60°. Checking it here is what stops someone widening the pool later
+    and quietly breaking parts В and Г.
+    """
+    for seed in range(200):
+        item = _p2.right_triangle_bisector_midpoint(_random.Random(seed))
+        p = {k: tuple(v) for k, v in item.scene["points"].items()}
+        assert angle_deg(p["A"], p["C"], p["B"]) == pytest.approx(60.0, abs=0.3)
+        assert angle_deg(p["C"], p["A"], p["B"]) == pytest.approx(90.0, abs=0.3)
+        assert _dist(p["N"], p["A"]) == pytest.approx(_dist(p["N"], p["L"]), abs=0.5)
+        assert _dist(p["L"], p["M"]) == pytest.approx(_dist(p["B"], p["N"]) / 2, abs=0.5)
+        sides = [_dist(p["N"], p["L"]), _dist(p["N"], p["M"]), _dist(p["M"], p["L"])]
+        assert max(sides) - min(sides) < 0.8, f"{item.code}: △NML is not equilateral"
+        # △AML ≅ △BNL, which part В asks the student to prove
+        assert _dist(p["A"], p["M"]) == pytest.approx(_dist(p["B"], p["N"]), abs=0.5)
+        assert _dist(p["A"], p["L"]) == pytest.approx(_dist(p["B"], p["L"]), abs=0.5)
+
+
+def test_every_curated_proof_states_a_real_answer():
+    """An answer of "Доказателство" gives a grader nothing to check against.
+
+    Part 2 is marked by a person or by the vision grader, both of which compare
+    against `correct_answer`. A placeholder there is not a small blemish: it is
+    the difference between a key and a reminder that a key was meant to go
+    here. Two older entries still carry placeholders and are listed, so the
+    exemption shrinks rather than being forgotten.
+    """
+    known_gaps = {"geo_par_height", "geo_iso_rhombus"}
+    vague = {"доказателство", "ъглите и отношението", "лицата чрез m и n"}
+
+    offenders = []
+    for topic in ("open_geometry_proof",):
+        for build in _p2.bank_for(topic):
+            item = build(_random.Random(0))
+            stem_code = item.code.rsplit("_", 1)[0]
+            if any(stem_code.startswith(g) for g in known_gaps):
+                continue
+            for answer in item.answers:
+                if answer.strip().lower() in vague:
+                    offenders.append((item.code, answer))
+    assert not offenders, f"placeholder answers outside the known gaps: {offenders}"
