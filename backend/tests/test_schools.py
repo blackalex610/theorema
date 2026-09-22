@@ -257,6 +257,10 @@ def test_school_diagnostics_aggregate_across_classes(db, make_user):
     assert inequality["asked"] == 6
     assert inequality["percent_correct"] == 50
 
+    from app.services.classroom_analytics import MIN_ASKED_FOR_RANKING
+
+    assert overview["min_asked_for_ranking"] == MIN_ASKED_FOR_RANKING
+
 
 # ─── What a director must NOT see ────────────────────────────────────────────
 

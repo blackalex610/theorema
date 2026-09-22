@@ -43,6 +43,15 @@
 	--danger-wash: #fbebe9;
 	--danger-edge: #f0cac6;
 
+	/* НВО readiness bands (school dashboard). A diverging scale broken at the
+	   pass line — two cool steps for ready, two warm for not — validated for
+	   colour-vision deficiency against this surface. Every mark carries a
+	   text label and count; colour is never the only way to read a band. */
+	--ready-excellent: #0e7a57;
+	--ready-good: #3a82cf;
+	--ready-borderline: #d98e26;
+	--ready-at-risk: #b3245a;
+
 	/* Focus */
 	--focus: #0e7a57;
 
@@ -87,6 +96,12 @@
 	--danger-wash: #2c1512;
 	--danger-edge: #4d221e;
 
+	/* Re-stepped for the dark surface, not flipped: validated separately. */
+	--ready-excellent: #35a45c;
+	--ready-good: #4990e0;
+	--ready-borderline: #ad9410;
+	--ready-at-risk: #e54f82;
+
 	--focus: #35c598;
 
 	--lift-1: 0 1px 2px rgb(0 0 0 / 0.4);
@@ -123,6 +138,10 @@
 	--color-danger: var(--danger);
 	--color-danger-wash: var(--danger-wash);
 	--color-danger-edge: var(--danger-edge);
+	--color-ready-excellent: var(--ready-excellent);
+	--color-ready-good: var(--ready-good);
+	--color-ready-borderline: var(--ready-borderline);
+	--color-ready-at-risk: var(--ready-at-risk);
 
 	/* shadcn contract, pointed at the same tokens so primitives inherit the
 	   system instead of carrying a second parallel palette. */
@@ -324,5 +343,50 @@
 		animation-iteration-count: 1 !important;
 		transition-duration: 0.01ms !important;
 		scroll-behavior: auto !important;
+	}
+}
+
+/* ── Print: reports a teacher takes to a parents' evening ───────────────────
+   Paper is white whatever theme the teacher reads on — a report printed from
+   dark mode would otherwise come out as a page of black toner. The light
+   tokens are re-asserted on .dark rather than inverted, and the graph-paper
+   substrate is dropped because on paper it prints as grey noise. */
+@media print {
+	@page {
+		size: A4;
+		margin: 14mm 14mm 16mm;
+	}
+
+	:root,
+	.dark {
+		--paper: #ffffff;
+		--surface: #ffffff;
+		--sunken: #edefec;
+		--ink: #12211c;
+		--ink-muted: #5a6b64;
+		--ink-faint: #7d8c85;
+		--line: #e1e5e1;
+		--line-strong: #cfd6d1;
+		--brand: #0e7a57;
+		--brand-ink: #0b5e43;
+		--warn: #8a4b08;
+		--danger: #a3231a;
+		--grid-line: transparent;
+		color-scheme: light;
+	}
+
+	body {
+		background: #ffffff !important;
+		background-image: none !important;
+	}
+
+	/* Bars and swatches carry meaning; browsers drop backgrounds by default. */
+	* {
+		-webkit-print-color-adjust: exact;
+		print-color-adjust: exact;
+	}
+
+	.print-avoid-break {
+		break-inside: avoid;
 	}
 }

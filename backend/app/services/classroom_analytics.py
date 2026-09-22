@@ -207,6 +207,7 @@ def build_student_profile(
         "student_id": student_id,
         "name": getattr(user, "name", None) or "Ученик",
         "joined_at": member.joined_at.isoformat(),
+        "min_asked_for_ranking": MIN_ASKED_FOR_RANKING,
         "topics": topics,
         "weakest": _rankable(topics)[:RANKING_SIZE],
         "attempts": [

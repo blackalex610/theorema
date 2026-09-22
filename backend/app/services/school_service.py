@@ -27,7 +27,13 @@ from app.models.classroom import Classroom, ClassroomMember
 from app.models.nvo_exam import NvoAttempt
 from app.models.school import School, SchoolMember
 from app.models.user import User
-from app.services.classroom_analytics import _strand_rows, _topic_rows, _rankable, RANKING_SIZE
+from app.services.classroom_analytics import (
+    MIN_ASKED_FOR_RANKING,
+    RANKING_SIZE,
+    _rankable,
+    _strand_rows,
+    _topic_rows,
+)
 
 # Same alphabet as class codes: read off a screen or a staff-room whiteboard
 # and typed by hand, so no O/0 and no I/1/L.
@@ -323,6 +329,7 @@ def build_school_overview(
             grades.values(), key=lambda g: (g["grade_level"] is None, g["grade_level"])
         ),
         "readiness": _readiness(scores),
+        "min_asked_for_ranking": MIN_ASKED_FOR_RANKING,
         "topics": topics,
         "strands": _strand_rows(topics),
         "weakest": _rankable(topics)[:RANKING_SIZE],

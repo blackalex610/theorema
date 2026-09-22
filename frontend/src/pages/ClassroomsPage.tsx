@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ChalkboardTeacherIcon, PlusIcon, StudentIcon } from '@phosphor-icons/react';
 
 import AppNavbar from '../components/AppNavbar';
+import MyHomeworkList from '../components/classroom/MyHomeworkList';
 import {
   EmptyState,
   ErrorState,
@@ -175,6 +176,8 @@ const ClassroomsPage: React.FC = () => {
               ))}
             </ul>
           ) : null}
+
+          <MyHomeworkList className="mt-8" />
         </section>
 
         {/* ── Teach ────────────────────────────────────────────────────── */}

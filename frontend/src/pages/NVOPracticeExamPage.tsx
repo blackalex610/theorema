@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { createNVOGenerationJob, getGeneratedNVOExam, getNVOGenerationJob, getNVOBlueprints, submitNVOExam, awardNvoXpDetailed, listNvoAttempts, type NVOExamSubmitResponse, type NVOAwardXpResponse, type NVOBlueprintCode, type NVOBlueprintInfo } from '../services/nvo';
 import { useXp } from '../context/XpContext';
 import UpgradePrompt from '../components/UpgradePrompt';
@@ -26,6 +26,7 @@ import NVOBlueprintSelector from '../components/NVOBlueprintSelector';
 import { getExamDurationSeconds, FULL_EXAM_DURATION_SECONDS } from '../utils/nvoFormat';
 import { mergeServerAttempts, canReview, type AttemptRecord } from '../utils/nvoHistory';
 import { useAuth } from '../context/AuthContext';
+import { openAssignment } from '../services/assignments';
 
 type QuestionOption = {
   key: string;
@@ -578,6 +579,77 @@ const NVOPracticeExamPage: React.FC = () => {
     setExamReady(false);
     setSubmitted(false);
   }, [historyKey, storageKey]);
+
+  // Homework. /nvo/practice?assignment=<id> hands the student the paper their
+  // teacher pinned, added as a ready entry exactly like a finished generation.
+  // Deliberately NOT through createNVOGenerationJob: nothing is generated, and
+  // the student's one exam a day is not spent (see services/assignments).
+  // Declared after the restore effect above so the functional update below
+  // lands on top of the restored history instead of being overwritten by it.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const assignmentParam = searchParams.get('assignment');
+  useEffect(() => {
+    const assignmentId = Number(assignmentParam);
+    if (!assignmentParam || !Number.isInteger(assignmentId) || assignmentId <= 0) return;
+
+    let cancelled = false;
+    setLoadingExam(true);
+    setGenerationMessage('Зареждане на заданието от учителя');
+
+    (async () => {
+      try {
+        const exam = await openAssignment(assignmentId);
+        if (cancelled) return;
+        const entry: ExamHistoryEntry = {
+          id: Date.now(),
+          examId: exam.exam_id,
+          status: 'ready',
+          createdAt: new Date().toISOString(),
+          durationSec: 0,
+          score: 0,
+          maxScore: 0,
+          scorePercent: 0,
+          module1Percent: 0,
+          module2Percent: 0,
+          difficulty: normalizeDifficulty(exam.difficulty),
+          format: (exam as { format?: string }).format === 'short' ? 'short' : 'full',
+          questions: convertExamQuestions(exam.questions, exam.part1_count),
+          answers: {},
+          answerImages: {},
+          markedForReview: [],
+        };
+        // A paper this device already holds — started or finished — is left
+        // alone: replacing a completed attempt with a blank "ready" copy would
+        // throw the student's work away.
+        setHistory((prev) =>
+          prev.some((item) => item.examId === exam.exam_id) ? prev : upsertHistoryEntry(prev, entry),
+        );
+        setGenerationMessage('Заданието е готово за старт');
+      } catch (error) {
+        if (cancelled) return;
+        const status = (error as { response?: { status?: number } })?.response?.status;
+        setGenerationMessage(
+          status === 410 ? 'Това задание е приключено от учителя.' : 'Заданието не можа да се зареди.',
+        );
+      } finally {
+        if (!cancelled) {
+          setLoadingExam(false);
+          // Drop the parameter so a reload does not fetch the paper again.
+          setSearchParams(
+            (params) => {
+              params.delete('assignment');
+              return params;
+            },
+            { replace: true },
+          );
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [assignmentParam, setSearchParams]);
 
   /**
    * Pull the account's graded attempts and fold them into the local list.

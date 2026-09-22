@@ -29,6 +29,13 @@ const ControllerPage = lazy(() => import('./pages/ControllerPage'));
 // roster. Same account can also be a student in someone else's class.
 const ClassroomsPage = lazy(() => import('./pages/ClassroomsPage'));
 const ClassroomDetailPage = lazy(() => import('./pages/ClassroomDetailPage'));
+const StudentProfilePage = lazy(() => import('./pages/StudentProfilePage'));
+// A director's view: cohort readiness and class averages, never student names.
+const SchoolsPage = lazy(() => import('./pages/SchoolsPage'));
+const SchoolDetailPage = lazy(() => import('./pages/SchoolDetailPage'));
+// Printable reports sit outside Layout so no site chrome reaches the paper.
+const ClassReportPage = lazy(() => import('./pages/ClassReportPage'));
+const StudentReportPage = lazy(() => import('./pages/StudentReportPage'));
 // Public legal documents: reachable signed-out, and linked from the footer
 // and the sign-in screen, because a privacy policy nobody can open is not one.
 const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
@@ -72,6 +79,12 @@ function AppRoutes() {
                 <Route path="progress" element={<ProgressSummaryPage />} />
                 <Route path="classrooms" element={<ClassroomsPage />} />
                 <Route path="classrooms/:classroomId" element={<ClassroomDetailPage />} />
+                <Route
+                  path="classrooms/:classroomId/students/:studentId"
+                  element={<StudentProfilePage />}
+                />
+                <Route path="schools" element={<SchoolsPage />} />
+                <Route path="schools/:schoolId" element={<SchoolDetailPage />} />
                 <Route path="grades" element={<GradesPage />} />
                 <Route path="grades/:gradeId/topics" element={<TopicsPage />} />
                 <Route path="topics/:topicId/lessons" element={<LessonsPage />} />
@@ -89,6 +102,15 @@ function AppRoutes() {
               {/* Unknown paths previously rendered Layout with an empty
                   Outlet — a blank page with no error and no redirect. */}
               <Route path="*" element={<Navigate to="/" replace />} />
+            </Route>
+            {/* Printable reports: signed-in, but outside Layout so the page
+                that reaches the printer is the report and nothing else. */}
+            <Route element={<RequireAuth />}>
+              <Route path="classrooms/:classroomId/report" element={<ClassReportPage />} />
+              <Route
+                path="classrooms/:classroomId/students/:studentId/report"
+                element={<StudentReportPage />}
+              />
             </Route>
             <Route path="controller" element={<ControllerPage />} />
             {/* Preferred path; /controller stays for existing bookmarks. */}

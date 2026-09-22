@@ -3,6 +3,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowLeftIcon,
   BookOpenIcon,
+  BuildingsIcon,
   ChalkboardTeacherIcon,
   ChartLineUpIcon,
   DeviceMobileIcon,
@@ -228,6 +229,12 @@ const AppNavbar: React.FC<AppNavbarProps> = ({
                 <UserIcon className="size-4" />
                 Моят прогрес
               </DropdownMenuItem>
+              {/* In the account menu rather than the top bar: most people here
+                  are students, and only teachers and directors need it. */}
+              <DropdownMenuItem onSelect={() => navigate('/schools')}>
+                <BuildingsIcon className="size-4" />
+                Училище
+              </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => openSettings()}>
                 <GearSixIcon className="size-4" />
                 Настройки
@@ -275,6 +282,20 @@ const AppNavbar: React.FC<AppNavbarProps> = ({
                     </SheetClose>
                   );
                 })}
+                <SheetClose asChild>
+                  <NavLink
+                    to="/schools"
+                    className={cn(
+                      'flex h-11 items-center gap-3 rounded-lg px-3 text-body font-semibold transition-colors',
+                      isItemActive('/schools', false)
+                        ? 'bg-brand-wash text-brand-ink'
+                        : 'text-ink-muted hover:bg-sunken hover:text-ink'
+                    )}
+                  >
+                    <BuildingsIcon className="size-5" />
+                    Училище
+                  </NavLink>
+                </SheetClose>
               </nav>
 
               <Separator />

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { UsersThreeIcon } from '@phosphor-icons/react';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { PrinterIcon, UsersThreeIcon } from '@phosphor-icons/react';
 
 import AppNavbar from '../components/AppNavbar';
 import {
@@ -10,8 +10,13 @@ import {
   PageShell,
   StatTile,
 } from '../components/app/PageShell';
+import ClassAssignmentsPanel from '../components/classroom/ClassAssignmentsPanel';
+import ClassDiagnosticsPanel from '../components/classroom/ClassDiagnosticsPanel';
+import ClassRosterTable from '../components/classroom/ClassRosterTable';
+import SchoolAttachControl from '../components/classroom/SchoolAttachControl';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   archiveClassroom,
   getClassroom,
@@ -20,23 +25,23 @@ import {
   type RosterRow,
 } from '../services/classrooms';
 
-const formatDate = (iso: string | null) => {
-  if (!iso) return '—';
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return '—';
-  return date.toLocaleDateString('bg-BG', { day: '2-digit', month: '2-digit', year: '2-digit' });
-};
+const TABS = ['roster', 'topics', 'assignments'] as const;
+type Tab = (typeof TABS)[number];
 
-/** Colour follows the number, so a teacher scanning a class sees trouble first. */
-const scoreTone = (score: number | null) => {
-  if (score === null) return 'text-ink-faint';
-  if (score >= 70) return 'text-brand-ink';
-  if (score >= 50) return 'text-warn';
-  return 'text-danger';
-};
-
+/**
+ * One class, three questions a teacher asks of it:
+ * who is in it (roster), what are they getting wrong (topics), and what
+ * did I set them (assignments). The tab lives in the URL so a link, a
+ * refresh or the back button lands on the same view.
+ */
 const ClassroomDetailPage: React.FC = () => {
   const { classroomId } = useParams<{ classroomId: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requested = searchParams.get('tab');
+  const tab: Tab = (TABS as readonly string[]).includes(requested ?? '')
+    ? (requested as Tab)
+    : 'roster';
+
   const [detail, setDetail] = useState<ClassroomDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyStudent, setBusyStudent] = useState<number | null>(null);
@@ -71,6 +76,17 @@ const ClassroomDetailPage: React.FC = () => {
     if (!detail) return;
     await archiveClassroom(detail.id);
     await load();
+  };
+
+  const onTab = (value: string) => {
+    setSearchParams(
+      (params) => {
+        if (value === 'roster') params.delete('tab');
+        else params.set('tab', value);
+        return params;
+      },
+      { replace: true }
+    );
   };
 
   if (error) {
@@ -118,15 +134,23 @@ const ClassroomDetailPage: React.FC = () => {
               : 'Този клас е архивиран и не приема нови ученици.'
           }
           actions={
-            detail.is_active ? (
-              <Button variant="outline" size="sm" onClick={onArchive}>
-                Архивирай класа
+            <div className="flex flex-wrap gap-2">
+              <Button asChild variant="outline" size="sm">
+                <Link to={`/classrooms/${detail.id}/report`}>
+                  <PrinterIcon />
+                  Отчет за печат
+                </Link>
               </Button>
-            ) : undefined
+              {detail.is_active && (
+                <Button variant="outline" size="sm" onClick={onArchive}>
+                  Архивирай класа
+                </Button>
+              )}
+            </div>
           }
         />
 
-        <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <StatTile label="Ученици" value={detail.roster.length} />
           <StatTile
             label="Среден резултат"
@@ -142,69 +166,46 @@ const ClassroomDetailPage: React.FC = () => {
           />
         </div>
 
-        {detail.roster.length === 0 ? (
-          <EmptyState
-            icon={<UsersThreeIcon />}
-            title="Още никой не се е присъединил"
-            description={`Дай кода ${detail.join_code} на учениците си — те го въвеждат в „Моите класове“.`}
+        <div className="mb-8">
+          <SchoolAttachControl
+            classroomId={detail.id}
+            schoolId={detail.school_id}
+            onChange={load}
           />
-        ) : (
-          /* The table scrolls inside its own container so the page itself
-             never scrolls sideways on a phone. */
-          <div className="overflow-x-auto rounded-xl border border-line bg-surface">
-            <table className="w-full min-w-[46rem] border-collapse text-left">
-              <thead>
-                <tr className="border-b border-line">
-                  {['Ученик', 'Ниво', 'XP', 'Изпити', 'Среден', 'Най-добър', 'Последен', ''].map(
-                    (heading) => (
-                      <th
-                        key={heading}
-                        scope="col"
-                        className="px-4 py-3 text-micro font-semibold uppercase tracking-[0.08em] text-ink-faint"
-                      >
-                        {heading}
-                      </th>
-                    )
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {detail.roster.map((row) => (
-                  <tr key={row.student_id} className="border-b border-line last:border-0">
-                    <td className="px-4 py-3">
-                      <span className="block truncate font-medium text-ink">{row.name}</span>
-                      {row.is_guest && (
-                        <span className="text-micro text-ink-faint">гост профил</span>
-                      )}
-                    </td>
-                    <td className="tnum px-4 py-3 text-ink-muted">{row.level}</td>
-                    <td className="tnum px-4 py-3 text-ink-muted">{row.total_xp}</td>
-                    <td className="tnum px-4 py-3 text-ink-muted">{row.exams_taken}</td>
-                    <td className={`tnum px-4 py-3 font-semibold ${scoreTone(row.average_exam_score)}`}>
-                      {row.average_exam_score === null ? '—' : `${row.average_exam_score}%`}
-                    </td>
-                    <td className="tnum px-4 py-3 text-ink-muted">
-                      {row.best_exam_score === null ? '—' : `${row.best_exam_score}%`}
-                    </td>
-                    <td className="tnum px-4 py-3 text-caption text-ink-muted">
-                      {formatDate(row.last_exam_at)}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <button
-                        type="button"
-                        onClick={() => onRemove(row)}
-                        disabled={busyStudent === row.student_id}
-                        className="rounded-lg px-2 py-1 text-caption font-medium text-ink-faint transition-colors hover:bg-sunken hover:text-danger disabled:opacity-50"
-                      >
-                        Премахни
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        </div>
+
+        <Tabs value={tab} onValueChange={onTab}>
+          <TabsList>
+            <TabsTrigger value="roster">Ученици</TabsTrigger>
+            <TabsTrigger value="topics">Пропуски по теми</TabsTrigger>
+            <TabsTrigger value="assignments">Задания</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="roster">
+            {detail.roster.length === 0 ? (
+              <EmptyState
+                icon={<UsersThreeIcon />}
+                title="Още никой не се е присъединил"
+                description={`Дай кода ${detail.join_code} на учениците си — те го въвеждат в „Моите класове“.`}
+              />
+            ) : (
+              <ClassRosterTable
+                classroomId={detail.id}
+                rows={detail.roster}
+                busyStudent={busyStudent}
+                onRemove={onRemove}
+              />
+            )}
+          </TabsContent>
+
+          <TabsContent value="topics">
+            <ClassDiagnosticsPanel classroomId={detail.id} />
+          </TabsContent>
+
+          <TabsContent value="assignments">
+            <ClassAssignmentsPanel classroomId={detail.id} studentCount={detail.roster.length} />
+          </TabsContent>
+        </Tabs>
       </PageShell>
     </>
   );

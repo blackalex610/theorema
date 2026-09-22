@@ -13,6 +13,7 @@ import {
 
 import AppNavbar from '../components/AppNavbar';
 import BadgeShelf from '../components/BadgeShelf';
+import MyHomeworkList from '../components/classroom/MyHomeworkList';
 import {
   getDailyMissions,
   getDashboardStats,
@@ -191,6 +192,10 @@ const DashboardPage: React.FC = () => {
           <DashboardSkeleton />
         ) : (
           <div className="space-y-10">
+            {/* ── Homework first: it is the only thing here with a deadline.
+                Renders nothing for a student who is in no class. ─────────── */}
+            <MyHomeworkList limit={4} />
+
             {/* ── Level plus the four measurements ───────────────────────── */}
             <RevealGroup className="grid gap-4 lg:grid-cols-12">
               <RevealItem className="lg:col-span-4">

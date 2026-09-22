@@ -233,6 +233,9 @@ def test_student_profile_is_scoped_to_that_student(db, make_user):
     inequality = next(t for t in profile["topics"] if t["key"] == "inequality")
     assert inequality["percent_correct"] == 100
     assert profile["attempts"][0]["exam_id"] == "e1"
+    # The client greys out small samples with the server's own threshold
+    # rather than a second copy of the constant that could drift.
+    assert profile["min_asked_for_ranking"] == analytics.MIN_ASKED_FOR_RANKING
 
 
 def test_a_student_who_is_not_in_the_class_is_not_readable(db, make_user):
