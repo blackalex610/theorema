@@ -39,6 +39,12 @@ class Classroom(Base):
     name = Column(String(120), nullable=False)
     join_code = Column(String(12), nullable=False, unique=True, index=True)
     grade_level = Column(Integer, nullable=True)  # 5, 6 or 7 where it applies
+    # Set by the teacher who owns this class when they attach it to a school
+    # they have joined — never by the director. A class with no school is the
+    # normal case and stays fully functional; the school layer is additive.
+    school_id = Column(
+        Integer, ForeignKey("schools.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     # Archived rather than deleted: a class that has finished should stop
     # accepting joins without destroying the term's record of who was in it.
     is_active = Column(Boolean, nullable=False, default=True)

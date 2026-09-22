@@ -28,6 +28,7 @@ from app.models.classroom import Classroom, ClassroomAssignment, ClassroomMember
 from app.models.curriculum import ExerciseAttempt
 from app.models.event_log import EventLog
 from app.models.nvo_exam import NvoAttempt, NvoAttemptItem
+from app.models.school import School, SchoolMember
 from app.models.progress import (
     LessonProgress,
     UserBadge,
@@ -200,6 +201,32 @@ def delete_user_account(db: Session, user: User) -> dict[str, int]:
         ClassroomAssignment.teacher_id == user_id
     ).delete(synchronize_session=False)
     counts["classroom_assignments"] = assignments_removed
+
+    # Schools, same shape one level up: a deleted director must not leave a
+    # live join code that teachers can still walk into, and a deleted teacher
+    # must not stay on a staff list.
+    directed_ids = [
+        row.id for row in
+        db.query(School.id).filter(School.director_id == user_id).all()
+    ]
+    memberships_removed = 0
+    if directed_ids:
+        memberships_removed += db.query(SchoolMember).filter(
+            SchoolMember.school_id.in_(directed_ids)
+        ).delete(synchronize_session=False)
+        # Classes attached to a school that is going away are released
+        # rather than deleted: they belong to their teachers, who did not
+        # ask to lose them because the director closed the account.
+        db.query(Classroom).filter(Classroom.school_id.in_(directed_ids)).update(
+            {Classroom.school_id: None}, synchronize_session=False
+        )
+    memberships_removed += db.query(SchoolMember).filter(
+        SchoolMember.teacher_id == user_id
+    ).delete(synchronize_session=False)
+    counts["school_members"] = memberships_removed
+    counts["schools"] = db.query(School).filter(
+        School.director_id == user_id
+    ).delete(synchronize_session=False)
     counts["classroom_members"] = db.query(ClassroomMember).filter(
         ClassroomMember.student_id == user_id
     ).delete(synchronize_session=False)

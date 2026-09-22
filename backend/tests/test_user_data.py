@@ -203,6 +203,46 @@ def test_delete_never_touches_another_users_rows(db, make_user):
     assert len(surviving) == 1
 
 
+def test_delete_removes_the_school_a_director_created(db, make_user):
+    """Schools key off director_id/teacher_id, so like classrooms they sit
+    outside USER_OWNED_TABLES. A deleted director must not leave a live
+    school join code behind."""
+    from app.models.school import School, SchoolMember
+    from app.services import school_service
+
+    director = make_user()
+    teacher = make_user()
+    school = school_service.create_school(db, director_id=director.id, name="СУ")
+    school_service.join_school(db, teacher_id=teacher.id, join_code=school.join_code)
+    school_id = school.id
+
+    counts = delete_user_account(db, director)
+    db.expire_all()
+
+    assert db.query(School).filter(School.id == school_id).one_or_none() is None
+    assert db.query(SchoolMember).filter(SchoolMember.school_id == school_id).count() == 0
+    assert counts["schools"] == 1
+
+
+def test_delete_removes_a_teachers_school_membership(db, make_user):
+    from app.models.school import SchoolMember
+    from app.services import school_service
+
+    director = make_user()
+    teacher = make_user()
+    school = school_service.create_school(db, director_id=director.id, name="СУ")
+    school_service.join_school(db, teacher_id=teacher.id, join_code=school.join_code)
+    teacher_id = teacher.id
+
+    counts = delete_user_account(db, teacher)
+    db.expire_all()
+
+    assert db.query(SchoolMember).filter(
+        SchoolMember.teacher_id == teacher_id
+    ).count() == 0
+    assert counts["school_members"] == 1
+
+
 def test_delete_removes_assignments_the_user_set(db, make_user):
     """Assignments key off teacher_id, so like classrooms they sit outside
     USER_OWNED_TABLES. A deleted teacher must not leave homework behind
