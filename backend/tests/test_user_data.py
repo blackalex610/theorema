@@ -203,6 +203,37 @@ def test_delete_never_touches_another_users_rows(db, make_user):
     assert len(surviving) == 1
 
 
+def test_delete_removes_assignments_the_user_set(db, make_user):
+    """Assignments key off teacher_id, so like classrooms they sit outside
+    USER_OWNED_TABLES. A deleted teacher must not leave homework behind
+    pointing at a class that no longer exists."""
+    from app.models.classroom import ClassroomAssignment
+    from app.services import assignment_service
+    from app.services import classroom_service as svc
+    from app.services import nvo_exam_store
+
+    teacher = make_user()
+    classroom = svc.create_classroom(db, teacher_id=teacher.id, name="Мой клас")
+    nvo_exam_store.save_exam("erase-me", {"exam_id": "erase-me", "questions": []})
+    assignment_service.create_assignment(
+        db,
+        classroom_id=classroom.id,
+        teacher_id=teacher.id,
+        title="Контролно",
+        exam_id="erase-me",
+        due_at=None,
+    )
+    teacher_id = teacher.id
+
+    counts = delete_user_account(db, teacher)
+    db.expire_all()
+
+    assert db.query(ClassroomAssignment).filter(
+        ClassroomAssignment.teacher_id == teacher_id
+    ).count() == 0
+    assert counts["classroom_assignments"] == 1
+
+
 def test_delete_removes_classes_the_user_taught_and_joined(db, make_user):
     """Classrooms key off teacher_id/student_id rather than a `user_id`
     column, so they sit outside USER_OWNED_TABLES and need erasing

@@ -114,6 +114,44 @@ def save_exam(exam_id: str, exam_payload: dict) -> None:
         _discard(session)
 
 
+def extend_exam_expiry(exam_id: str, expires_at: datetime) -> bool:
+    """Keep a stored exam alive until ``expires_at``. Never shortens it.
+
+    Generated exams are disposable 24h cache rows, purged on every write. An
+    assigned paper is not disposable: the class has to be able to open it
+    until the assignment is due, and a paper that vanished mid-week is worse
+    than never having assigned one.
+
+    Returns False when there is no such exam, so the caller can refuse to
+    create an assignment pointing at a paper that is already gone rather than
+    discovering it when the first student opens it.
+    """
+    session = SessionLocal()
+    try:
+        row = (
+            session.query(GeneratedExam)
+            .filter(GeneratedExam.exam_id == exam_id)
+            .one_or_none()
+        )
+        if row is None:
+            session.close()
+            return False
+        if row.expires_at < expires_at:
+            row.expires_at = expires_at
+            session.commit()
+        # Keep the hot cache in step, or this instance would go on believing
+        # the old expiry and 404 a paper the database is still holding.
+        cached = _exam_cache.get(exam_id)
+        if cached is not None:
+            _cache_put(_exam_cache, exam_id, max(cached[0], expires_at), cached[1])
+        session.close()
+        return True
+    except SQLAlchemyError:
+        logger.error("Failed to extend expiry for NVO exam %s", exam_id, exc_info=True)
+        _discard(session)
+        return False
+
+
 def load_exam(exam_id: str) -> dict | None:
     """Return the stored exam payload, or None if it is unknown or expired."""
     cached = _cache_get(_exam_cache, exam_id)

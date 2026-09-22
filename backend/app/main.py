@@ -24,6 +24,7 @@ from app.routers.feedback import router as feedback_router
 from app.routers.companion_pairing import router as companion_pairing_router
 from app.routers.analytics import router as analytics_router
 from app.routers.classrooms import router as classrooms_router
+from app.routers.assignments import router as assignments_router
 from app.middleware.ip_rate_limiter import IPRateLimiterMiddleware
 from app.services.media_tokens import verify_media_token
 import app.models.curriculum  # noqa: ensure models are registered
@@ -115,6 +116,7 @@ app.include_router(feedback_router)
 app.include_router(companion_pairing_router)
 app.include_router(analytics_router)
 app.include_router(classrooms_router)
+app.include_router(assignments_router)
 
 MEDIA_DIR = Path(__file__).resolve().parent / "uploads"
 MEDIA_DIR.mkdir(parents=True, exist_ok=True)

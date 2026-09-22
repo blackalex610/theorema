@@ -768,6 +768,35 @@ Per-slot topic guide and style examples:
     return exam
 
 
+def generate_exam_paper(
+    blueprint: str | None = None,
+    difficulty: str | None = None,
+    format: str | None = None,
+    progress_callback: Callable[[int, str], None] | None = None,
+    on_fallback: Callable[[int, str], None] | None = None,
+) -> NVOExam:
+    """The generation ladder: blueprint, then OpenAI, then the local pool.
+
+    Extracted so the assignment route builds its paper through exactly the
+    same path as /nvo/generate rather than growing a second copy of the
+    fallback chain that can drift from this one.
+    """
+    def _note(progress: int, message: str) -> None:
+        if on_fallback is not None:
+            on_fallback(progress, message)
+
+    try:
+        return _generate_via_blueprint(blueprint, difficulty, format, progress_callback)
+    except Exception:
+        logger.exception("blueprint generation failed; falling back")
+        _note(25, "Превключване към резервен генератор")
+        try:
+            return _generate_via_openai(difficulty, format, progress_callback)
+        except (ValueError, APIError, HTTPException):
+            _note(35, "AI не е наличен. Превключване към локален генератор")
+            return _fallback_generate_from_pool(format, progress_callback, difficulty)
+
+
 def _run_generation_job(job_id: str, difficulty: str | None = None, format: str | None = None,
                         blueprint: str | None = None) -> None:
     def progress_callback(progress: int, message: str) -> None:
@@ -775,17 +804,15 @@ def _run_generation_job(job_id: str, difficulty: str | None = None, format: str 
 
     try:
         _set_job_progress(job_id, status="running", progress=2, message="Създаване на заявка за нов тест")
-        try:
-            exam = _generate_via_blueprint(blueprint, difficulty, format, progress_callback)
-        except Exception:
-            logger.exception("blueprint generation failed in job %s; falling back", job_id)
-            _set_job_progress(job_id, status="running", progress=25,
-                              message="Превключване към резервен генератор")
-            try:
-                exam = _generate_via_openai(difficulty, format, progress_callback)
-            except (ValueError, APIError, HTTPException):
-                _set_job_progress(job_id, status="running", progress=35, message="AI не е наличен. Превключване към локален генератор")
-                exam = _fallback_generate_from_pool(format, progress_callback, difficulty)
+        exam = generate_exam_paper(
+            blueprint,
+            difficulty,
+            format,
+            progress_callback,
+            on_fallback=lambda progress, message: _set_job_progress(
+                job_id, status="running", progress=progress, message=message
+            ),
+        )
 
         _store_exam(exam)
         _set_job_progress(job_id, status="completed", progress=100, message="Тестът е готов за стартиране", exam_id=exam.exam_id)

@@ -92,6 +92,12 @@ PERSONAL_DATA_ROUTES = [
     ("GET", "/classrooms/{classroom_id}"),
     ("GET", "/classrooms/{classroom_id}/diagnostics"),
     ("GET", "/classrooms/{classroom_id}/students/{student_id}"),
+    # Assignments: the report names children and their scores; the student
+    # routes expose which classes a person belongs to.
+    ("GET", "/assignments/mine"),
+    ("GET", "/assignments/class/{classroom_id}"),
+    ("GET", "/assignments/{assignment_id}"),
+    ("POST", "/assignments/{assignment_id}/open"),
 ]
 
 

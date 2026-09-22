@@ -24,7 +24,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.models.classroom import Classroom, ClassroomMember
+from app.models.classroom import Classroom, ClassroomAssignment, ClassroomMember
 from app.models.curriculum import ExerciseAttempt
 from app.models.event_log import EventLog
 from app.models.nvo_exam import NvoAttempt, NvoAttemptItem
@@ -183,10 +183,23 @@ def delete_user_account(db: Session, user: User) -> dict[str, int]:
         row.id for row in
         db.query(Classroom.id).filter(Classroom.teacher_id == user_id).all()
     ]
+    assignments_removed = 0
     if taught_ids:
         db.query(ClassroomMember).filter(
             ClassroomMember.classroom_id.in_(taught_ids)
         ).delete(synchronize_session=False)
+        # Assignments set in those classes go with them: homework pointing at
+        # a class that no longer exists is orphaned data, and its rows name
+        # the teacher who is being erased.
+        assignments_removed += db.query(ClassroomAssignment).filter(
+            ClassroomAssignment.classroom_id.in_(taught_ids)
+        ).delete(synchronize_session=False)
+    # Any left keyed to this teacher but sitting in someone else's class —
+    # shouldn't happen, but erasure is not the place to assume that.
+    assignments_removed += db.query(ClassroomAssignment).filter(
+        ClassroomAssignment.teacher_id == user_id
+    ).delete(synchronize_session=False)
+    counts["classroom_assignments"] = assignments_removed
     counts["classroom_members"] = db.query(ClassroomMember).filter(
         ClassroomMember.student_id == user_id
     ).delete(synchronize_session=False)
