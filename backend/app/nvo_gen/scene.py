@@ -141,6 +141,11 @@ class Figure:
     right_angles: list[dict[str, Any]] = field(default_factory=list)
     ticks: list[dict[str, Any]] = field(default_factory=list)
     texts: list[dict[str, Any]] = field(default_factory=list)
+    #: Shaded regions, drawn under every stroke. A composite-area item asks
+    #: which part is coloured, so the shading is load-bearing data, not
+    #: decoration — and `geometry_hash` counts it, since two figures that
+    #: differ only in which region is shaded are different pictures.
+    fills: list[dict[str, Any]] = field(default_factory=list)
     #: Names that carry a drawn dot. Vertices of a polygon usually don't; a
     #: marked point on a side usually does, which is how the papers print them.
     dots: set[str] = field(default_factory=set)
@@ -191,6 +196,15 @@ class Figure:
     def tick(self, a: str, b: str, *, count: int = 1) -> None:
         """Equal-length marks — the single/double strokes the papers use."""
         self.ticks.append({"from": a, "to": b, "count": count})
+
+    def fill_region(self, names: Sequence[str], *, hatch: bool = False) -> None:
+        """Shade the polygon through `names`.
+
+        The composite-area items ("express the shaded part through x and y")
+        are unanswerable without it, and the papers print them either solid
+        grey or hatched depending on how many regions have to be told apart.
+        """
+        self.fills.append({"points": list(names), "hatch": hatch})
 
     def text(self, at: Pt, value: str, *, anchor: str = "middle", size: float = 10.5,
              italic: bool = False) -> None:
@@ -264,7 +278,7 @@ class Figure:
         return out
 
     # ── pose ─────────────────────────────────────────────────────────────
-    def pose(self, rng: random.Random) -> None:
+    def pose(self, rng: random.Random, *, upright: bool = False) -> None:
         """Mirror, rotate and rescale the whole figure a little.
 
         A similarity transform preserves everything a figure asserts — equal
@@ -278,9 +292,16 @@ class Figure:
         Rotation is kept small because printed NVO figures are very nearly
         axis-aligned: a triangle tilted 30° reads as a mistake, not a variant.
         The mirror is the bigger lever and costs nothing.
+
+        `upright` drops the rotation entirely, for figures whose horizontals
+        and verticals are the point: a square, a rectangle and its diagonals,
+        an L-shape cut from a rectangle, a segment split into parts. The eye
+        reads those against the page edge, so even 7° looks like a mistake
+        rather than a variant — the very argument that caps the angle here,
+        taken to its conclusion. Mirroring and rescaling still apply.
         """
         flip = -1.0 if rng.random() < 0.5 else 1.0
-        theta = math.radians(rng.uniform(-7.0, 7.0))
+        theta = 0.0 if upright else math.radians(rng.uniform(-7.0, 7.0))
         k = rng.uniform(0.94, 1.06)
         cos, sin = math.cos(theta) * k, math.sin(theta) * k
         cx, cy = self._centroid()
@@ -323,15 +344,17 @@ class Figure:
         for t in self.texts:
             t["x"], t["y"] = (round(v, 2) for v in fit((t["x"], t["y"])))
 
-    def to_spec(self, *, aria: str, rng: random.Random | None = None) -> dict[str, Any]:
+    def to_spec(self, *, aria: str, rng: random.Random | None = None,
+                upright: bool = False) -> dict[str, Any]:
         """Freeze the figure into the spec the client renderer speaks.
 
         Passing an rng poses the figure first, which is what stops two papers
         printing the same picture. It is applied here rather than in each
-        builder so that a figure assembled by hand gets it too.
+        builder so that a figure assembled by hand gets it too. `upright` is
+        passed through to `pose` — see there for when a figure wants it.
         """
         if rng is not None:
-            self.pose(rng)
+            self.pose(rng, upright=upright)
         return {
             "kind": "figure",
             "width": self.width,
@@ -345,6 +368,7 @@ class Figure:
             "angles": self.angles,
             "rightAngles": self.right_angles,
             "ticks": self.ticks,
+            "fills": self.fills,
             "texts": self.texts,
             "labelOffsets": self._label_offsets(),
             "aria": aria,
@@ -706,14 +730,34 @@ def isosceles_triangle(fig: "Figure | None" = None, *,
 
 @layout(invariants=[points_inside()])
 def parallelogram(fig: "Figure | None" = None, *, rhombus: bool = False,
-                  rect: bool = False, rng: random.Random | None = None) -> "Figure":
+                  rect: bool = False, square: bool = False,
+                  rng: random.Random | None = None) -> "Figure":
     """ABCD counter-clockwise from the bottom-left, D above A.
 
     A rhombus is drawn with all four sides genuinely equal and a rectangle with
     genuine right angles, because in both cases the marks on the figure assert
     it. Only the generic parallelogram is free to vary its skew.
+
+    `square` is not the same as `rect`, and the difference is load-bearing: a
+    square's diagonal bisects its corner and a rectangle's does not, so an item
+    that says „квадрат” and is drawn on an oblong contradicts itself. The box is
+    wider than it is tall, so a square is sized by the height and centred.
     """
     f = fig or Figure()
+    if square:
+        if rng is None:
+            side, bottom = 106.0, 140.0
+        else:
+            side = rng.uniform(94.0, 116.0)
+            bottom = rng.uniform(134.0, 144.0)
+        ax = (f.width - side) / 2.0
+        top = bottom - side
+        f.put("A", (ax, bottom))
+        f.put("B", (ax + side, bottom))
+        f.put("C", (ax + side, top))
+        f.put("D", (ax, top))
+        return f
+
     if rect:
         if rng is None:
             ax, bx, top, bottom = 40.0, 222.0, 42.0, 136.0
@@ -904,6 +948,37 @@ def triangle_for_circumcentre(fig: "Figure | None" = None, *,
     return f
 
 
+@layout(invariants=[
+    angle_above("B", "A", "C", 26.0),
+    angle_below("B", "A", "C", 80.0),
+    points_apart("C", "B", by=30.0),
+    points_inside(),
+])
+def right_trapezoid(fig: "Figure | None" = None, *,
+                    rng: random.Random | None = None) -> "Figure":
+    """ABCD with AB ∥ DC, AD ⟂ AB — the right trapezoid the papers print.
+
+    A, B along the bottom; D directly above A; C above and left of B, so DC is
+    the shorter parallel side and BC is the slant. Keeping the angle at B well
+    away from 90° matters: a trapezoid drawn nearly rectangular reads as a
+    rectangle, and the co-interior angle item it carries stops making sense.
+    """
+    f = fig or Figure()
+    if rng is None:
+        left, right, top, bottom, inset = 38.0, 220.0, 44.0, 140.0, 46.0
+    else:
+        left = rng.uniform(30.0, 44.0)
+        right = rng.uniform(206.0, 228.0)
+        top = rng.uniform(36.0, 54.0)
+        bottom = rng.uniform(130.0, 144.0)
+        inset = rng.uniform(38.0, 72.0)
+    f.put("A", (left, bottom))
+    f.put("B", (right, bottom))
+    f.put("C", (right - inset, top))
+    f.put("D", (left, top))
+    return f
+
+
 # ─── non-figure scenes ───────────────────────────────────────────────────────
 
 def coordinate_grid(
@@ -912,16 +987,23 @@ def coordinate_grid(
     x_range: tuple[int, int] = (-2, 7),
     y_range: tuple[int, int] = (-2, 6),
     polygon: Sequence[str] = (),
+    shaded: bool = False,
     unit_label: str | None = None,
     aria: str = "",
 ) -> dict[str, Any]:
-    """Oxy grid with labelled lattice points, optionally joined into a polygon."""
+    """Oxy grid with labelled lattice points, optionally joined into a polygon.
+
+    `shaded` fills that polygon. The area items on a lattice ("read the area of
+    △ABC off the grid") print it filled, and the fill is what tells the student
+    which region is being asked about when other points are marked too.
+    """
     return {
         "kind": "grid",
         "xRange": list(x_range),
         "yRange": list(y_range),
         "points": [{"name": n, "x": x, "y": y} for n, x, y in points],
         "polygon": list(polygon),
+        "shaded": shaded,
         "unitLabel": unit_label,
         "aria": aria,
     }
@@ -982,6 +1064,45 @@ def pie_chart(*, sectors: Sequence[tuple[str, float]], title: str | None = None,
     }
 
 
+def line_graph(
+    *,
+    series: Sequence[Sequence[tuple[float, float]]],
+    x_range: tuple[float, float],
+    y_range: tuple[float, float],
+    x_step: float,
+    y_step: float,
+    x_label: str = "",
+    y_label: str = "",
+    markers: Sequence[tuple[str, float, float]] = (),
+    grid: bool = False,
+    aria: str = "",
+) -> dict[str, Any]:
+    """A plot in data coordinates: polylines on labelled axes.
+
+    Covers both shapes the corpus uses it for — a distance-against-time journey
+    with flat stretches where the traveller rested (2015, 2016), and a fan of
+    rays from the origin comparing rates (2016). `markers` names points on the
+    curve, which is how the papers pose "read off the value at D".
+
+    Data coordinates, not viewBox ones: the renderer scales. A graph is the one
+    scene kind where the numbers *are* the content, so unlike a plane figure it
+    is emphatically drawn to scale — the scale notice does not apply to it.
+    """
+    return {
+        "kind": "linegraph",
+        "xRange": list(x_range),
+        "yRange": list(y_range),
+        "xStep": x_step,
+        "yStep": y_step,
+        "xLabel": x_label,
+        "yLabel": y_label,
+        "series": [{"points": [[float(x), float(y)] for x, y in s]} for s in series],
+        "markers": [{"name": n, "x": float(x), "y": float(y)} for n, x, y in markers],
+        "grid": grid,
+        "aria": aria,
+    }
+
+
 def solid(*, shape: str, labels: dict[str, str], aria: str = "") -> dict[str, Any]:
     """A 3D illustration with text slots.
 
@@ -1004,7 +1125,8 @@ def data_table(*, headers: Sequence[str], rows: Sequence[Sequence[str]], aria: s
 #: Every scene kind the client renderer knows how to draw. The verifier checks
 #: against this so a typo in a builder fails in CI rather than as a blank box
 #: in front of a student.
-SCENE_KINDS = frozenset({"figure", "grid", "bars", "pie", "solid", "schematic", "table"})
+SCENE_KINDS = frozenset({"figure", "grid", "bars", "pie", "solid", "schematic",
+                         "table", "linegraph"})
 
 SOLID_SHAPES = frozenset({"cube", "box", "pyramid", "cone", "cylinder"})
 SCHEMATIC_SHAPES = frozenset({"pole_cable", "spinner", "road"})

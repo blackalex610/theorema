@@ -44,6 +44,15 @@ export interface FigureScene {
   }[];
   rightAngles: { at: string; from: string; to: string; size?: number; dot?: boolean }[];
   ticks: { from: string; to: string; count?: number }[];
+  /**
+   * Shaded regions, drawn under every stroke.
+   *
+   * A composite-area item ("express the shaded part through x and y") is
+   * unanswerable without this, so it is content rather than decoration. The
+   * papers use solid grey for one region and hatching when two have to be
+   * told apart.
+   */
+  fills?: { points: string[]; hatch?: boolean }[];
   texts: { x: number; y: number; text: string; anchor?: TextAnchor; size?: number; italic?: boolean }[];
   labelOffsets: Record<string, [number, number]>;
   aria: string;
@@ -58,7 +67,23 @@ export interface GridScene {
   yRange: [number, number];
   points: { name: string; x: number; y: number }[];
   polygon: string[];
+  /** Fill the polygon — the lattice-area items are asked about a shaded region. */
+  shaded?: boolean;
   unitLabel?: string | null;
+  aria: string;
+}
+
+export interface LineGraphScene {
+  kind: 'linegraph';
+  xRange: [number, number];
+  yRange: [number, number];
+  xStep: number;
+  yStep: number;
+  xLabel?: string;
+  yLabel?: string;
+  series: { points: [number, number][] }[];
+  markers: { name: string; x: number; y: number }[];
+  grid?: boolean;
   aria: string;
 }
 
@@ -102,7 +127,8 @@ export interface TableScene {
 }
 
 export type Scene =
-  | FigureScene | GridScene | BarsScene | PieScene | SolidScene | SchematicScene | TableScene;
+  | FigureScene | GridScene | BarsScene | PieScene | SolidScene | SchematicScene
+  | TableScene | LineGraphScene;
 
 // ─── shared helpers ──────────────────────────────────────────────────────────
 
@@ -165,6 +191,9 @@ const FigureView: React.FC<{ scene: FigureScene }> = ({ scene }) => {
   const P = (name: string): Pt => scene.points[name] ?? [0, 0];
   const hidden = new Set(scene.hidden ?? []);
   const dots = new Set(scene.dots ?? []);
+  // Pattern ids are document-global, so a fixed one would collide as soon as
+  // two hatched figures share a page — and the contact sheet renders twenty.
+  const hatchId = `hatch-${React.useId().replace(/:/g, '')}`;
 
   /**
    * Keep a label inside the drawing box.
@@ -197,6 +226,27 @@ const FigureView: React.FC<{ scene: FigureScene }> = ({ scene }) => {
 
   return (
     <Frame width={scene.width} height={scene.height} aria={scene.aria}>
+      {/* shaded regions, under everything — see FigureScene.fills */}
+      {(scene.fills ?? []).some((f) => f.hatch) && (
+        <defs>
+          <pattern
+            id={hatchId} width="6" height="6"
+            patternUnits="userSpaceOnUse" patternTransform="rotate(45)"
+          >
+            <line x1="0" y1="0" x2="0" y2="6" stroke="currentColor" strokeWidth={1} opacity={0.5} />
+          </pattern>
+        </defs>
+      )}
+      {(scene.fills ?? []).map((fl, i) => (
+        <polygon
+          key={`fl${i}`}
+          points={fl.points.map((n) => P(n).join(',')).join(' ')}
+          fill={fl.hatch ? `url(#${hatchId})` : 'currentColor'}
+          opacity={fl.hatch ? 1 : 0.17}
+          stroke="none"
+        />
+      ))}
+
       {/* full lines, drawn first so everything else sits on top */}
       {(scene.lines ?? []).map((ln, i) => {
         const a = P(ln.from);
@@ -407,7 +457,9 @@ const GridView: React.FC<{ scene: GridScene }> = ({ scene }) => {
             .filter(Boolean)
             .map((p) => `${sx(p!.x)},${sy(p!.y)}`)
             .join(' ')}
-          fill="none" stroke="currentColor" strokeWidth={1.3}
+          fill={scene.shaded ? 'currentColor' : 'none'}
+          fillOpacity={scene.shaded ? 0.17 : undefined}
+          stroke="currentColor" strokeWidth={1.3}
         />
       )}
 
@@ -794,6 +846,121 @@ const TableView: React.FC<{ scene: TableScene }> = ({ scene }) => (
 
 // ─── entry point ─────────────────────────────────────────────────────────────
 
+// ─── line graph ──────────────────────────────────────────────────────────────
+
+/** Bulgarian decimal comma; whole numbers print without a fractional part. */
+const axisNumber = (v: number): string =>
+  Number.isInteger(v) ? String(v) : String(v).replace('.', ',');
+
+/**
+ * A plot in data coordinates.
+ *
+ * Unlike a plane figure, a graph is emphatically drawn to scale: the scale
+ * notice („Чертежите са само за илюстрация…”) covers figures, not graphs, and
+ * these items ask the student to *read values off* the picture. So the
+ * renderer maps data coordinates faithfully rather than laying anything out by
+ * eye, and the backend sends numbers rather than viewBox positions.
+ */
+const LineGraphView: React.FC<{ scene: LineGraphScene }> = ({ scene }) => {
+  const [x0, x1] = scene.xRange;
+  const [y0, y1] = scene.yRange;
+  const padL = 46;
+  // Room to the right for the axis unit, which sits past the arrowhead rather
+  // than above the last tick — printed on top of it, "40" and "min" overlap.
+  const padR = 42;
+  const padT = 26;
+  const padB = 34;
+  const plotW = 250;
+  const plotH = 148;
+  const width = plotW + padL + padR;
+  const height = plotH + padT + padB;
+  const sx = (x: number) => padL + ((x - x0) / (x1 - x0)) * plotW;
+  const sy = (y: number) => padT + plotH - ((y - y0) / (y1 - y0)) * plotH;
+
+  const ticks = (from: number, to: number, step: number): number[] => {
+    const out: number[] = [];
+    // Accumulating with += drifts on fractional steps and can emit a stray
+    // final tick just past `to`; indexing off the start does not.
+    const n = Math.floor((to - from) / step + 1e-9);
+    for (let i = 0; i <= n; i += 1) out.push(Number((from + i * step).toFixed(6)));
+    return out;
+  };
+  const xTicks = ticks(x0, x1, scene.xStep);
+  const yTicks = ticks(y0, y1, scene.yStep);
+
+  return (
+    <Frame width={width} height={height} aria={scene.aria}>
+      {scene.grid && (
+        <g stroke="currentColor" strokeWidth={0.6} opacity={0.25}>
+          {xTicks.map((v) => (
+            <line key={`gv${v}`} x1={sx(v)} y1={sy(y0)} x2={sx(v)} y2={sy(y1)} />
+          ))}
+          {yTicks.map((v) => (
+            <line key={`gh${v}`} x1={sx(x0)} y1={sy(v)} x2={sx(x1)} y2={sy(v)} />
+          ))}
+        </g>
+      )}
+
+      <g stroke="currentColor" strokeWidth={1.3} fill="none">
+        <line x1={sx(x0)} y1={sy(y0)} x2={sx(x1) + 12} y2={sy(y0)} />
+        <line x1={sx(x0)} y1={sy(y0)} x2={sx(x0)} y2={sy(y1) - 12} />
+        <polyline points={`${sx(x1) + 6},${sy(y0) - 4} ${sx(x1) + 13},${sy(y0)} ${sx(x1) + 6},${sy(y0) + 4}`} />
+        <polyline points={`${sx(x0) - 4},${sy(y1) - 6} ${sx(x0)},${sy(y1) - 13} ${sx(x0) + 4},${sy(y1) - 6}`} />
+      </g>
+
+      <g stroke="currentColor" strokeWidth={1}>
+        {xTicks.map((v) => (
+          <line key={`tx${v}`} x1={sx(v)} y1={sy(y0)} x2={sx(v)} y2={sy(y0) + 4} />
+        ))}
+        {yTicks.map((v) => (
+          <line key={`ty${v}`} x1={sx(x0)} y1={sy(v)} x2={sx(x0) - 4} y2={sy(v)} />
+        ))}
+      </g>
+
+      {xTicks.map((v) => (
+        <MathLabel
+          key={`lx${v}`} x={sx(v)} y={sy(y0) + 16}
+          text={axisNumber(v)} italic={false} size={9.5}
+        />
+      ))}
+      {yTicks.map((v) => (
+        <MathLabel
+          key={`ly${v}`} x={sx(x0) - 8} y={sy(v) + 3.5}
+          text={axisNumber(v)} italic={false} size={9.5} anchor="end"
+        />
+      ))}
+
+      {scene.xLabel && (
+        <MathLabel
+          x={sx(x1) + 17} y={sy(y0) + 16}
+          text={scene.xLabel} italic={false} size={10} anchor="start"
+        />
+      )}
+      {scene.yLabel && (
+        <MathLabel
+          x={sx(x0) - 4} y={sy(y1) - 18}
+          text={scene.yLabel} italic={false} size={10} anchor="end"
+        />
+      )}
+
+      {scene.series.map((s, i) => (
+        <polyline
+          key={`s${i}`}
+          points={s.points.map(([x, y]) => `${sx(x)},${sy(y)}`).join(' ')}
+          fill="none" stroke="currentColor" strokeWidth={1.7}
+        />
+      ))}
+
+      {(scene.markers ?? []).map((m) => (
+        <g key={m.name}>
+          <circle cx={sx(m.x)} cy={sy(m.y)} r={2.6} fill="currentColor" />
+          <MathLabel x={sx(m.x) - 9} y={sy(m.y) - 7} text={m.name} />
+        </g>
+      ))}
+    </Frame>
+  );
+};
+
 const SceneRenderer: React.FC<{ scene: Scene | null | undefined }> = ({ scene }) => {
   if (!scene || typeof scene !== 'object' || !('kind' in scene)) return null;
   switch (scene.kind) {
@@ -804,6 +971,7 @@ const SceneRenderer: React.FC<{ scene: Scene | null | undefined }> = ({ scene })
     case 'solid': return <SolidView scene={scene} />;
     case 'schematic': return <SchematicView scene={scene} />;
     case 'table': return <TableView scene={scene} />;
+    case 'linegraph': return <LineGraphView scene={scene} />;
     default: return null;
   }
 };

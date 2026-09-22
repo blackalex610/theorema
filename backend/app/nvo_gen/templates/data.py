@@ -26,7 +26,14 @@ from app.nvo_gen.distractors import (
     shuffle_options,
 )
 from app.nvo_gen.registry import GeneratedItem, Retry, template
-from app.nvo_gen.scene import bar_chart, data_table, grouped_bar_chart, pie_chart, schematic
+from app.nvo_gen.scene import (
+    bar_chart,
+    data_table,
+    grouped_bar_chart,
+    line_graph,
+    pie_chart,
+    schematic,
+)
 
 _MONTHS = ["януари", "февруари", "март", "април", "май", "юни",
            "юли", "август", "септември", "октомври", "ноември", "декември"]
@@ -459,4 +466,161 @@ def table_share_and_difference(rng: random.Random, slot: Slot) -> GeneratedItem:
                   f"Б) Разликата е $\\left|{counts[idx]} - {counts[other]}\\right| "
                   f"= {diff}$."),
         signature=f"table_share:{'-'.join(map(str, counts))}:{idx}:{other}",
+    )
+
+
+# ─── journey graphs ──────────────────────────────────────────────────────────
+# The distance-against-time plot the 2015 and 2016 papers print: a leg, a flat
+# stretch where the traveller rested, another leg. Unlike a plane figure this
+# is drawn to scale on purpose -- the student is asked to read values off it,
+# so the scale notice does not apply and the renderer maps data coordinates
+# faithfully.
+
+
+def _axis(span: int, *, max_ticks: int = 7) -> tuple[int, int]:
+    """Pick a tick step and an axis end that keep the numbers readable.
+
+    A 55-minute journey stepped by 5 prints twelve labels along 250 pixels,
+    which is unreadable at exam size. Widening the step until the labels fit,
+    then rounding the axis out to land on one, is what the papers do.
+    """
+    for step in (5, 10, 15, 20, 30, 60):
+        end = span + (-span % step or step)
+        if end // step <= max_ticks:
+            return step, end
+    return 60, span + (-span % 60 or 60)
+
+
+@template("chart_journey_average_speed",
+          topics=["data_chart"], kinds=["mc", "short"], weight=1.2, band="medium")
+def chart_journey_average_speed(rng: random.Random, slot: Slot) -> GeneratedItem:
+    """A cyclist rides, rests, rides again; find the average speed overall.
+
+    The trap the distractors are built around is dividing by the *moving* time
+    instead of the elapsed time. A student who ignores the flat stretch gets a
+    plausible, wrong, larger number — which is exactly the misreading the flat
+    stretch is in the graph to test.
+    """
+    leg1 = rng.choice(slot.profile.tier([10, 15], [10, 15, 20], [10, 12, 15, 20],
+                                        [9, 12, 14, 18, 21]))
+    rest = rng.choice(slot.profile.tier([10], [5, 10], [5, 10, 15], [5, 8, 10, 12, 15]))
+    leg2 = rng.choice(slot.profile.tier([10, 15], [10, 15, 20], [10, 15, 20, 25],
+                                        [9, 12, 16, 18, 24]))
+    d1 = rng.choice([2, 3, 4])
+    d2 = d1 + rng.choice([1, 2, 3])
+
+    total_min = leg1 + rest + leg2
+    if (d2 * 60) % total_min:
+        raise Retry("the average speed must be a whole number of km/h")
+    key = d2 * 60 // total_min
+    if not 8 <= key <= 30:
+        raise Retry("the average speed must be plausible for a cyclist")
+
+    moving = leg1 + leg2
+    trap = Fraction(d2 * 60, moving)                       # ignored the rest
+
+    # Axis ranges are rounded out to the tick so the last gridline is the edge.
+    x_step, x_max = _axis(total_min)
+    y_step = 1
+    y_max = d2 + 1
+
+    scene = line_graph(
+        series=[[(0, 0), (leg1, d1), (leg1 + rest, d1), (total_min, d2)]],
+        x_range=(0, x_max), y_range=(0, y_max),
+        x_step=x_step, y_step=y_step,
+        x_label="min", y_label="km", grid=True,
+        aria=(f"Графика на изминат път в километри спрямо времето в минути: "
+              f"изкачване до {d1} km за {leg1} минути, хоризонтален участък "
+              f"{rest} минути и изкачване до {d2} km на {total_min}-ата минута"),
+    )
+
+    stem = ("Графиката показва изминатия път на велосипедист. "
+            "Средната му скорост за цялото време на движение по маршрута")
+    solution = (rf"Общият изминат път е ${d2}$ km за ${total_min}$ min $= "
+                rf"\frac{{{total_min}}}{{60}}$ h. Средната скорост е "
+                rf"$\frac{{{d2}}}{{{total_min}/60}} = {key}$ km/h. Почивката се "
+                rf"включва във времето — тя не се изважда.")
+
+    if slot.kind == "short":
+        # The short slot is worth two marks then three, so it asks the reading
+        # and the computation separately — which is also the kinder order: a
+        # student who misreads the flat stretch loses the first mark, not both.
+        return GeneratedItem(
+            topic=slot.topic, kind="short", points=slot.points,
+            stem=("Графиката показва изминатия път на велосипедист, който по "
+                  "време на маршрута си е почивал веднъж."),
+            parts=["А) Колко минути е почивал велосипедистът?",
+                   "Б) Каква е средната му скорост за цялото време по маршрута?"],
+            correct_answer=[f"{rest} min", f"{key} km/h"],
+            difficulty="medium", scene=scene, solution=solution,
+            signature=f"journey:{leg1}:{rest}:{leg2}:{d2}",
+        )
+
+    candidates = [int(trap) if trap.denominator == 1 else key + 2,
+                  key + 1, key - 1, d2 * 60 // leg1 if leg1 else key + 3, key * 2]
+    options, letter = numeric_options(key, candidates, rng=rng,
+                                      positive_only=True, suffix=r"\ \text{km/h}")
+    return GeneratedItem(
+        topic=slot.topic, kind="mc", points=slot.points,
+        stem=stem + " е:", options=options, correct_answer=letter,
+        difficulty="medium", scene=scene, solution=solution,
+        signature=f"journey:{leg1}:{rest}:{leg2}:{d2}",
+    )
+
+
+@template("chart_journey_rest_length",
+          topics=["data_chart"], kinds=["mc", "short"], weight=1.0, band="easy")
+def chart_journey_rest_length(rng: random.Random, slot: Slot) -> GeneratedItem:
+    """How long was the rest — the flat stretch read straight off the graph.
+
+    Deliberately an easy item: the whole skill is knowing that a horizontal
+    stretch on a distance-time plot means the distance is not changing.
+    """
+    leg1 = rng.choice(slot.profile.tier([10, 15], [10, 15, 20], [10, 15, 20, 25],
+                                        [8, 12, 16, 18, 24]))
+    rest = rng.choice(slot.profile.tier([10, 15], [5, 10, 15], [5, 10, 15, 20],
+                                        [4, 6, 8, 12, 14, 18]))
+    leg2 = rng.choice(slot.profile.tier([10, 15], [10, 15, 20], [10, 15, 20, 25],
+                                        [8, 12, 16, 18, 24]))
+    d1 = rng.choice([2, 3, 4])
+    d2 = d1 + rng.choice([1, 2, 3])
+    total_min = leg1 + rest + leg2
+
+    x_step, x_max = _axis(total_min)
+
+    scene = line_graph(
+        series=[[(0, 0), (leg1, d1), (leg1 + rest, d1), (total_min, d2)]],
+        x_range=(0, x_max), y_range=(0, d2 + 1),
+        x_step=x_step, y_step=1,
+        x_label="min", y_label="km", grid=True,
+        aria=(f"Графика на изминат път спрямо време с хоризонтален участък "
+              f"между {leg1}-ата и {leg1 + rest}-ата минута"),
+    )
+    solution = (rf"Хоризонталният участък е между ${leg1}$-ата и ${leg1 + rest}$-ата "
+                rf"минута — през него изминатият път не се променя. "
+                rf"Почивката е ${leg1 + rest} - {leg1} = {rest}$ минути.")
+    stem = ("Графиката показва изминатия път на турист, който по време на "
+            "прехода си е почивал веднъж. Времето на почивката")
+
+    if slot.kind == "short":
+        return GeneratedItem(
+            topic=slot.topic, kind="short", points=slot.points,
+            stem=("Графиката показва изминатия път на турист, който по време на "
+                  "прехода си е почивал веднъж."),
+            parts=["А) Колко километра е изминал туристът до почивката?",
+                   "Б) Колко минути е продължила почивката?"],
+            correct_answer=[f"{d1} km", f"{rest} min"],
+            difficulty="easy", scene=scene,
+            solution=(solution + rf" До почивката е изминал ${d1}$ km."),
+            signature=f"rest:{leg1}:{rest}:{leg2}:{d2}",
+        )
+
+    options, letter = numeric_options(
+        rest, [leg1, leg2, leg1 + rest, total_min, rest * 2], rng=rng,
+        positive_only=True, suffix=r"\ \text{min}")
+    return GeneratedItem(
+        topic=slot.topic, kind="mc", points=slot.points,
+        stem=stem + " е:", options=options, correct_answer=letter,
+        difficulty="easy", scene=scene, solution=solution,
+        signature=f"rest:{leg1}:{rest}:{leg2}:{d2}",
     )

@@ -24,6 +24,7 @@ from app.nvo_gen.blueprints import BLUEPRINTS         # noqa: E402
 from app.nvo_gen.registry import Retry                # noqa: E402
 
 NEW = [
+    # the seven recurring archetypes
     "tri_height_bisector_median",
     "tri_exterior_angle_at_base",
     "tri_cevian_exterior_angle",
@@ -31,9 +32,21 @@ NEW = [
     "tri_perpendicular_from_side_point",
     "tri_circumcentre_central_angle",
     "line_through_vertex_angles",
+    # the two that needed new scene machinery
+    "chart_journey_average_speed",
+    "chart_journey_rest_length",
+    "symbolic_area_notched_rectangle",
+    # the one-offs
+    "parallelogram_height_area",
+    "square_diagonal_angle",
+    "trapezoid_cointerior_angle",
+    "triangle_midsegment_perimeter",
+    "isosceles_height_apex_angle",
+    "segment_parts_algebraic",
+    "coordinate_shaded_triangle_area",
 ]
 
-SAMPLES = 3
+SAMPLES = 2
 OUT = Path("docs/nvo-figures/generated/scenes.json")
 
 

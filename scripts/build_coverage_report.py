@@ -164,36 +164,43 @@ COVERAGE: dict[str, tuple[str, str] | None] = {
     "parallelogram_bisector": ("parallelogram", "rhombus_bisector_angle"),
     "parallelogram_diagonals": ("parallelogram", "parallelogram_angle_ratio"),
 
-    # --- uncovered -----------------------------------------------------------
-    "triangle_circumcentre_perp_bisectors": None,
-    "triangle_exterior_angle": None,
-    "triangle_cevian_exterior_angle": None,
-    "triangle_cevian_perpendicular": None,
-    "triangle_cevians_multi": None,
-    "triangle_line_through_vertex": None,
-    "triangle_equal_segments_chain": None,
-    "triangle_midsegment": None,
-    "triangle_bisector": None,
-    "isosceles_triangle_height": None,
-    "triangles_congruence_construction": None,
-    "triangles_right_shared_side": None,
-    "triangle_on_grid_shaded": None,
-    "parallelogram_height": None,
-    "parallelogram_on_grid": None,
-    "rectangle_diagonals": None,
-    "square_with_cevians": None,
-    "trapezoid_with_perpendicular": None,
-    "kite_axis_symmetry": None,
-    "composite_area_rectilinear": None,
-    "graph_distance_time_piecewise": None,
-    "graph_rays_from_origin": None,
-    "number_line_inequality": None,
-    "segment_algebraic_parts": None,
-    "dot_lattice": None,
-    "parallels_transversal_panel": None,
-    "schematic_ladder_wall": None,
-    "symmetry_marks_figure": None,
-    "tessellation_pattern": None,
+    # --- built to close the audit's gaps -------------------------------------
+    "triangle_cevians_multi": ("triangle_for_three_cevians", "tri_height_bisector_median"),
+    "triangle_exterior_angle": ("triangle_with_extended_side", "tri_exterior_angle_at_base"),
+    "triangle_cevian_exterior_angle": ("triangle_for_three_cevians", "tri_cevian_exterior_angle"),
+    "rectangle_diagonals": ("parallelogram(rect)", "rect_diagonals_angle"),
+    "triangle_cevian_perpendicular": ("triangle_for_three_cevians",
+                                      "tri_perpendicular_from_side_point"),
+    "triangle_circumcentre_perp_bisectors": ("triangle_for_circumcentre",
+                                             "tri_circumcentre_central_angle"),
+    "triangle_line_through_vertex": ("triangle_for_three_cevians",
+                                     "line_through_vertex_angles"),
+    "graph_distance_time_piecewise": ("line_graph", "chart_journey_average_speed"),
+    "composite_area_rectilinear": ("Figure.fill_region", "symbolic_area_notched_rectangle"),
+    "parallelogram_height": ("parallelogram", "parallelogram_height_area"),
+    "square_with_cevians": ("parallelogram(square)", "square_diagonal_angle"),
+    "trapezoid_with_perpendicular": ("right_trapezoid", "trapezoid_cointerior_angle"),
+    "triangle_midsegment": ("triangle_for_three_cevians", "triangle_midsegment_perimeter"),
+    "isosceles_triangle_height": ("isosceles_triangle", "isosceles_height_apex_angle"),
+    "segment_algebraic_parts": ("Figure (point-built)", "segment_parts_algebraic"),
+    "triangle_on_grid_shaded": ("coordinate_grid(shaded)", "coordinate_shaded_triangle_area"),
+    "parallelogram_on_grid": ("coordinate_grid", "coordinate_fourth_vertex"),
+    "triangle_bisector": ("isosceles_triangle", "tri_bisector_isosceles"),
+
+    # --- still uncovered, with the reason ------------------------------------
+    # Each of these appears once in thirteen papers AND needs machinery that
+    # nothing else would reuse. The note is what a future reader needs.
+    "parallels_transversal_panel": None,      # four mini-figures AS the options
+    "graph_rays_from_origin": None,           # linegraph exists; no item written
+    "number_line_inequality": None,           # needs a number-line scene kind
+    "dot_lattice": None,                      # needs a dotted-lattice scene kind
+    "kite_axis_symmetry": None,               # needs a kite layout
+    "triangle_equal_segments_chain": None,    # chained equalities, Part 2 shaped
+    "triangles_right_shared_side": None,      # needs a two-right-triangle layout
+    "triangles_congruence_construction": None,  # a Part 2 proof figure
+    "schematic_ladder_wall": None,            # needs a `ladder` schematic shape
+    "symmetry_marks_figure": None,            # decorative; no item behind it
+    "tessellation_pattern": None,             # decorative; no item behind it
 }
 
 

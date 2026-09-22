@@ -57,7 +57,10 @@
    "math_190619-7kl_p04_2.png",
    "vo_7kl_math_20052016_p06_2.png"
   ],
-  "covered_by": null,
+  "covered_by": [
+   "Figure.fill_region",
+   "symbolic_area_notched_rectangle"
+  ],
   "noise": false
  },
  "coordinate_grid_points": {
@@ -150,7 +153,10 @@
    "vo_7kl_math_20052016_p03_3.png",
    "vo_7kl_math_20052016_p03_4.png"
   ],
-  "covered_by": null,
+  "covered_by": [
+   "line_graph",
+   "chart_journey_average_speed"
+  ],
   "noise": false
  },
  "graph_rays_from_origin": {
@@ -202,7 +208,10 @@
   "crops": [
    "7kl_nvo_math_16062022_p04_5.png"
   ],
-  "covered_by": null,
+  "covered_by": [
+   "isosceles_triangle",
+   "isosceles_height_apex_angle"
+  ],
   "noise": false
  },
  "kite_axis_symmetry": {
@@ -334,7 +343,10 @@
   "crops": [
    "7kl_math_22052017_p05_3.png"
   ],
-  "covered_by": null,
+  "covered_by": [
+   "parallelogram",
+   "parallelogram_height_area"
+  ],
   "noise": false
  },
  "parallelogram_on_grid": {
@@ -344,7 +356,10 @@
   "crops": [
    "nvo-math_7kl_18062021_p05_1.png"
   ],
-  "covered_by": null,
+  "covered_by": [
+   "coordinate_grid",
+   "coordinate_fourth_vertex"
+  ],
   "noise": false
  },
  "parallelogram_with_cevians": {
@@ -483,7 +498,10 @@
    "7kl_math_22052017_p06_1.png",
    "nvo26_matematika_7klasotgovori_19062026_p10_2.png"
   ],
-  "covered_by": null,
+  "covered_by": [
+   "parallelogram(rect)",
+   "rect_diagonals_angle"
+  ],
   "noise": false
  },
  "right_triangle_sides": {
@@ -533,7 +551,10 @@
   "crops": [
    "v3_math_7kl_may2015_p05_2.png"
   ],
-  "covered_by": null,
+  "covered_by": [
+   "Figure (point-built)",
+   "segment_parts_algebraic"
+  ],
   "noise": false
  },
  "solid_box": {
@@ -596,7 +617,10 @@
    "vo_7kl_math_20052016_p07_5.png",
    "vo_7kl_math_20052016_p11_4.png"
   ],
-  "covered_by": null,
+  "covered_by": [
+   "parallelogram(square)",
+   "square_diagonal_angle"
+  ],
   "noise": false
  },
  "statement_list_box": {
@@ -684,7 +708,10 @@
   "crops": [
    "vo_7kl_math_20052016_p04_5.png"
   ],
-  "covered_by": null,
+  "covered_by": [
+   "right_trapezoid",
+   "trapezoid_cointerior_angle"
+  ],
   "noise": false
  },
  "triangle_altitude_and_bisector": {
@@ -729,7 +756,10 @@
   "crops": [
    "vo_7kl_math_20052016_p03_5.png"
   ],
-  "covered_by": null,
+  "covered_by": [
+   "isosceles_triangle",
+   "tri_bisector_isosceles"
+  ],
   "noise": false
  },
  "triangle_cevian_exterior_angle": {
@@ -743,7 +773,10 @@
    "7kl_math_22052017_p04_2.png",
    "nvo_math-7klotgovori_21062024_p04_1.png"
   ],
-  "covered_by": null,
+  "covered_by": [
+   "triangle_for_three_cevians",
+   "tri_cevian_exterior_angle"
+  ],
   "noise": false
  },
  "triangle_cevian_perpendicular": {
@@ -755,7 +788,10 @@
    "7kl-math_230518_p04_10.png",
    "nvo-7-klas-math-v2-otgovori-20.06.2025_p04_1.png"
   ],
-  "covered_by": null,
+  "covered_by": [
+   "triangle_for_three_cevians",
+   "tri_perpendicular_from_side_point"
+  ],
   "noise": false
  },
  "triangle_cevians_multi": {
@@ -774,7 +810,10 @@
    "nvo_math_7klas_variant2_16.06.2023_p11_1.png",
    "v3_math_7kl_may2015_p12_2.png"
   ],
-  "covered_by": null,
+  "covered_by": [
+   "triangle_for_three_cevians",
+   "tri_height_bisector_median"
+  ],
   "noise": false
  },
  "triangle_circumcentre_perp_bisectors": {
@@ -786,7 +825,10 @@
    "math_190619-7kl_p04_3.png",
    "nvo-7-klas-math-v2-otgovori-20.06.2025_p03_4.png"
   ],
-  "covered_by": null,
+  "covered_by": [
+   "triangle_for_circumcentre",
+   "tri_circumcentre_central_angle"
+  ],
   "noise": false
  },
  "triangle_equal_segments_chain": {
@@ -810,7 +852,10 @@
    "nvo_math_7klas_variant2_16.06.2023_p04_4.png",
    "v3_math_7kl_may2015_p02_1.png"
   ],
-  "covered_by": null,
+  "covered_by": [
+   "triangle_with_extended_side",
+   "tri_exterior_angle_at_base"
+  ],
   "noise": false
  },
  "triangle_incentre": {
@@ -837,7 +882,10 @@
    "math_190619-7kl_p03_4.png",
    "nvo-7-klas-math-v2-otgovori-20.06.2025_p03_2.png"
   ],
-  "covered_by": null,
+  "covered_by": [
+   "triangle_for_three_cevians",
+   "line_through_vertex_angles"
+  ],
   "noise": false
  },
  "triangle_median": {
@@ -862,7 +910,10 @@
   "crops": [
    "vo_7kl_math_20052016_p04_4.png"
   ],
-  "covered_by": null,
+  "covered_by": [
+   "triangle_for_three_cevians",
+   "triangle_midsegment_perimeter"
+  ],
   "noise": false
  },
  "triangle_on_grid_shaded": {
@@ -872,7 +923,10 @@
   "crops": [
    "vo_7kl_math_20052016_p03_6.png"
   ],
-  "covered_by": null,
+  "covered_by": [
+   "coordinate_grid(shaded)",
+   "coordinate_shaded_triangle_area"
+  ],
   "noise": false
  },
  "triangle_perp_bisector_of_side": {

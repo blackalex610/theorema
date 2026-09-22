@@ -279,6 +279,8 @@ from app.nvo_gen.scene import (
     foot_of_perpendicular,
     midpoint,
     norm,
+    parallelogram,
+    right_trapezoid,
     sub,
     triangle_for_circumcentre,
     triangle_for_three_cevians,
@@ -289,9 +291,11 @@ NEW_LAYOUTS = (
     triangle_for_three_cevians,
     triangle_with_extended_side,
     triangle_for_circumcentre,
+    right_trapezoid,
 )
 
 NEW_TEMPLATES = (
+    # the archetypes recurring in two or more papers
     "tri_height_bisector_median",
     "tri_exterior_angle_at_base",
     "tri_cevian_exterior_angle",
@@ -299,6 +303,17 @@ NEW_TEMPLATES = (
     "tri_perpendicular_from_side_point",
     "tri_circumcentre_central_angle",
     "line_through_vertex_angles",
+    "chart_journey_average_speed",
+    "symbolic_area_notched_rectangle",
+    # one-offs built to widen the thinnest slots
+    "chart_journey_rest_length",
+    "parallelogram_height_area",
+    "square_diagonal_angle",
+    "trapezoid_cointerior_angle",
+    "triangle_midsegment_perimeter",
+    "isosceles_height_apex_angle",
+    "segment_parts_algebraic",
+    "coordinate_shaded_triangle_area",
 )
 
 
@@ -436,6 +451,18 @@ def _mid(a, b):
     return ((a[0] + b[0]) / 2.0, (a[1] + b[1]) / 2.0)
 
 
+def _parallel(a, b, c, d, tol=0.02):
+    u = (b[0] - a[0], b[1] - a[1])
+    v = (d[0] - c[0], d[1] - c[1])
+    cross = u[0] * v[1] - u[1] * v[0]
+    return abs(cross) / (math.hypot(*u) * math.hypot(*v)) < tol
+
+
+def _axis_parallel(a, b, tol=0.6):
+    """The edge runs along x or along y — no 7° tilt from posing."""
+    return abs(a[0] - b[0]) < tol or abs(a[1] - b[1]) < tol
+
+
 #: What each stem promises, as a predicate over the drawn points. Every one of
 #: these survives the similarity transform `to_spec` applies, so they are
 #: checked on the posed output rather than the raw layout.
@@ -464,10 +491,47 @@ STEM_CLAIMS = {
         and _dist(p["Q"], _mid(p["A"], p["C"])) < 0.6
     ),
     "line_through_vertex_angles": lambda p: _between(p["C"], p["K"], p["M"]),
+
+    # --- the one-offs --------------------------------------------------------
+    "parallelogram_height_area": lambda p: (
+        _between(p["H"], p["A"], p["B"])
+        and _perpendicular(p["D"], p["H"], p["A"], p["B"])
+    ),
+    # A square's diagonal bisects its corner and a rectangle's does not, so an
+    # item that says „квадрат" and is drawn on an oblong contradicts itself.
+    "square_diagonal_angle": lambda p: (
+        max(_dist(p[u], p[v]) for u, v in (("A", "B"), ("B", "C"), ("C", "D"), ("D", "A")))
+        - min(_dist(p[u], p[v]) for u, v in (("A", "B"), ("B", "C"), ("C", "D"), ("D", "A")))
+        < 0.8
+        and _between(p["M"], p["D"], p["C"])
+    ),
+    "trapezoid_cointerior_angle": lambda p: (
+        _parallel(p["A"], p["B"], p["D"], p["C"])
+        and _perpendicular(p["A"], p["D"], p["A"], p["B"])
+    ),
+    "triangle_midsegment_perimeter": lambda p: (
+        _dist(p["M"], _mid(p["A"], p["C"])) < 0.6
+        and _dist(p["N"], _mid(p["B"], p["C"])) < 0.6
+    ),
+    "isosceles_height_apex_angle": lambda p: (
+        abs(_dist(p["C"], p["A"]) - _dist(p["C"], p["B"])) < 1.0
+        and _dist(p["H"], _mid(p["A"], p["B"])) < 0.6
+        and _perpendicular(p["C"], p["H"], p["A"], p["B"])
+    ),
+    "segment_parts_algebraic": lambda p: (
+        _between(p["C"], p["A"], p["B"])
+        and _between(p["D"], p["C"], p["B"])
+    ),
+    # The L-shape is cut from a rectangle, so every edge must stay axis-parallel
+    # — which is exactly what `upright` posing is for.
+    "symbolic_area_notched_rectangle": lambda p: all(
+        _axis_parallel(p[u], p[v]) for u, v in
+        (("A", "N1"), ("N1", "N2"), ("N2", "N3"), ("N3", "C"), ("C", "D"), ("D", "A"))
+    ),
 }
 
 
-@pytest.mark.parametrize("code", NEW_TEMPLATES)
+@pytest.mark.parametrize("code", sorted(STEM_CLAIMS))
 def test_a_new_figure_asserts_what_its_stem_claims(code):
     """The figure need not be to scale, but it must be topologically honest.
 
@@ -492,3 +556,39 @@ def test_a_new_figure_asserts_what_its_stem_claims(code):
         assert claim(points), f"{code} seed {seed}: figure contradicts its stem"
         checked += 1
     assert checked >= 25, f"{code} produced only {checked} figures to check"
+
+
+def test_a_square_layout_draws_a_square_and_not_an_oblong():
+    """`rect=True` is a rectangle; only `square=True` is a square.
+
+    The distinction is load-bearing rather than cosmetic: a square's diagonal
+    bisects its corner and a rectangle's does not, so `square_diagonal_angle`
+    drawn on `rect=True` states 45° in its solution over a figure where the
+    angle is not 45°.
+    """
+    for seed in range(200):
+        f = parallelogram(square=True, rng=_random.Random(seed))
+        sides = [_dist(f.points[u], f.points[v])
+                 for u, v in (("A", "B"), ("B", "C"), ("C", "D"), ("D", "A"))]
+        assert max(sides) - min(sides) < 0.8, f"seed {seed}: sides {sides}"
+        assert angle_deg(f.points["A"], f.points["B"], f.points["D"]) == pytest.approx(90.0, abs=0.5)
+
+
+def test_upright_posing_keeps_horizontals_horizontal():
+    """`upright` must drop the rotation while keeping mirror and rescale.
+
+    Without it a rectilinear figure comes out tilted by up to 7°, which reads
+    as a sloppy drawing rather than a variant — the same argument that caps the
+    rotation at 7° in the first place, taken to its conclusion.
+    """
+    seen_widths = set()
+    for seed in range(120):
+        f = parallelogram(rect=True, rng=_random.Random(seed))
+        f.pose(_random.Random(seed), upright=True)
+        A, B, C = f.points["A"], f.points["B"], f.points["C"]
+        assert _axis_parallel(A, B), f"seed {seed}: AB is no longer horizontal"
+        assert _axis_parallel(B, C), f"seed {seed}: BC is no longer vertical"
+        seen_widths.add(round(_dist(A, B)))
+    # Rescaling must still vary the figure, or upright would make every draw
+    # of a rectilinear template print the identical picture.
+    assert len(seen_widths) > 5, "upright posing collapsed all draws to one size"

@@ -230,22 +230,37 @@ What it found, and what the numbers mean for anyone adding to this:
 | figures extracted | 209 |
 | of those, not actually figures | 69 — instruction glyphs, marking tables, formula sheets, prose |
 | real archetypes | 59 |
-| already expressible | 30 |
-| uncovered but recurring in 2+ papers | 9 |
-| uncovered one-offs | 20 |
+| expressible now | 48 |
+| uncovered, recurring in 2+ papers | **0** |
+| uncovered one-offs | 11 |
 
-Seven of the nine were built (`tri_height_bisector_median`,
-`tri_exterior_angle_at_base`, `tri_cevian_exterior_angle`,
-`rect_diagonals_angle`, `tri_perpendicular_from_side_point`,
-`tri_circumcentre_central_angle`, `line_through_vertex_angles`) on three new
-layouts. **Two were not**, and they are the interesting ones: a piecewise
-distance–time graph and shaded rectilinear composite areas both need a *new
-scene kind*, not a new layout — `scene.py` has no line-graph kind and no shaded
-region, so they would touch `SceneRenderer.tsx` as well.
+Every archetype that recurs across two or more papers is covered. The eleven
+that remain each appear once *and* need machinery nothing else would reuse;
+`coverage.md` lists the reason beside each.
 
-The one-off archetypes are catalogued rather than built, on the reasoning that
-a layout builder generating one item ever is worse value than a hand-authored
-entry in `part2_bank.py`.
+Two of the recurring nine needed new scene machinery rather than a new layout,
+and are worth knowing about:
+
+* **`linegraph`** — a plot in *data* coordinates. It is the one scene kind that
+  is deliberately drawn to scale: the scale notice covers figures, and these
+  items ask the student to read values off the picture. The renderer maps data
+  coordinates faithfully instead of laying anything out by eye.
+* **`Figure.fills` and `coordinate_grid(shaded=...)`** — shaded regions. "The
+  shaded part" has no referent without them, so shading is scene data that
+  `geometry_hash` counts, not styling.
+
+**The two-paper bar was about fidelity, not usefulness.** A template does not
+fire once because its shape appeared once: registered, it joins the eligible
+pool for its topic and is drawable on any paper. Eight one-offs were therefore
+built anyway, chosen because they feed the thinnest slots — three of them go to
+`geom_quadrilateral`, which had the least depth of any geometry slot.
+
+One structural limit is worth recording. The 2018 paper's four-panel item
+(`parallels_transversal_panel`) makes *the four figures* the options А–Г.
+`GeneratedItem.options` is a list of strings, so an item whose options are
+scenes cannot be expressed without widening that shape and the client's
+`NVOQuestion` with it. It is the only archetype blocked by the data model
+rather than by missing drawing machinery.
 
 Two lessons from building the seven are worth carrying forward:
 
@@ -352,6 +367,39 @@ floor at three.
 
 ---
 
+## How much can it actually generate?
+
+`scripts/measure_capacity.py` counts it rather than guessing. It samples each
+template's reachable `signature` values per slot and multiplies out, so every
+number below is a **lower bound**.
+
+| | `classic` | `nvo2026` |
+|---|---|---|
+| Part 1 combinations | 9.6 × 10⁴⁴ | 6.7 × 10⁴⁷ |
+| Part 2 combinations | **27** | **27** |
+| whole paper | 2.6 × 10⁴⁶ | 1.8 × 10⁴⁹ |
+
+Part 1 is effectively inexhaustible. **Part 2 is the ceiling, and it is 27** —
+three curated builders per open slot, cubed. That is by design (see *Part 2 is
+curated, not generated*), and it is the right trade, but it should be stated
+plainly rather than hidden behind the Part 1 number: a student sitting fifty
+papers meets every Part 2 shape many times over.
+
+The number to watch is not the product but the **thinnest slot**, because that
+is where a student notices repetition first:
+
+| slot | distinct items |
+|---|---|
+| `shortcut_multiplication` | 21 |
+| `work_rate` | 24 |
+| `expression_at_value` | 36 |
+| `expand_or_factor` | 39 |
+| `expression_from_words` | 42 |
+
+All algebra and word problems — the geometry slots were the thin ones before
+the figure audit and are no longer. Raising any of these is the same shape of
+work the audit did: more templates, or wider parameter tiers on the ones there.
+
 ## Where things live
 
 ```
@@ -377,6 +425,7 @@ scripts/                     analysis tools, not shipped with the server
   build_contact_sheets.py    tiles the crops for classification
   build_coverage_report.py   archetypes × papers, and the gap list
   dump_new_scenes.py         sample scenes for the renderer contact sheet
+  measure_capacity.py        how many distinct papers are actually reachable
 
 docs/nvo-figures/            the audit's evidence
   crops/                     209 figures, one PNG each, with provenance

@@ -44,6 +44,7 @@ from app.nvo_gen.scene import (
     norm,
     parallelogram,
     polar,
+    right_trapezoid,
     right_triangle,
     scalene_triangle,
     scale,
@@ -1686,7 +1687,7 @@ def rect_diagonals_angle(rng: random.Random, slot: Slot) -> GeneratedItem:
               "на $\\sphericalangle ACB$ е:"),
         options=options, correct_answer=letter, difficulty="medium",
         scene=f.to_spec(aria=(f"Правоъгълник ABCD с двата диагонала и пресечната им точка O; "
-                              f"ъгълът AOB е {theta} градуса"), rng=rng),
+                              f"ъгълът AOB е {theta} градуса"), rng=rng, upright=True),
         solution=(rf"Диагоналите на правоъгълник са равни и се разполовяват, затова "
                   rf"$OB = OC$ и $\triangle BOC$ е равнобедрен. От "
                   rf"$\sphericalangle BOC = 180^\circ - {theta}^\circ = "
@@ -1873,4 +1874,396 @@ def line_through_vertex_angles(rng: random.Random, slot: Slot) -> GeneratedItem:
                   rf"лежат на една права: $\sphericalangle BCM = 180^\circ - "
                   rf"{alpha}^\circ - {gamma}^\circ = {key}^\circ$"),
         signature=f"line_vertex:{alpha}:{gamma}",
+    )
+
+
+@template("symbolic_area_notched_rectangle",
+          topics=["symbolic_perimeter"], kinds=["short", "mc"],
+          weight=1.2, band="medium")
+def symbolic_area_notched_rectangle(rng: random.Random, slot: Slot) -> GeneratedItem:
+    """An L-shape: a rectangle x by y with a small corner cut out.
+
+    The 2016 and 2019 composite-area shape. The figure is not decoration here —
+    "the shaded part" has no meaning without it, which is why `fills` is scene
+    data rather than styling.
+
+    Every point is hidden. The papers label these with dimensions, not vertex
+    names, and suppressing the letters also removes the label-collision risk
+    entirely: seven points round a notch is exactly where `MIN_LABEL_GAP`
+    would start rejecting draws.
+    """
+    a = rng.choice(slot.profile.tier([2, 3], [2, 3, 4], [2, 3, 4, 5], [2, 3, 4, 5, 6]))
+    b = rng.choice(slot.profile.tier([2, 3], [2, 3, 5], [2, 3, 4, 5], [2, 3, 4, 5, 7]))
+    cut = a * b
+
+    f = Figure()
+    left, right = 34.0, 214.0
+    top, bottom = 40.0, 140.0
+    notch_w = 30.0 + 11.0 * a
+    notch_h = 18.0 + 8.0 * b
+    if notch_w > (right - left) * 0.55 or notch_h > (bottom - top) * 0.62:
+        raise Retry("the cut-out would swallow the shape it is cut from")
+
+    f.put("A", (left, bottom), hidden=True)
+    f.put("N1", (right - notch_w, bottom), hidden=True)
+    f.put("N2", (right - notch_w, bottom - notch_h), hidden=True)
+    f.put("N3", (right, bottom - notch_h), hidden=True)
+    f.put("C", (right, top), hidden=True)
+    f.put("D", (left, top), hidden=True)
+
+    outline = ["A", "N1", "N2", "N3", "C", "D"]
+    f.fill_region(outline)
+    f.path(outline, close=True)
+    f.label_along("D", "C", "x")
+    f.label_along("A", "D", "y")
+    f.label_along("N2", "N3", str(a))
+    f.label_along("N1", "N2", str(b))
+
+    scene = f.to_spec(
+        aria=(f"Правоъгълник със страни x и y, от който е изрязан правоъгълник "
+              f"със страни {a} и {b}; останалата защрихована част е с форма на буквата Г"),
+        rng=rng, upright=True,
+    )
+    solution = (rf"Лицето на целия правоъгълник е $xy$, а на изрязания — "
+                rf"${a} \cdot {b} = {cut}$. Защрихованата част е "
+                rf"$xy - {cut}$.")
+
+    if slot.kind == "short":
+        return GeneratedItem(
+            topic=slot.topic, kind="short", points=slot.points,
+            stem=("На чертежа е показан правоъгълник със страни $x$ cm и $y$ cm, от "
+                  "който е изрязан правоъгълник. Изразете чрез $x$ и $y$ лицето на "
+                  "защрихованата част в квадратни сантиметри."),
+            correct_answer=f"xy - {cut}",
+            difficulty="medium", scene=scene, solution=solution,
+            signature=f"notched:{a}:{b}",
+        )
+
+    options, letter = shuffle_options(
+        rf"$xy - {cut}$",
+        [rf"$xy + {cut}$", rf"$xy - {a + b}$", rf"$2(x + y) - {2 * (a + b)}$"],
+        rng=rng,
+    )
+    return GeneratedItem(
+        topic=slot.topic, kind="mc", points=slot.points,
+        stem=("На чертежа е показан правоъгълник със страни $x$ cm и $y$ cm, от "
+              "който е изрязан правоъгълник. Лицето на защрихованата част в "
+              "квадратни сантиметри е:"),
+        options=options, correct_answer=letter,
+        difficulty="medium", scene=scene, solution=solution,
+        signature=f"notched:{a}:{b}",
+    )
+
+
+# ─── archetypes that appear once in the corpus ───────────────────────────────
+# The audit's two-paper bar was about fidelity to the historical corpus, not
+# about usefulness: a template does not fire once just because its shape
+# appeared once. Once registered it joins the eligible pool for its topic and
+# is drawable on any paper, so these widen the thinnest slots -- three of them
+# feed geom_quadrilateral, which had the least depth of any geometry slot.
+
+
+@template("parallelogram_height_area",
+          topics=["geom_quadrilateral"], kinds=["mc"], weight=1.1, band="medium")
+def parallelogram_height_area(rng: random.Random, slot: Slot) -> GeneratedItem:
+    """A 30° parallelogram: the height is half the slant side, so the area is whole.
+
+    The 2017 shape. 30° is not decoration — it is the one angle at which the
+    height comes out rational without a surd, which is exactly why the official
+    figure uses it and why this template fixes it rather than sampling it.
+    """
+    side = rng.choice(slot.profile.tier([6, 8], [6, 8, 10], [4, 6, 8, 10, 12],
+                                        [6, 8, 10, 12, 14, 16]))
+    base = rng.choice(slot.profile.tier([10, 12], [8, 10, 12, 14],
+                                        [7, 8, 9, 10, 12, 14, 15],
+                                        [9, 11, 13, 15, 17, 19]))
+    if side % 2:
+        raise Retry("the height side/2 must be a whole number of centimetres")
+    height = side // 2
+    key = base * height
+
+    f = parallelogram(rng=rng)
+    A, B, D = f.points["A"], f.points["B"], f.points["D"]
+    f.put("H", foot_of_perpendicular(D, A, B))
+    f.path(["A", "B", "C", "D"], close=True)
+    f.seg("D", "H", dash=True)
+    f.right_angle("H", "D", "B")
+    f.angle("A", "B", "D", label=deg(30), radius=26)
+    f.label_along("A", "B", f"{base} cm")
+    f.label_along("A", "D", f"{side} cm")
+
+    options, letter = numeric_options(
+        key, [base * side, base * side // 2 + base, key * 2, base + side,
+              2 * (base + side)], rng=rng, positive_only=True,
+        suffix=r"\ \text{cm}^2")
+    return GeneratedItem(
+        topic=slot.topic, kind="mc", points=slot.points,
+        stem=("На чертежа $ABCD$ е успоредник, а $DH$ е височина към страната "
+              f"$AB$. Ако $\\sphericalangle DAB = 30^\\circ$, $AB = {base}$ cm и "
+              f"$AD = {side}$ cm, то лицето на успоредника е:"),
+        options=options, correct_answer=letter, difficulty="medium",
+        scene=f.to_spec(aria=(f"Успоредник ABCD с височина DH към AB, ъгъл 30 градуса "
+                              f"при A, AB = {base} cm и AD = {side} cm"),
+                        rng=rng, upright=True),
+        solution=(rf"В правоъгълния $\triangle AHD$ срещу ъгъла от $30^\circ$ стои "
+                  rf"катетът $DH$, значи $DH = \frac{{AD}}{{2}} = {height}$ cm. "
+                  rf"Лицето е $AB \cdot DH = {base} \cdot {height} = {key}$ cm$^2$"),
+        signature=f"par_height:{base}:{side}",
+    )
+
+
+@template("square_diagonal_angle",
+          topics=["geom_quadrilateral"], kinds=["mc"], weight=1.0, band="easy")
+def square_diagonal_angle(rng: random.Random, slot: Slot) -> GeneratedItem:
+    """A square's diagonal bisects its right angle, so ∠MAD = 45° − ∠MAC."""
+    t = rng.choice(slot.profile.tier([15, 20], [10, 15, 20, 25],
+                                     [5, 10, 15, 20, 25, 30, 35],
+                                     [7, 11, 13, 17, 23, 27, 31, 37]))
+    key = 45 - t
+    if key <= 5:
+        raise Retry("∠MAD must stay a readable angle")
+
+    f = parallelogram(square=True, rng=rng)
+    A, C, D = f.points["A"], f.points["C"], f.points["D"]
+    # ∠DAM is arctan(DM/AD), and ∠MAC is 45° minus it, so M's position has to
+    # leave both arcs readable — which pins it to the middle half of DC.
+    f.put("M", lerp(D, C, rng.uniform(0.32, 0.52)), dot=True)
+    f.path(["A", "B", "C", "D"], close=True)
+    f.seg("A", "C")
+    f.seg("A", "M")
+    f.angle("A", "M", "C", label=deg(t), radius=30)
+    f.angle("A", "D", "M", arcs=1, fill=True, radius=22)
+
+    options, letter = angle_options(key, extras=[t, 45, 90 - t, 45 + t], rng=rng)
+    return GeneratedItem(
+        topic=slot.topic, kind="mc", points=slot.points,
+        stem=("На чертежа $ABCD$ е квадрат, $AC$ е диагонал, а точката $M$ лежи "
+              f"върху страната $DC$. Ако $\\sphericalangle MAC = {t}^\\circ$, то "
+              "мярката на $\\sphericalangle MAD$ е:"),
+        options=options, correct_answer=letter, difficulty="easy",
+        scene=f.to_spec(aria=(f"Квадрат ABCD с диагонал AC и точка M върху DC; ъгълът "
+                              f"MAC е {t} градуса"), rng=rng, upright=True),
+        solution=(rf"Диагоналът на квадрат е ъглополовяща, затова "
+                  rf"$\sphericalangle DAC = 45^\circ$. Тогава "
+                  rf"$\sphericalangle MAD = 45^\circ - {t}^\circ = {key}^\circ$"),
+        signature=f"sq_diag:{t}",
+    )
+
+
+@template("trapezoid_cointerior_angle",
+          topics=["geom_quadrilateral"], kinds=["mc"], weight=1.0, band="easy")
+def trapezoid_cointerior_angle(rng: random.Random, slot: Slot) -> GeneratedItem:
+    """A right trapezoid: AB ∥ DC makes ∠ABC and ∠BCD co-interior."""
+    bcd = rng.choice(slot.profile.tier([120, 130], [110, 120, 130, 135],
+                                       [100, 110, 115, 120, 125, 130, 135, 140],
+                                       [103, 107, 112, 118, 127, 133, 137, 143]))
+    key = 180 - bcd
+    if not 25 <= key <= 85:
+        raise Retry("∠ABC must be a readable acute angle")
+
+    f = right_trapezoid(rng=rng)
+    f.path(["A", "B", "C", "D"], close=True)
+    f.right_angle("A", "D", "B")
+    f.right_angle("D", "A", "C")
+    f.angle("C", "D", "B", label=deg(bcd), radius=24)
+    f.angle("B", "A", "C", arcs=1, fill=True, radius=24)
+
+    options, letter = angle_options(key, extras=[bcd, 90, bcd - 90, 360 - bcd], rng=rng)
+    return GeneratedItem(
+        topic=slot.topic, kind="mc", points=slot.points,
+        stem=("На чертежа $ABCD$ е трапец с $AB \\parallel DC$ и $AD \\perp AB$. "
+              f"Ако $\\sphericalangle BCD = {bcd}^\\circ$, то мярката на "
+              "$\\sphericalangle ABC$ е:"),
+        options=options, correct_answer=letter, difficulty="easy",
+        scene=f.to_spec(aria=(f"Правоъгълен трапец ABCD с AB успоредна на DC; ъгълът "
+                              f"BCD е {bcd} градуса"), rng=rng, upright=True),
+        solution=(rf"$AB \parallel DC$, а $BC$ е трансверзала, затова "
+                  rf"$\sphericalangle ABC$ и $\sphericalangle BCD$ са прилежащи "
+                  rf"и се допълват до $180^\circ$: $\sphericalangle ABC = "
+                  rf"180^\circ - {bcd}^\circ = {key}^\circ$"),
+        signature=f"trap_coint:{bcd}",
+    )
+
+
+@template("triangle_midsegment_perimeter",
+          topics=["geom_triangle_cevians"], kinds=["mc"], weight=1.0, band="medium")
+def triangle_midsegment_perimeter(rng: random.Random, slot: Slot) -> GeneratedItem:
+    """M and N are midpoints, so △MNC is a half-scale copy of △ABC."""
+    sides = sorted(rng.sample(
+        slot.profile.tier([6, 8, 10, 12], [6, 8, 10, 12, 14],
+                          [6, 8, 10, 12, 14, 16, 18], [6, 8, 10, 12, 14, 16, 18, 20]), 3))
+    a, b, c = sides
+    if a + b <= c or len({a, b, c}) < 3:
+        raise Retry("the three sides must make a scalene triangle")
+    perim = a + b + c
+    if perim % 2:
+        raise Retry("the midsegment triangle's perimeter must be whole")
+    key = perim // 2
+
+    f = triangle_for_three_cevians(rng=rng)
+    A, B, C = f.points["A"], f.points["B"], f.points["C"]
+    f.put("M", midpoint(A, C), dot=True)
+    f.put("N", midpoint(B, C), dot=True)
+    f.path(["A", "B", "C"], close=True)
+    f.seg("M", "N")
+    f.tick("A", "M")
+    f.tick("M", "C")
+    f.tick("B", "N", count=2)
+    f.tick("N", "C", count=2)
+
+    options, letter = numeric_options(
+        key, [perim, perim // 2 + c, c, perim - c, key * 2], rng=rng,
+        positive_only=True, suffix=r"\ \text{cm}")
+    return GeneratedItem(
+        topic=slot.topic, kind="mc", points=slot.points,
+        stem=("На чертежа точките $M$ и $N$ са среди съответно на страните $AC$ и "
+              f"$BC$ на $\\triangle ABC$. Ако обиколката на $\\triangle ABC$ е "
+              f"${perim}$ cm, то обиколката на $\\triangle MNC$ е:"),
+        options=options, correct_answer=letter, difficulty="medium",
+        scene=f.to_spec(aria=("Триъгълник ABC със средна отсечка MN, където M и N са "
+                              "среди на AC и BC"), rng=rng),
+        solution=(rf"$MN$ е средна отсечка, значи $MN = \frac{{AB}}{{2}}$, а също "
+                  rf"$MC = \frac{{AC}}{{2}}$ и $NC = \frac{{BC}}{{2}}$. Всяка страна "
+                  rf"на $\triangle MNC$ е два пъти по-малка, затова и обиколката е: "
+                  rf"$\frac{{{perim}}}{{2}} = {key}$ cm"),
+        signature=f"midseg:{a}:{b}:{c}",
+    )
+
+
+@template("isosceles_height_apex_angle",
+          topics=["geom_right_triangle"], kinds=["mc"], weight=1.0, band="easy")
+def isosceles_height_apex_angle(rng: random.Random, slot: Slot) -> GeneratedItem:
+    """The height to the base of an isosceles triangle bisects the apex angle."""
+    apex = rng.choice(slot.profile.tier([40, 50, 60], [40, 50, 60, 70, 80],
+                                        [30, 40, 50, 60, 70, 80, 90, 100],
+                                        [34, 38, 44, 52, 64, 76, 86, 94, 104]))
+    if apex % 2:
+        raise Retry("half the apex angle must be whole")
+    key = 90 - apex // 2                       # the base angle
+    if not 25 <= key <= 80:
+        raise Retry("the base angle must stay readable")
+
+    f = isosceles_triangle(rng=rng)
+    A, B, C = f.points["A"], f.points["B"], f.points["C"]
+    f.put("H", midpoint(A, B))
+    f.path(["A", "B", "C"], close=True)
+    f.seg("C", "H")
+    f.right_angle("H", "C", "B")
+    f.tick("A", "C")
+    f.tick("B", "C")
+    f.angle("C", "A", "B", label=deg(apex), radius=26)
+    f.angle("A", "B", "C", arcs=1, fill=True, radius=22)
+
+    options, letter = angle_options(
+        key, extras=[apex, apex // 2, 180 - apex, 90 - apex], rng=rng)
+    return GeneratedItem(
+        topic=slot.topic, kind="mc", points=slot.points,
+        stem=("На чертежа $\\triangle ABC$ е равнобедрен с $AC = BC$, а $CH$ е "
+              f"височина към основата $AB$. Ако $\\sphericalangle ACB = {apex}"
+              "^\\circ$, то мярката на $\\sphericalangle ABC$ е:"),
+        options=options, correct_answer=letter, difficulty="easy",
+        scene=f.to_spec(aria=(f"Равнобедрен триъгълник ABC с височина CH към основата "
+                              f"AB; ъгълът при върха C е {apex} градуса"), rng=rng),
+        solution=(rf"Височината към основата на равнобедрен триъгълник е и "
+                  rf"ъглополовяща, значи $\sphericalangle HCB = "
+                  rf"\frac{{{apex}^\circ}}{{2}} = {apex // 2}^\circ$. В правоъгълния "
+                  rf"$\triangle HCB$ острите ъгли се допълват до $90^\circ$: "
+                  rf"$\sphericalangle ABC = 90^\circ - {apex // 2}^\circ = {key}^\circ$"),
+        signature=f"iso_height:{apex}",
+    )
+
+
+@template("segment_parts_algebraic",
+          topics=["symbolic_perimeter"], kinds=["short", "mc"], weight=1.0, band="easy")
+def segment_parts_algebraic(rng: random.Random, slot: Slot) -> GeneratedItem:
+    """AB split into three parts given through x — the 2015 shape."""
+    extra = rng.choice(slot.profile.tier([10, 12], [8, 10, 12, 15],
+                                         [6, 8, 9, 10, 12, 15, 18],
+                                         [7, 11, 13, 14, 16, 17, 19]))
+    x = rng.choice(slot.profile.tier([4, 5], [3, 4, 5, 6], [2, 3, 4, 5, 6, 7, 8],
+                                     [3, 5, 6, 7, 8, 9, 11]))
+    total = 4 * x + extra                      # x + 2x + (x + extra)
+
+    f = Figure()
+    y = 92.0
+    ax, bx = 30.0, 226.0
+    f.put("A", (ax, y), dot=True)
+    f.put("C", (ax + (bx - ax) * 0.22, y), dot=True)
+    f.put("D", (ax + (bx - ax) * 0.62, y), dot=True)
+    f.put("B", (bx, y), dot=True)
+    f.path(["A", "C", "D", "B"])
+    f.label_along("A", "C", "x")
+    f.label_along("C", "D", "2x")
+    f.label_along("D", "B", f"x + {extra}")
+
+    scene = f.to_spec(
+        aria=(f"Отсечка AB с точки C и D върху нея; частите са x, 2x и x + {extra}"),
+        rng=rng, upright=True)
+    solution = (rf"$AB = x + 2x + (x + {extra}) = 4x + {extra}$. От "
+                rf"$4x + {extra} = {total}$ следва $4x = {total - extra}$ и "
+                rf"$x = {x}$.")
+    stem = ("На чертежа точките $C$ и $D$ лежат върху отсечката $AB$, а дължините "
+            "на частите са означени на чертежа (в сантиметри). "
+            f"Ако $AB = {total}$ cm,")
+
+    if slot.kind == "short":
+        return GeneratedItem(
+            topic=slot.topic, kind="short", points=slot.points,
+            stem=stem + " намерете $x$.", correct_answer=f"{x}",
+            difficulty="easy", scene=scene, solution=solution,
+            signature=f"seg_parts:{x}:{extra}",
+        )
+
+    options, letter = numeric_options(
+        x, [total - extra, (total - extra) // 2, x + 1, x * 2, total // 4], rng=rng,
+        positive_only=True)
+    return GeneratedItem(
+        topic=slot.topic, kind="mc", points=slot.points,
+        stem=stem + " то $x$ е равно на:", options=options, correct_answer=letter,
+        difficulty="easy", scene=scene, solution=solution,
+        signature=f"seg_parts:{x}:{extra}",
+    )
+
+
+@template("coordinate_shaded_triangle_area",
+          topics=["geom_coordinate"], kinds=["mc"], weight=1.0, band="medium")
+def coordinate_shaded_triangle_area(rng: random.Random, slot: Slot) -> GeneratedItem:
+    """All three vertices plotted and the triangle shaded — read its area off the grid.
+
+    Distinct from `coordinate_triangle_area`, where the third vertex is not
+    drawn and constructing it is the task. Here the triangle is given and the
+    work is the area formula, which is why the polygon is filled: the shading
+    is what says "this region", and it is the archetype the 2016 paper prints.
+    """
+    ax = rng.randint(-4, 0)
+    ay = rng.randint(-3, 0)
+    base = rng.choice([2, 3, 4, 5, 6])
+    height = rng.choice([2, 3, 4, 5, 6])
+    if (base * height) % 2:
+        raise Retry("the area must be a whole number of square centimetres")
+    key = base * height // 2
+
+    bx, by = ax + base, ay
+    cx, cy = ax + rng.choice([0, base]), ay + height
+    if cx > 5 or bx > 5 or cy > 4:
+        raise Retry("the triangle must fit inside the drawn grid")
+
+    options, letter = numeric_options(
+        key, [base * height, key + base, key + height, base + height, key * 2],
+        rng=rng, positive_only=True, suffix=r"\ \text{cm}^2")
+    return GeneratedItem(
+        topic=slot.topic, kind="mc", points=slot.points,
+        stem=("Върху координатната система е защрихован $\\triangle ABC$. "
+              "Лицето му е:"),
+        options=options, correct_answer=letter, difficulty="medium",
+        scene=coordinate_grid(
+            points=[("A", ax, ay), ("B", bx, by), ("C", cx, cy)],
+            polygon=["A", "B", "C"], shaded=True,
+            x_range=(-5, 5), y_range=(-4, 5), unit_label="1 cm",
+            aria=(f"Координатна система със защрихован триъгълник ABC с върхове "
+                  f"A({ax};{ay}), B({bx};{by}) и C({cx};{cy})")),
+        solution=(rf"Основата $AB$ е ${base}$ cm, а височината от $C$ към нея е "
+                  rf"${height}$ cm. Лицето е $\frac{{{base} \cdot {height}}}{{2}} "
+                  rf"= {key}$ cm$^2$"),
+        signature=f"coord_shaded:{ax}:{ay}:{base}:{height}:{cx}",
     )
