@@ -50,6 +50,9 @@ def _classroom_payload(db: Session, classroom: Classroom) -> dict:
         "is_active": classroom.is_active,
         "created_at": classroom.created_at.isoformat(),
         "student_count": len(svc.list_members(db, classroom.id)),
+        # Which school the teacher attached this class to, if any. Only the
+        # class's own teacher ever receives this payload.
+        "school_id": classroom.school_id,
     }
 
 

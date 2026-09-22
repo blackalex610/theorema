@@ -14,7 +14,7 @@ hand — are not forced through a path segment they cannot fill.
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel, Field, field_validator
@@ -42,6 +42,16 @@ class CreateAssignmentRequest(BaseModel):
         if not value.strip():
             raise ValueError("Заданието трябва да има заглавие.")
         return value
+
+    @field_validator("due_at")
+    @classmethod
+    def _as_naive_utc(cls, value: datetime | None) -> datetime | None:
+        """Browsers send toISOString() — UTC with a trailing Z — which parses
+        as timezone-aware. Every datetime stored in this schema is naive UTC,
+        and comparing the two raises TypeError, so normalise at the door."""
+        if value is None or value.tzinfo is None:
+            return value
+        return value.astimezone(timezone.utc).replace(tzinfo=None)
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
