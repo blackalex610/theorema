@@ -15,6 +15,7 @@ import re
 import pytest
 
 from app.nvo_gen import part2_bank as p2
+from app.nvo_gen import part2_geometry as p2_geo
 
 
 def _pts(item):
@@ -69,3 +70,62 @@ def test_parallelogram_height_figure(seed):
     assert _ang(p["D"], p["A"], p["L"]) == pytest.approx(60, abs=0.2)        # part А
     assert _d(p["B"], p["C"]) == pytest.approx(2 * _d(p["D"], p["H"]), rel=1e-3)
     assert _d(p["A"], p["F"]) == pytest.approx(_d(p["D"], p["L"]), rel=1e-3)  # part Б
+
+
+# ─── 2019–2021 transcriptions (part2_geometry.py) ────────────────────────────
+
+import re as _re
+
+
+@pytest.mark.parametrize("seed", range(30))
+def test_heights_and_midpoint_figure_and_key(seed):
+    item = p2_geo.heights_and_midpoint(random.Random(seed))
+    p = _pts(item)
+    assert _ang(p["A"], p["B"], p["C"]) == pytest.approx(60, abs=0.2)
+    assert _ang(p["D"], p["C"], p["B"]) == pytest.approx(90, abs=0.2)
+    assert _ang(p["K"], p["B"], p["C"]) == pytest.approx(90, abs=0.2)
+    mk, md, kd = _d(p["M"], p["K"]), _d(p["M"], p["D"]), _d(p["K"], p["D"])
+    assert mk == pytest.approx(md, rel=1e-3) and kd == pytest.approx(mk, rel=1e-3)
+    bc = int(_re.search(r"BC = (\d+)", item.stem).group(1))
+    assert item.answers[1] == f"{3 * bc / 2:g}".replace(".", ",") + " cm"
+    # areas, from the drawn figure scaled to the stated BC
+    k = bc / _d(p["B"], p["C"])
+    area = lambda a, b, c: abs((b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1])) / 2
+    s_bkc = area(p["B"], p["K"], p["C"]) * k * k
+    s_bdc = area(p["B"], p["D"], p["C"]) * k * k
+    got = [float(v.replace(",", ".")) for v in _re.findall(r"= ([\d,]+) cm²", item.answers[2])]
+    assert got == pytest.approx([s_bkc, s_bdc], rel=1e-3)
+
+
+@pytest.mark.parametrize("seed", range(30))
+def test_equilateral_third_point_figure_and_key(seed):
+    item = p2_geo.equilateral_third_point(random.Random(seed))
+    p = _pts(item)
+    side = _d(p["A"], p["B"])
+    assert _d(p["B"], p["C"]) == pytest.approx(side, rel=1e-3)
+    assert _d(p["C"], p["M"]) == pytest.approx(side / 3, rel=1e-3)
+    assert _ang(p["K"], p["M"], p["B"]) == pytest.approx(90, abs=0.2)
+    assert _d(p["K"], p["B"]) == pytest.approx(side / 3, rel=1e-3)          # part А
+    assert _d(p["A"], p["M"]) == pytest.approx(_d(p["C"], p["K"]), rel=1e-3)  # part Б
+    area = lambda a, b, c: abs((b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1])) / 2
+    s = int(_re.search(r"е \$(\d+)\$ cm", item.stem).group(1))
+    ratio = area(p["A"], p["C"], p["M"]) / area(p["K"], p["C"], p["M"])
+    assert int(item.answers[2].split()[0]) == pytest.approx(s * ratio, rel=1e-3)   # part В
+
+
+@pytest.mark.parametrize("seed", range(30))
+def test_bisector_meets_perp_bisector_figure_and_key(seed):
+    item = p2_geo.bisector_meets_perp_bisector(random.Random(seed))
+    p = _pts(item)
+    assert _ang(p["A"], p["B"], p["C"]) == pytest.approx(30, abs=0.2)
+    assert _ang(p["B"], p["A"], p["C"]) == pytest.approx(105, abs=0.2)
+    assert _d(p["M"], p["A"]) == pytest.approx(_d(p["M"], p["C"]), rel=1e-3)
+    assert _d(p["K"], p["A"]) == pytest.approx(_d(p["K"], p["C"]), rel=1e-3)
+    assert _ang(p["A"], p["B"], p["M"]) == pytest.approx(15, abs=0.2)
+    # the congruence the item asks for: KMC ≅ KBC, so CB = CM and BK = MK
+    assert _d(p["C"], p["B"]) == pytest.approx(_d(p["C"], p["M"]), rel=1e-3)
+    assert _d(p["B"], p["K"]) == pytest.approx(_d(p["M"], p["K"]), rel=1e-3)
+    s = int(_re.search(r"AM \+ MK = (\d+)", item.parts[3]).group(1))
+    scale = s / (_d(p["A"], p["M"]) + _d(p["M"], p["K"]))
+    perim = (_d(p["B"], p["C"]) + _d(p["C"], p["M"]) + _d(p["M"], p["K"]) + _d(p["K"], p["B"])) * scale
+    assert int(item.answers[3].split()[0]) == pytest.approx(perim, rel=1e-3)

@@ -650,5 +650,5 @@ def right_triangle_bisector_midpoint(rng: random.Random) -> Part2Item:
     )
 
 
-# Registers the algebra and word-problem shapes into _BANK.
-from app.nvo_gen import part2_algebra, part2_word  # noqa: E402,F401
+# Registers the algebra, word-problem and 2019–2021 geometry shapes into _BANK.
+from app.nvo_gen import part2_algebra, part2_geometry, part2_word  # noqa: E402,F401
