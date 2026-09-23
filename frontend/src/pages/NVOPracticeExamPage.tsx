@@ -1907,10 +1907,24 @@ const NVOPracticeExamPage: React.FC = () => {
               {submitResult && (
                 <div className="max-w-md mx-auto mb-5">
                   <p className="text-5xl font-black text-blue-600 mb-1">{submitResult.percentage_correct}%</p>
+                  <p className="text-lg font-semibold text-gray-800">
+                    {submitResult.total_score} от {submitResult.total_max_score} точки
+                  </p>
                   <p className="text-sm text-gray-500">
-                    {submitResult.mcq_score} верни от {submitResult.mcq_max_score} задачи с избор (Модул 1)
-                    {submitResult.total_open_max_score > 0 && (
-                      <> · {submitResult.total_open_score} верни от {submitResult.total_open_max_score} отворени (Модул 2)</>
+                    {submitResult.part1_max_score ? (
+                      <>
+                        Първа част: {submitResult.part1_score} от {submitResult.part1_max_score} т.
+                        {(submitResult.part2_max_score ?? 0) > 0 && (
+                          <> · Втора част: {submitResult.part2_score} от {submitResult.part2_max_score} т.</>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        {submitResult.mcq_score} от {submitResult.mcq_max_score} т. от задачите с избор
+                        {submitResult.total_open_max_score > 0 && (
+                          <> · {submitResult.total_open_score} от {submitResult.total_open_max_score} т. от задачите със свободен отговор</>
+                        )}
+                      </>
                     )}
                   </p>
                 </div>

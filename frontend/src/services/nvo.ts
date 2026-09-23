@@ -119,6 +119,13 @@ export interface NVOExamSubmitResponse {
   total_score: number;
   total_max_score: number;
   percentage_correct: number;
+  // Every score above is in NVO points (a full paper is out of 100). These
+  // split it the way the official result does: Part 1 out of 65, Part 2 out
+  // of 35. Absent from servers older than the points change.
+  part1_score?: number;
+  part1_max_score?: number;
+  part2_score?: number;
+  part2_max_score?: number;
 }
 
 /** One graded sitting as the server records it. */
