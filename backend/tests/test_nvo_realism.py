@@ -85,6 +85,29 @@ def test_every_template_passes_the_verifier_in_every_slot_it_claims(tpl):
             assert ok >= 10, f"{tpl.code} passes only {ok}/120 draws at {bp.code} #{slot.position}"
 
 
+_PART1_SLOTS = [(bp.code, s) for bp in BLUEPRINTS.values() for s in bp.slots if s.kind != "open"]
+
+
+@pytest.mark.parametrize("code,slot", _PART1_SLOTS,
+                         ids=lambda v: v if isinstance(v, str) else f"{v.position}-{v.topic}")
+def test_every_position_has_room_for_many_papers(code, slot):
+    """"Nearly inexhaustible" is a per-position claim, because a student meets
+    each position once per paper. The study found positions reaching 21 items
+    (shortcut multiplication) and 24 (work rate) — a student recognises those
+    within a handful of papers. Every position now reaches 100+; the floor is
+    set below that so a sampling seed cannot flake it, and far above 21."""
+    distinct = set()
+    for tpl in registry.templates_for(slot):
+        for seed in range(200):
+            try:
+                item = tpl.build(random.Random(seed), slot)
+            except Retry:
+                continue
+            if check_item(item, slot).ok:
+                distinct.add(f"{tpl.code}:{item.signature}")
+    assert len(distinct) >= 80, f"{code} #{slot.position} {slot.topic}: {len(distinct)} items"
+
+
 def test_angle_equals_neighbours_is_no_longer_always_120():
     tpl = registry.get_template("angle_equals_neighbours")
     slot = _slot("geom_lines_angles")

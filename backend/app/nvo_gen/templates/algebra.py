@@ -388,8 +388,8 @@ def quadratic_by_factoring(rng: random.Random, slot: Slot) -> GeneratedItem:
     The trap is dividing both sides by x, which loses the root 0 — which is
     exactly why the key awards half marks for a single root.
     """
-    k = rng.choice([9, 12, 14, 16, 18, 20, 24, 25, 30, 36, 42, 49])
-    a = rng.choice([1, 1, 2, 3])           # leading coefficient
+    k = rng.randint(4, 60)
+    a = rng.choice([1, 1, 1, 2, 3, 4, 5])  # leading coefficient
     if a > 1 and k % a:
         raise Retry("the non-zero root must stay whole")
     root = k // a
@@ -659,8 +659,8 @@ def value_of_cubic_identity(rng: random.Random, slot: Slot) -> GeneratedItem:
           topics=["quadratic_by_factoring"], kinds=["short"], weight=1.1, band="easy")
 def quadratic_common_factor(rng: random.Random, slot: Slot) -> GeneratedItem:
     """ax² + bx = 0 — the gentlest form of the 2026 Q15 trap."""
-    a = rng.choice([1, 2, 3])
-    m = rng.randint(2, 9)
+    a = rng.randint(1, 6)
+    m = rng.randint(2, 20)
     b = a * m
     lhs = "x^2" if a == 1 else f"{a}x^2"
     factored = "x" if a == 1 else f"{a}x"
@@ -685,8 +685,8 @@ def quadratic_shared_factor(rng: random.Random, slot: Slot) -> GeneratedItem:
     silently discards x = a, which is exactly what the official keys award half
     marks against.
     """
-    a = rng.randint(2, 9)
-    k = rng.randint(5, 16)
+    a = rng.randint(2, 15)
+    k = rng.randint(3, 25)
     other = k - a
     if other == a or other == 0:
         raise Retry("want two distinct, non-trivial roots")

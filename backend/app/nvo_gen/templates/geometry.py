@@ -263,8 +263,8 @@ def parallels_zigzag(rng: random.Random, slot: Slot) -> GeneratedItem:
     2023 Q12 and 2026 Q12. Draw the third parallel through C and the answer is
     (180 − β) + (180 − α), which is why the two given angles are both obtuse.
     """
-    beta = rng.choice([110, 118, 125, 130, 138, 145])      # at B, against line b
-    alpha = rng.choice([140, 148, 155, 160, 165])          # at A, against line a
+    beta = rng.choice(angle_span(slot, 105, 150))      # at B, against line b
+    alpha = rng.choice(angle_span(slot, 135, 168))          # at A, against line a
     key = (180 - beta) + (180 - alpha)
     if key <= 15 or key >= 170:
         raise Retry("the zigzag angle must be clearly drawable")
@@ -534,8 +534,9 @@ def median_to_hypotenuse(rng: random.Random, slot: Slot) -> GeneratedItem:
     angle. Both parts are independent, which is what the ministry's memo asks
     of short-answer items.
     """
-    ab = rng.choice([16, 20, 24, 28, 32, 36])
-    alpha = rng.choice([15, 20, 25, 30, 35, 40])
+    ab = rng.choice(slot.profile.tier([16, 20, 24], list(range(12, 41, 4)),
+                                      list(range(10, 61, 2)), list(range(22, 81, 2))))
+    alpha = rng.choice(angle_span(slot, 12, 42))
     cm = ab // 2
     cmb = 2 * alpha
     if ab % 2 or cmb >= 90:
@@ -1078,8 +1079,8 @@ def parallels_zigzag_reverse(rng: random.Random, slot: Slot) -> GeneratedItem:
     rearrange rather than add. Harder for exactly the reason the forward
     version is not.
     """
-    beta = rng.choice([110, 118, 125, 130, 138, 145])      # given, at B on b
-    alpha = rng.choice([140, 148, 155, 160, 165])          # the unknown, at A on a
+    beta = rng.choice(angle_span(slot, 105, 150))      # given, at B on b
+    alpha = rng.choice(angle_span(slot, 135, 168))          # the unknown, at A on a
     acb = (180 - beta) + (180 - alpha)
     if acb <= 15 or acb >= 170:
         raise Retry("the zigzag angle must be clearly drawable")
@@ -1220,8 +1221,9 @@ def order_sides_two_given_angles(rng: random.Random, slot: Slot) -> GeneratedIte
           kinds=["short", "mc"], weight=1.1, band="medium")
 def median_hypotenuse_from_median(rng: random.Random, slot: Slot) -> GeneratedItem:
     """The 2026 Q19 identity run backwards: CM given, find AB and ∠ACM."""
-    cm = rng.choice([6, 7, 8, 9, 10, 12, 14])
-    alpha = rng.choice([20, 25, 30, 35, 40, 50])
+    cm = rng.choice(slot.profile.tier([6, 8, 10], list(range(5, 16)),
+                                      list(range(4, 26)), list(range(11, 41))))
+    alpha = rng.choice(angle_span(slot, 16, 64))
     ab = 2 * cm
 
     f = right_triangle(rng=rng)
