@@ -123,9 +123,14 @@ Full backend suite: 1838 passed. Frontend: 46 passed.
    ~8 full papers will meet a proof again. More can be transcribed from the
    2015–2018 papers; each must be re-derived first (see the module notes in
    `part2_geometry.py` for why most generalise only over a length).
-2. **Proof grading still depends on the model.** Typed proofs are judged per
-   sub-part with the marking scheme; a photographed solution is judged whole
-   (full marks or none). Real marking gives intermediate credit.
+2. **Proof grading still depends on the model** — but it now marks like an
+   examiner: each sub-part gets any whole number of points from 0 to its
+   maximum by the scheme, typed or photographed (`ai_mark` in
+   `services/nvo_grading.py`, pinned by `tests/test_nvo_partial_marks.py`).
+   The keys' own short-answer part marks (2026 Q15, Q16, Q21) are applied in
+   code. Two limits remain: points are whole (the keys occasionally award
+   0,5 т.), and how *well* the model follows a scheme has only been tested
+   with a stub, not measured against real marked scripts.
 3. **Scores changed meaning.** Percentages and XP are now points-based. The same
    performance can give a different percentage than before (Part 2 now weighs
    35%). Old attempts in history were scored the old way.

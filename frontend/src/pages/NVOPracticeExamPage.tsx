@@ -1929,7 +1929,40 @@ const NVOPracticeExamPage: React.FC = () => {
                   </p>
                 </div>
               )}
-              
+
+              {/* Written answers are marked like the real exam — part marks per
+                  sub-part — so show each one's points and the examiner's note. */}
+              {submitResult && submitResult.open_results.length > 0 && (
+                <div className="max-w-xl mx-auto mb-6 text-left">
+                  <h3 className="text-sm font-bold text-gray-700 mb-2">Задачи със свободен отговор</h3>
+                  <ul className="divide-y divide-gray-100 rounded-xl border border-gray-200">
+                    {[...submitResult.open_results]
+                      .sort((a, b) => a.problemId - b.problemId)
+                      .map((r) => (
+                        <li key={r.problemId} className="px-4 py-3">
+                          <div className="flex items-baseline justify-between gap-3">
+                            <span className="font-semibold text-gray-800">Задача {r.problemId}</span>
+                            <span
+                              className={
+                                r.score === r.max_score
+                                  ? 'font-bold text-green-700'
+                                  : r.score > 0
+                                    ? 'font-bold text-amber-700'
+                                    : 'font-bold text-red-700'
+                              }
+                            >
+                              {r.score} от {r.max_score} т.
+                            </span>
+                          </div>
+                          {r.score < r.max_score && r.feedback && (
+                            <p className="mt-1 text-sm text-gray-600">{r.feedback}</p>
+                          )}
+                        </li>
+                      ))}
+                  </ul>
+                </div>
+              )}
+
               {/* XP Award Breakdown */}
               {xpAwardResult && (
                 <div className="max-w-md mx-auto mb-6 rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 p-4">

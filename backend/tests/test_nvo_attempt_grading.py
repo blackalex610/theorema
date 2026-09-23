@@ -91,14 +91,16 @@ def _sample_exam(exam_id: str, difficulty: str = "standard", format: str = "full
 
 
 def _fake_ai_grade(monkeypatch, *, is_correct: bool):
-    """Stub the AI-vision grader so open-question tests don't hit OpenAI."""
+    """Stub the AI examiner so open-question tests don't hit OpenAI: full marks
+    on every sub-part it is asked about, or none."""
     import app.routers.nvo as nvo_module
 
-    monkeypatch.setattr(
-        nvo_module,
-        "_ai_grade",
-        lambda **kwargs: (is_correct, "extracted", "feedback"),
-    )
+    def mark(**kwargs):
+        parts = kwargs["parts"]
+        return ([p["max_points"] if is_correct else 0 for p in parts],
+                ["feedback" for _ in parts], "extracted")
+
+    monkeypatch.setattr(nvo_module, "_ai_mark", mark)
 
 
 def _submit(exam_id: str, answers: dict, user, db) -> "object":

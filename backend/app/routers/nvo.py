@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db, SessionLocal
 from app.services.playground_problems import select_playground_problems
-from app.routers.mobile_uploads import _ai_grade
+from app.services.nvo_grading import ai_mark as _ai_mark
 from app.services.nvo_grading import grade_written
 from app.services.progress_service import ProgressService
 from app.services import nvo_exam_store
@@ -64,6 +64,9 @@ class NVOQuestion(BaseModel):
     # to the grader alongside the key. Server-side only: _strip_answer_key
     # clears it with correct_answer.
     marking: str | None = None
+    # The key's own part marks for a short answer, answer -> points („4x” -> 2
+    # on 2026 Q21). Server-side only, stripped with the key.
+    partial_credit: dict[str, int] | None = None
     # "mc" | "short" | "open". The 2026 format reinstated a short-answer block
     # between the multiple choice and the extended items; before that Part 1
     # was multiple choice throughout.
@@ -412,7 +415,8 @@ def _strip_answer_key(exam: "NVOExam") -> "NVOExam":
     correct_answer, so it is not sent at all.
     """
     return exam.model_copy(update={
-        "questions": [q.model_copy(update={"correct_answer": None, "marking": None})
+        "questions": [q.model_copy(update={"correct_answer": None, "marking": None,
+                                      "partial_credit": None})
                       for q in exam.questions]
     })
 
@@ -1054,8 +1058,10 @@ async def submit_nvo_exam(
                 marking=question.marking,
                 raw_answer=raw_answer,
                 image_data_url=image_data_url or None,
-                # looked up at call time so tests can stub the module's _ai_grade
-                ai_grade=_ai_grade,
+                kind=question.kind or ("open" if question.number > (exam.part1_count or 0) else "short"),
+                partial_credit=question.partial_credit,
+                # looked up at call time so tests can stub the module's _ai_mark
+                ai_mark=_ai_mark,
             )
         except HTTPException:
             raise

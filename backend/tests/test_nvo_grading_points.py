@@ -22,7 +22,7 @@ def _no_ai(monkeypatch):
     """The deployment has no OpenAI key: the grader raises, as the real one does."""
     def refuse(**_kwargs):
         raise HTTPException(status_code=503, detail="OPENAI_API_KEY is not configured")
-    monkeypatch.setattr(nvo_module, "_ai_grade", refuse)
+    monkeypatch.setattr(nvo_module, "_ai_mark", refuse)
 
 
 def _exam(exam_id: str, seed: int = 7) -> NVOExam:
@@ -83,7 +83,7 @@ def test_partial_credit_follows_the_sub_part_points(monkeypatch):
     g = grade_written(
         statement="…", parts=["А", "Б"], correct=["май", "15 апартамента"], points=[2, 3],
         marking=None, raw_answer={"А": "V", "Б": "14"}, image_data_url=None,
-        ai_grade=nvo_module._ai_grade,
+        ai_mark=nvo_module._ai_mark, kind="short",
     )
     assert (g.score, g.max_score) == (2, 5)
     assert "15" in g.feedback
@@ -91,7 +91,9 @@ def test_partial_credit_follows_the_sub_part_points(monkeypatch):
 
 def test_part_two_is_thirty_five_percent_of_the_score(db, make_user, monkeypatch):
     """Three items worth 12 + 11 + 12, not 3 of 24 equal questions."""
-    monkeypatch.setattr(nvo_module, "_ai_grade", lambda **kw: (True, "x", "ok"))
+    monkeypatch.setattr(nvo_module, "_ai_mark",
+                        lambda **kw: ([p["max_points"] for p in kw["parts"]],
+                                      ["ok"] * len(kw["parts"]), "x"))
     exam = _exam("pts002", seed=3)
     only_part2 = {str(q.number): ({p: "решение" for p in q.open_parts} if q.open_parts else "решение")
                   for q in exam.questions if q.kind == "open"}

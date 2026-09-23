@@ -331,6 +331,9 @@ def value_of_collapsing_expression(rng: random.Random, slot: Slot) -> GeneratedI
             stem=f"Намерете числената стойност на израза ${expr}$ за $x = {x}$.",
             correct_answer=str(key), difficulty="medium",
             solution=solution, signature=f"val_collapse:{k}:{x}",
+            # the 2026 key: „2 т., при написано x + 1” — the simplified form
+            # without the substitution earns half
+            partial_credit={("x + 1" if k == 1 else f"{k}x + {k * k}"): slot.total_points // 2},
         )
 
     # x itself (dropped the +k), the unfactored value, the factor-free value,
@@ -434,6 +437,9 @@ def isosceles_symbolic_perimeter(rng: random.Random, slot: Slot) -> GeneratedIte
                   f"и периметърът е ${key}x$."
                   + (f" (Частични точки за ${degenerate}x$.)" if degenerate else "")),
         signature=f"iso_perimeter:{p}:{q}",
+        # the 2026 key: „2 т., ако е написано 4x; 3 т., ако е написано 4x и 5x”
+        partial_credit=({f"{degenerate}x": 2, f"{degenerate}x и {key}x": 3}
+                        if degenerate else None),
     )
 
 

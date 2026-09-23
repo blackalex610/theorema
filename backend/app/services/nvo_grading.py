@@ -13,21 +13,24 @@ student's score away from what the same paper would earn at the real exam:
     „0 и 25”. Without an API key the model call raised 503 and the student
     could not submit the paper at all.
 
+  * **The model could only say right or wrong.** A proof with the right
+    method and one slip earned 0 of 12, where the official scheme awards the
+    steps — „1 т. за съставяне и опростяване на уравнението”.
+
 So: each sub-part is checked on its own and earns its own points. A key that
-is a number, a set of numbers, a time or a monomial like „5x” is compared
-exactly, here, for free. Only what cannot be compared mechanically — a proof,
-a worded justification — goes to the model, together with the item's marking
-scheme, which it was never shown before.
+is a number, a set of numbers, a time or a polynomial like „3x + 10” is
+compared exactly, here, for free, and the key's own part-mark rules for short
+answers are applied here too. What cannot be compared mechanically goes to the
+model as an examiner (``ai_mark``): it gets the marking scheme and each
+sub-part's maximum and awards any whole number of points from 0 to it.
 """
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 from fractions import Fraction
 from typing import Callable, Sequence
-
-#: (is_correct, extracted_answer, feedback)
-AiGrade = Callable[..., tuple[bool, str, str]]
 
 # Cyrillic х is what a student types for x on a Bulgarian keyboard. (Cyrillic у
 # is not mapped to y: it would turn „август” into „авгyст”.)
@@ -244,6 +247,168 @@ def _split_answer(raw: str | dict[str, str], letters: Sequence[str]) -> list[str
     return [text] + [""] * (len(letters) - 1)
 
 
+# ─── partial credit the official keys define for short answers ──────────────
+
+_SET_SPLIT = re.compile(r"\s+и\s+|[,;]")
+
+
+def _answer_set(text: str) -> list[str]:
+    return [p.strip() for p in _SET_SPLIT.split(text or "") if p.strip()]
+
+
+def short_partial_credit(given: str, key: str, max_points: int,
+                         partial_credit: dict[str, int] | None = None) -> int:
+    """Points a short answer earns when it is not fully right, by the key's own rules.
+
+    Short answers in Part 1 are marked on the answer alone; the key gives part
+    marks only where it says so. Two rules cover the corpus:
+
+    * a set of roots — 2026 Q15 „0 и 25”, „2 т., при един верен отговор”: each
+      correct value earns its share, as long as the student did not list more
+      values than the key has (no scattering guesses to collect credit);
+    * an item's own list — 2026 Q21 „2 т., ако е написано 4x; 3 т., ако е
+      написано 4x и 5x” — carried on the item as ``partial_credit``: answer →
+      points, where an answer „4x и 5x” means both were written.
+    """
+    best = 0
+    for alt, pts in (partial_credit or {}).items():
+        wanted = _answer_set(alt)
+        written = _answer_set(given)
+        if len(wanted) == 1:
+            ok = any(match_answer(w, wanted[0]) is True for w in written) and len(written) == 1
+        else:
+            ok = all(any(match_answer(w, a) is True for w in written) for a in wanted)
+        if ok:
+            best = max(best, min(pts, max_points))
+
+    if " и " in key and not _NEEDS_JUDGEMENT.search(_clean(key)):
+        keys = _answer_set(key)
+        written = _answer_set(given)
+        if 1 < len(keys) and 0 < len(written) <= len(keys):
+            right = sum(1 for k in keys if any(match_answer(w, k) is True for w in written))
+            best = max(best, max_points * right // len(keys))
+    return best
+
+
+# ─── the model as an examiner ───────────────────────────────────────────────
+
+#: ai_mark(statement=, marking=, kind=, parts=[{label, key, max_points, answer}],
+#:         image_data_url=) -> (points per part, feedback per part, extracted answer)
+AiMark = Callable[..., tuple[list[int], list[str], str]]
+
+EXAMINER_PROMPT = (
+    "Ти си квалифициран оценител на Националното външно оценяване по математика "
+    "в VII клас. Оценяваш решението на ученик по официалната схема за оценяване, "
+    "точно както на истинския изпит.\n"
+    "Правила:\n"
+    "1. Оценявай всяка подточка поотделно. Можеш да дадеш всеки цял брой точки от 0 "
+    "до максимума на подточката — НЕ само 0 или максимума.\n"
+    "2. Частичните точки се дават по схемата: за всяка вярно направена стъпка или "
+    "верен междинен резултат (напр. „за съставяне на уравнението — 2 т.“), дори ако "
+    "крайният отговор е грешен или липсва.\n"
+    "3. Отговорът в полето „верен отговор“ е верен. Не решавай задачата наново и не го "
+    "оспорвай.\n"
+    "4. Всяко друго вярно и пълно решение, различно от схемата, получава максималния "
+    "брой точки. При непълно решение давай точки според получените междинни резултати.\n"
+    "5. Грешка в пресмятането, след която решението продължава логично, отнема само "
+    "точките за засегнатите стъпки.\n"
+    "6. Празна, напълно грешна или несвързана с условието подточка получава 0 точки.\n"
+    "Отговори САМО с JSON, без markdown:\n"
+    '{"parts": [{"part": "А", "points": <цяло число>, "feedback": "<1–2 изречения на '
+    'български: какво е вярно и за какво се губят точки>"}], '
+    '"extracted_answer": "<крайните отговори на ученика>"}'
+)
+SHORT_ANSWER_RULE = (
+    "\nТова е задача с кратък свободен отговор: оценява се само записаният отговор, "
+    "без решение. Частични точки се дават само ако схемата изрично ги предвижда "
+    "(напр. „2 т., при един верен отговор“)."
+)
+
+
+def build_examiner_request(*, statement: str, marking: str | None, kind: str,
+                           parts: Sequence[dict]) -> tuple[str, str]:
+    """(system prompt, user text) for one question and the sub-parts to mark."""
+    system = EXAMINER_PROMPT + (SHORT_ANSWER_RULE if kind == "short" else "")
+    lines = [f"Задача:\n{statement}", "",
+             "Схема за оценяване:\n" + (marking or "(няма подробна схема — оценявай по "
+                                                  "верния отговор и правилата)"), "",
+             "Подточки за оценяване:"]
+    for p in parts:
+        label = p["label"] or "(цялата задача)"
+        lines.append(f"{label}: максимум {p['max_points']} т.; верен отговор: {p['key']}; "
+                     f"отговор на ученика: {p['answer'] or '(вижте снимката)'}")
+    return system, "\n".join(lines)
+
+
+def parse_marks(raw: str, parts: Sequence[dict]) -> tuple[list[int], list[str], str]:
+    """Read the examiner's JSON. Every number is clamped to its sub-part's
+    maximum; a sub-part the reply leaves out earns nothing and says so.
+    Raises ValueError when the reply is not the JSON asked for."""
+    text = (raw or "").strip()
+    text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text)
+    m = re.search(r"\{.*\}", text, flags=re.S)
+    if not m:
+        raise ValueError("no JSON object in the examiner's reply")
+    data = json.loads(m.group(0))
+    marked = data.get("parts")
+    if not isinstance(marked, list):
+        raise ValueError("the reply has no 'parts' list")
+
+    def norm(label: str) -> str:
+        return (label or "").strip().rstrip(")").upper().replace("A", "А").replace("B", "В")
+
+    by_label = {norm(str(e.get("part", ""))): e for e in marked if isinstance(e, dict)}
+    points, feedback = [], []
+    for i, p in enumerate(parts):
+        entry = by_label.get(norm(p["label"]))
+        if entry is None and len(marked) == len(parts) and isinstance(marked[i], dict):
+            entry = marked[i]
+        if entry is None:
+            points.append(0)
+            feedback.append("Няма оценка за тази подточка.")
+            continue
+        try:
+            got = round(float(str(entry.get("points", 0)).replace(",", ".")))
+        except ValueError:
+            got = 0
+        points.append(max(0, min(int(got), int(p["max_points"]))))
+        feedback.append(str(entry.get("feedback", "")).strip())
+    return points, feedback, str(data.get("extracted_answer", "")).strip()
+
+
+def ai_mark(*, statement: str, marking: str | None, kind: str, parts: Sequence[dict],
+            image_data_url: str | None = None) -> tuple[list[int], list[str], str]:
+    """Ask the model to mark the given sub-parts like an НВО examiner."""
+    from openai import OpenAI
+
+    from app.config import settings
+
+    if not settings.OPENAI_API_KEY:
+        raise RuntimeError("OPENAI_API_KEY is not configured")
+    system, user_text = build_examiner_request(statement=statement, marking=marking,
+                                               kind=kind, parts=parts)
+    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    if image_data_url:
+        # vision requests take a content list and do not accept response_format
+        resp = client.chat.completions.create(
+            model=settings.OPENAI_MODEL, temperature=0,
+            messages=[{"role": "system", "content": system},
+                      {"role": "user", "content": [
+                          {"type": "text", "text": user_text},
+                          {"type": "image_url", "image_url": {"url": image_data_url}}]}],
+        )
+    else:
+        resp = client.chat.completions.create(
+            model=settings.OPENAI_MODEL, temperature=0,
+            response_format={"type": "json_object"},
+            messages=[{"role": "system", "content": system},
+                      {"role": "user", "content": user_text}],
+        )
+    return parse_marks(resp.choices[0].message.content or "", parts)
+
+
+# ─── one written item ────────────────────────────────────────────────────────
+
 def grade_written(
     *,
     statement: str,
@@ -253,9 +418,19 @@ def grade_written(
     marking: str | None,
     raw_answer: str | dict[str, str],
     image_data_url: str | None,
-    ai_grade: AiGrade,
+    ai_mark: AiMark,
+    kind: str = "open",
+    partial_credit: dict[str, int] | None = None,
 ) -> WrittenGrade:
-    """Grade one short-answer or extended item, sub-part by sub-part."""
+    """Grade one short-answer or extended item, sub-part by sub-part, with part marks.
+
+    A sub-part whose answer matches the key exactly earns its points here. The
+    rest go to the model in one request per question, which marks each of them
+    from 0 to its maximum by the scheme — a Part 2 answer with the wrong final
+    number still earns the steps it got right, as at the real exam. A Part 1
+    short answer is marked on the answer alone, with the key's own part-mark
+    rules applied here first. A photographed solution goes to the model whole.
+    """
     letters = list(parts or [])
     keys = list(correct) if isinstance(correct, list) else [str(correct or "")]
     n = max(len(letters), 1)
@@ -263,41 +438,52 @@ def grade_written(
         keys += [""] * (n - len(keys))
     pts = list(points) if points and len(points) == n else [max(sum(points or [1]) // n, 1)] * n
     total = sum(pts)
-    key_text = " | ".join(keys[:n])
-    context = f"{statement}\n\nСхема за оценяване:\n{marking}" if marking else statement
-
-    if image_data_url:
-        # A photographed solution covers every part at once; the model reads it whole.
-        ok, extracted, feedback = ai_grade(statement=context, correct_xy=key_text,
-                                           student_work="(вижте снимката)",
-                                           image_data_url=image_data_url)
-        return WrittenGrade(total if ok else 0, total, extracted, feedback)
 
     answers = _split_answer(raw_answer, letters)
-    score, notes, extracted = 0, [], []
+    earned = [0] * n
+    notes: list[str | None] = [None] * n
+    to_model: list[int] = []
     for i in range(n):
-        label = f"{letters[i]}) " if letters else ""
         given, key = answers[i].strip(), keys[i]
-        extracted.append(f"{label}{given}".strip())
+        if image_data_url:
+            to_model.append(i)
+            continue
         if not given:
-            notes.append(f"{label}Липсва отговор. Верният отговор е {key}.")
+            notes[i] = f"Липсва отговор. Верният отговор е {key}."
             continue
         verdict = match_answer(given, key)
-        if verdict is None:
-            part_prompt = f"{context}\n\nОценява се само подточка {label.strip()}".strip()
-            try:
-                ok, _extr, fb = ai_grade(statement=part_prompt, correct_xy=key,
-                                         student_work=given, image_data_url=None)
-            except Exception:
-                notes.append(f"{label}Не може да бъде проверено автоматично в момента. "
-                             f"Верният отговор е {key}.")
+        if verdict is True:
+            earned[i] = pts[i]
+            continue
+        if kind == "short":
+            part = short_partial_credit(given, key, pts[i], partial_credit if n == 1 else None)
+            if verdict is False or part:
+                earned[i] = part
+                notes[i] = (f"Частично вярно ({part} от {pts[i]} т.). " if part else
+                            "Грешен отговор. ") + f"Верният отговор е {key}."
                 continue
-            verdict = ok
-            if not ok:
-                notes.append(f"{label}{fb}")
-        elif not verdict:
-            notes.append(f"{label}Грешен отговор. Верният отговор е {key}.")
-        if verdict:
-            score += pts[i]
-    feedback = " ".join(notes) if notes else "Вярно."
-    return WrittenGrade(score, total, "; ".join(e for e in extracted if e), feedback)
+        to_model.append(i)       # a proof, a worded verdict, or a Part 2 answer with work
+
+    extracted = "; ".join(f"{letters[i]}) {answers[i].strip()}" if letters else answers[i].strip()
+                          for i in range(n) if answers[i].strip())
+    if to_model:
+        request = [{"label": letters[i] if letters else "", "key": keys[i],
+                    "max_points": pts[i], "answer": answers[i].strip()} for i in to_model]
+        try:
+            got, fb, model_extracted = ai_mark(
+                statement=statement, marking=marking, kind=kind, parts=request,
+                image_data_url=image_data_url or None)
+        except Exception:
+            for i in to_model:
+                notes[i] = ("Не може да бъде проверено автоматично в момента. "
+                            f"Верният отговор е {keys[i]}.")
+        else:
+            for j, i in enumerate(to_model):
+                earned[i] = max(0, min(int(got[j]), pts[i]))
+                if earned[i] < pts[i]:
+                    notes[i] = f"{earned[i]} от {pts[i]} т. " + (fb[j] or f"Верният отговор е {keys[i]}.")
+            if image_data_url and model_extracted:
+                extracted = model_extracted
+
+    lines = [f"{letters[i] + ') ' if letters else ''}{notes[i]}" for i in range(n) if notes[i]]
+    return WrittenGrade(sum(earned), total, extracted, " ".join(lines) if lines else "Вярно.")
