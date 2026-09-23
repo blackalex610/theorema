@@ -689,20 +689,17 @@ def test_every_curated_proof_states_a_real_answer():
     Part 2 is marked by a person or by the vision grader, both of which compare
     against `correct_answer`. A placeholder there is not a small blemish: it is
     the difference between a key and a reminder that a key was meant to go
-    here. Two older entries still carry placeholders and are listed, so the
-    exemption shrinks rather than being forgotten.
+    here. The last two exemptions (geo_par_height, geo_iso_rhombus) were
+    closed with real keys, so there is no allowlist any more; the full check
+    across all three Part 2 topics lives in test_nvo_part2_keys.py.
     """
-    known_gaps = {"geo_par_height", "geo_iso_rhombus"}
     vague = {"доказателство", "ъглите и отношението", "лицата чрез m и n"}
 
     offenders = []
     for topic in ("open_geometry_proof",):
         for build in _p2.bank_for(topic):
             item = build(_random.Random(0))
-            stem_code = item.code.rsplit("_", 1)[0]
-            if any(stem_code.startswith(g) for g in known_gaps):
-                continue
             for answer in item.answers:
                 if answer.strip().lower() in vague:
                     offenders.append((item.code, answer))
-    assert not offenders, f"placeholder answers outside the known gaps: {offenders}"
+    assert not offenders, f"placeholder answers: {offenders}"
