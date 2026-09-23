@@ -1,0 +1,1030 @@
+{
+ "bar_chart_algebraic": {
+  "years": [
+   2021,
+   2022
+  ],
+  "crops": [
+   "7kl_nvo_math_16062022_p06_3.png",
+   "nvo-math_7kl_18062021_p07_5.png"
+  ],
+  "covered_by": [
+   "bar_chart",
+   "chart_doubling_and_mean"
+  ],
+  "noise": false
+ },
+ "bar_chart_grouped": {
+  "years": [
+   2020,
+   2022
+  ],
+  "crops": [
+   "7kl_nvo_math_16062022_p02_1.png",
+   "nvo-viikl-math_17062020_p06_3.png"
+  ],
+  "covered_by": [
+   "grouped_bar_chart",
+   "chart_grouped_ratio"
+  ],
+  "noise": false
+ },
+ "bar_chart_simple": {
+  "years": [
+   2016,
+   2018,
+   2023,
+   2026
+  ],
+  "crops": [
+   "7kl-math_230518_p07_2.png",
+   "nvo26_matematika_7klasotgovori_19062026_p04_3.png",
+   "nvo_math_7klas_variant2_16.06.2023_p05_3.png",
+   "vo_7kl_math_20052016_p05_3.png"
+  ],
+  "covered_by": [
+   "bar_chart",
+   "chart_peak_and_total"
+  ],
+  "noise": false
+ },
+ "composite_area_rectilinear": {
+  "years": [
+   2016,
+   2019
+  ],
+  "crops": [
+   "math_190619-7kl_p04_2.png",
+   "vo_7kl_math_20052016_p06_2.png"
+  ],
+  "covered_by": [
+   "Figure.fill_region",
+   "symbolic_area_notched_rectangle"
+  ],
+  "noise": false
+ },
+ "coordinate_grid_points": {
+  "years": [
+   2019,
+   2020,
+   2021,
+   2023,
+   2025,
+   2026
+  ],
+  "crops": [
+   "math_190619-7kl_p06_4.png",
+   "nvo-7-klas-math-v2-otgovori-20.06.2025_p03_3.png",
+   "nvo-math_7kl_18062021_p06_4.png",
+   "nvo-viikl-math_17062020_p05_2.png",
+   "nvo26_matematika_7klasotgovori_19062026_p03_1.png",
+   "nvo_math_7klas_variant2_16.06.2023_p06_1.png"
+  ],
+  "covered_by": [
+   "coordinate_grid",
+   "coordinate_fourth_vertex"
+  ],
+  "noise": false
+ },
+ "data_table": {
+  "years": [
+   2015,
+   2016,
+   2017,
+   2018,
+   2021,
+   2022,
+   2023,
+   2025
+  ],
+  "crops": [
+   "7kl-math_230518_p08_1.png",
+   "7kl_math_22052017_p08_1.png",
+   "7kl_math_22052017_p11_2.png",
+   "7kl_nvo_math_16062022_p10_2.png",
+   "nvo-7-klas-math-v2-otgovori-20.06.2025_p05_1.png",
+   "nvo-7-klas-math-v2-otgovori-20.06.2025_p10_1.png",
+   "nvo-math_7kl_18062021_p06_3.png",
+   "nvo_math_7klas_variant2_16.06.2023_p10_1.png",
+   "v3_math_7kl_may2015_p06_1.png",
+   "v3_math_7kl_may2015_p07_3.png",
+   "vo_7kl_math_20052016_p05_1.png",
+   "vo_7kl_math_20052016_p07_1.png",
+   "vo_7kl_math_20052016_p07_3.png",
+   "vo_7kl_math_20052016_p10_3.png"
+  ],
+  "covered_by": [
+   "data_table",
+   "table_share_of_total"
+  ],
+  "noise": false
+ },
+ "dot_lattice": {
+  "years": [
+   2015
+  ],
+  "crops": [
+   "v3_math_7kl_may2015_p05_3.png"
+  ],
+  "covered_by": null,
+  "noise": false
+ },
+ "formula_sheet": {
+  "years": [
+   2022
+  ],
+  "crops": [
+   "7kl_nvo_math_16062022_p14_1.png",
+   "7kl_nvo_math_16062022_p15_1.png",
+   "7kl_nvo_math_16062022_p16_1.png"
+  ],
+  "covered_by": null,
+  "noise": true
+ },
+ "graph_distance_time_piecewise": {
+  "years": [
+   2015,
+   2016
+  ],
+  "crops": [
+   "v3_math_7kl_may2015_p03_1.png",
+   "vo_7kl_math_20052016_p03_1.png",
+   "vo_7kl_math_20052016_p03_2.png",
+   "vo_7kl_math_20052016_p03_3.png",
+   "vo_7kl_math_20052016_p03_4.png"
+  ],
+  "covered_by": [
+   "line_graph",
+   "chart_journey_average_speed"
+  ],
+  "noise": false
+ },
+ "graph_rays_from_origin": {
+  "years": [
+   2016
+  ],
+  "crops": [
+   "vo_7kl_math_20052016_p05_2.png"
+  ],
+  "covered_by": null,
+  "noise": false
+ },
+ "instruction_glyph": {
+  "years": [
+   2015,
+   2016,
+   2017,
+   2018
+  ],
+  "crops": [
+   "7kl-math_230518_p01_1.png",
+   "7kl-math_230518_p01_2.png",
+   "7kl_math_22052017_p01_6.png",
+   "v3_math_7kl_may2015_p01_6.png",
+   "vo_7kl_math_20052016_p01_6.png"
+  ],
+  "covered_by": null,
+  "noise": true
+ },
+ "isosceles_triangle_cevian": {
+  "years": [
+   2015,
+   2021
+  ],
+  "crops": [
+   "nvo-math_7kl_18062021_p04_2.png",
+   "v3_math_7kl_may2015_p08_4.png"
+  ],
+  "covered_by": [
+   "isosceles_triangle",
+   "tri_bisector_isosceles"
+  ],
+  "noise": false
+ },
+ "isosceles_triangle_height": {
+  "years": [
+   2022
+  ],
+  "crops": [
+   "7kl_nvo_math_16062022_p04_5.png"
+  ],
+  "covered_by": [
+   "isosceles_triangle",
+   "isosceles_height_apex_angle"
+  ],
+  "noise": false
+ },
+ "kite_axis_symmetry": {
+  "years": [
+   2022
+  ],
+  "crops": [
+   "7kl_nvo_math_16062022_p06_4.png"
+  ],
+  "covered_by": null,
+  "noise": false
+ },
+ "lines_crossing_angles": {
+  "years": [
+   2017,
+   2020,
+   2021,
+   2022,
+   2024,
+   2025
+  ],
+  "crops": [
+   "7kl_math_22052017_p04_1.png",
+   "7kl_nvo_math_16062022_p04_3.png",
+   "nvo-7-klas-math-v2-otgovori-20.06.2025_p03_5.png",
+   "nvo-math_7kl_18062021_p04_4.png",
+   "nvo-viikl-math_17062020_p03_2.png",
+   "nvo-viikl-math_17062020_p03_3.png",
+   "nvo_math-7klotgovori_21062024_p03_3.png"
+  ],
+  "covered_by": [
+   "Figure (point-built)",
+   "concurrent_lines_angle"
+  ],
+  "noise": false
+ },
+ "marking_table": {
+  "years": [
+   2015,
+   2016,
+   2017,
+   2018,
+   2024,
+   2025,
+   2026
+  ],
+  "crops": [
+   "7kl-math_230518_p09_1.png",
+   "7kl-math_230518_p11_1.png",
+   "7kl-math_230518_p11_2.png",
+   "7kl-math_230518_p12_1.png",
+   "7kl_math_22052017_p09_1.png",
+   "7kl_math_22052017_p10_1.png",
+   "7kl_math_22052017_p11_1.png",
+   "7kl_math_22052017_p11_3.png",
+   "7kl_math_22052017_p12_1.png",
+   "7kl_math_22052017_p12_2.png",
+   "nvo-7-klas-math-v2-otgovori-20.06.2025_p07_1.png",
+   "nvo26_matematika_7klasotgovori_19062026_p07_3.png",
+   "nvo_math-7klotgovori_21062024_p07_2.png",
+   "v3_math_7kl_may2015_p09_2.png",
+   "v3_math_7kl_may2015_p10_1.png",
+   "v3_math_7kl_may2015_p11_1.png",
+   "v3_math_7kl_may2015_p12_1.png",
+   "vo_7kl_math_20052016_p08_1.png",
+   "vo_7kl_math_20052016_p09_1.png",
+   "vo_7kl_math_20052016_p10_1.png"
+  ],
+  "covered_by": null,
+  "noise": true
+ },
+ "matching_table": {
+  "years": [
+   2016,
+   2017,
+   2018
+  ],
+  "crops": [
+   "7kl-math_230518_p06_1.png",
+   "7kl_math_22052017_p06_2.png",
+   "7kl_math_22052017_p06_3.png",
+   "vo_7kl_math_20052016_p04_3.png"
+  ],
+  "covered_by": null,
+  "noise": true
+ },
+ "number_line_inequality": {
+  "years": [
+   2024
+  ],
+  "crops": [
+   "nvo_math-7klotgovori_21062024_p09_2.png"
+  ],
+  "covered_by": null,
+  "noise": false
+ },
+ "parallelogram_bisector": {
+  "years": [
+   2022
+  ],
+  "crops": [
+   "7kl_nvo_math_16062022_p05_3.png"
+  ],
+  "covered_by": [
+   "parallelogram",
+   "rhombus_bisector_angle"
+  ],
+  "noise": false
+ },
+ "parallelogram_diagonals": {
+  "years": [
+   2020,
+   2023
+  ],
+  "crops": [
+   "nvo-viikl-math_17062020_p07_1.png",
+   "nvo_math_7klas_variant2_16.06.2023_p05_4.png"
+  ],
+  "covered_by": [
+   "parallelogram",
+   "parallelogram_angle_ratio"
+  ],
+  "noise": false
+ },
+ "parallelogram_height": {
+  "years": [
+   2017
+  ],
+  "crops": [
+   "7kl_math_22052017_p05_3.png"
+  ],
+  "covered_by": [
+   "parallelogram",
+   "parallelogram_height_area"
+  ],
+  "noise": false
+ },
+ "parallelogram_on_grid": {
+  "years": [
+   2021
+  ],
+  "crops": [
+   "nvo-math_7kl_18062021_p05_1.png"
+  ],
+  "covered_by": [
+   "coordinate_grid",
+   "coordinate_fourth_vertex"
+  ],
+  "noise": false
+ },
+ "parallelogram_with_cevians": {
+  "years": [
+   2018,
+   2024,
+   2026
+  ],
+  "crops": [
+   "7kl-math_230518_p05_2.png",
+   "nvo26_matematika_7klasotgovori_19062026_p04_4.png",
+   "nvo_math-7klotgovori_21062024_p03_5.png",
+   "nvo_math-7klotgovori_21062024_p10_2.png",
+   "nvo_math-7klotgovori_21062024_p10_3.png"
+  ],
+  "covered_by": [
+   "parallelogram",
+   "parallelogram_isosceles_cut"
+  ],
+  "noise": false
+ },
+ "parallels_transversal": {
+  "years": [
+   2019,
+   2020,
+   2021
+  ],
+  "crops": [
+   "math_190619-7kl_p03_3.png",
+   "nvo-math_7kl_18062021_p04_1.png",
+   "nvo-viikl-math_17062020_p03_4.png"
+  ],
+  "covered_by": [
+   "two_parallel_lines",
+   "parallels_transversal_cointerior"
+  ],
+  "noise": false
+ },
+ "parallels_transversal_panel": {
+  "years": [
+   2018
+  ],
+  "crops": [
+   "7kl-math_230518_p04_1.png"
+  ],
+  "covered_by": null,
+  "noise": false
+ },
+ "parallels_zigzag": {
+  "years": [
+   2023,
+   2026
+  ],
+  "crops": [
+   "nvo26_matematika_7klasotgovori_19062026_p03_4.png",
+   "nvo_math_7klas_variant2_16.06.2023_p03_4.png"
+  ],
+  "covered_by": [
+   "two_parallel_lines",
+   "parallels_zigzag"
+  ],
+  "noise": false
+ },
+ "photo_illustration": {
+  "years": [
+   2016,
+   2025
+  ],
+  "crops": [
+   "nvo-7-klas-math-v2-otgovori-20.06.2025_p04_2.png",
+   "vo_7kl_math_20052016_p06_3.png"
+  ],
+  "covered_by": null,
+  "noise": true
+ },
+ "pie_chart_angles": {
+  "years": [
+   2024
+  ],
+  "crops": [
+   "nvo_math-7klotgovori_21062024_p05_2.png"
+  ],
+  "covered_by": [
+   "pie_chart",
+   "chart_pie_sector"
+  ],
+  "noise": false
+ },
+ "pie_chart_callouts": {
+  "years": [
+   2019
+  ],
+  "crops": [
+   "math_190619-7kl_p05_3.png"
+  ],
+  "covered_by": [
+   "pie_chart",
+   "chart_pie_sector"
+  ],
+  "noise": false
+ },
+ "pie_chart_percent": {
+  "years": [
+   2017
+  ],
+  "crops": [
+   "7kl_math_22052017_p07_1.png"
+  ],
+  "covered_by": [
+   "pie_chart",
+   "chart_pie_sector"
+  ],
+  "noise": false
+ },
+ "rays_from_point_on_line": {
+  "years": [
+   2019,
+   2022
+  ],
+  "crops": [
+   "7kl_nvo_math_16062022_p04_6.png",
+   "math_190619-7kl_p03_5.png"
+  ],
+  "covered_by": [
+   "Figure (point-built)",
+   "adjacent_angle_ratio"
+  ],
+  "noise": false
+ },
+ "rectangle_diagonals": {
+  "years": [
+   2017,
+   2026
+  ],
+  "crops": [
+   "7kl_math_22052017_p06_1.png",
+   "nvo26_matematika_7klasotgovori_19062026_p10_2.png"
+  ],
+  "covered_by": [
+   "parallelogram(rect)",
+   "rect_diagonals_angle"
+  ],
+  "noise": false
+ },
+ "right_triangle_sides": {
+  "years": [
+   2021,
+   2023
+  ],
+  "crops": [
+   "nvo-math_7kl_18062021_p05_2.png",
+   "nvo_math_7klas_variant2_16.06.2023_p04_1.png"
+  ],
+  "covered_by": [
+   "right_triangle",
+   "right_triangle_perimeter"
+  ],
+  "noise": false
+ },
+ "schematic_ladder_wall": {
+  "years": [
+   2025
+  ],
+  "crops": [
+   "nvo-7-klas-math-v2-otgovori-20.06.2025_p05_2.png"
+  ],
+  "covered_by": null,
+  "noise": false
+ },
+ "schematic_road": {
+  "years": [
+   2022,
+   2025
+  ],
+  "crops": [
+   "7kl_nvo_math_16062022_p07_5.png",
+   "nvo-7-klas-math-v2-otgovori-20.06.2025_p09_1.png"
+  ],
+  "covered_by": [
+   "schematic(road)",
+   "—"
+  ],
+  "noise": false
+ },
+ "segment_algebraic_parts": {
+  "years": [
+   2015
+  ],
+  "crops": [
+   "v3_math_7kl_may2015_p05_2.png"
+  ],
+  "covered_by": [
+   "Figure (point-built)",
+   "segment_parts_algebraic"
+  ],
+  "noise": false
+ },
+ "solid_box": {
+  "years": [
+   2022
+  ],
+  "crops": [
+   "7kl_nvo_math_16062022_p05_2.png"
+  ],
+  "covered_by": [
+   "solid(box)",
+   "solid_box_volume"
+  ],
+  "noise": false
+ },
+ "solid_cube": {
+  "years": [
+   2020
+  ],
+  "crops": [
+   "nvo-viikl-math_17062020_p03_1.png"
+  ],
+  "covered_by": [
+   "solid(cube)",
+   "solid_box_volume"
+  ],
+  "noise": false
+ },
+ "solid_pyramid": {
+  "years": [
+   2021
+  ],
+  "crops": [
+   "nvo-math_7kl_18062021_p03_3.png"
+  ],
+  "covered_by": [
+   "solid(pyramid)",
+   "—"
+  ],
+  "noise": false
+ },
+ "spinner": {
+  "years": [
+   2024
+  ],
+  "crops": [
+   "nvo_math-7klotgovori_21062024_p02_2.png"
+  ],
+  "covered_by": [
+   "schematic(spinner)",
+   "prob_spinner"
+  ],
+  "noise": false
+ },
+ "square_with_cevians": {
+  "years": [
+   2016
+  ],
+  "crops": [
+   "vo_7kl_math_20052016_p07_5.png",
+   "vo_7kl_math_20052016_p11_4.png"
+  ],
+  "covered_by": [
+   "parallelogram(square)",
+   "square_diagonal_angle"
+  ],
+  "noise": false
+ },
+ "statement_list_box": {
+  "years": [
+   2015
+  ],
+  "crops": [
+   "v3_math_7kl_may2015_p08_3.png"
+  ],
+  "covered_by": null,
+  "noise": true
+ },
+ "symmetry_marks_figure": {
+  "years": [
+   2019
+  ],
+  "crops": [
+   "math_190619-7kl_p05_4.png"
+  ],
+  "covered_by": null,
+  "noise": false
+ },
+ "tessellation_pattern": {
+  "years": [
+   2019
+  ],
+  "crops": [
+   "math_190619-7kl_p06_3.png"
+  ],
+  "covered_by": null,
+  "noise": false
+ },
+ "text_only": {
+  "years": [
+   2015,
+   2016,
+   2017,
+   2018,
+   2024,
+   2026
+  ],
+  "crops": [
+   "7kl-math_230518_p05_3.png",
+   "7kl-math_230518_p07_1.png",
+   "7kl-math_230518_p08_6.png",
+   "7kl_math_22052017_p03_2.png",
+   "7kl_math_22052017_p04_9.png",
+   "7kl_math_22052017_p06_4.png",
+   "7kl_math_22052017_p06_5.png",
+   "7kl_math_22052017_p06_6.png",
+   "nvo26_matematika_7klasotgovori_19062026_p02_6.png",
+   "nvo26_matematika_7klasotgovori_19062026_p04_2.png",
+   "nvo26_matematika_7klasotgovori_19062026_p06_7.png",
+   "nvo26_matematika_7klasotgovori_19062026_p06_8.png",
+   "nvo26_matematika_7klasotgovori_19062026_p06_9.png",
+   "nvo26_matematika_7klasotgovori_19062026_p10_3.png",
+   "nvo26_matematika_7klasotgovori_19062026_p10_4.png",
+   "nvo_math-7klotgovori_21062024_p02_1.png",
+   "nvo_math-7klotgovori_21062024_p05_1.png",
+   "nvo_math-7klotgovori_21062024_p09_1.png",
+   "nvo_math-7klotgovori_21062024_p10_1.png",
+   "v3_math_7kl_may2015_p04_5.png",
+   "v3_math_7kl_may2015_p04_6.png",
+   "v3_math_7kl_may2015_p04_7.png",
+   "v3_math_7kl_may2015_p08_5.png",
+   "v3_math_7kl_may2015_p12_4.png",
+   "v3_math_7kl_may2015_p13_1.png",
+   "v3_math_7kl_may2015_p13_3.png",
+   "vo_7kl_math_20052016_p06_1.png",
+   "vo_7kl_math_20052016_p11_1.png",
+   "vo_7kl_math_20052016_p11_10.png",
+   "vo_7kl_math_20052016_p11_11.png",
+   "vo_7kl_math_20052016_p11_2.png",
+   "vo_7kl_math_20052016_p11_5.png",
+   "vo_7kl_math_20052016_p11_6.png",
+   "vo_7kl_math_20052016_p11_7.png"
+  ],
+  "covered_by": null,
+  "noise": true
+ },
+ "trapezoid_with_perpendicular": {
+  "years": [
+   2016
+  ],
+  "crops": [
+   "vo_7kl_math_20052016_p04_5.png"
+  ],
+  "covered_by": [
+   "right_trapezoid",
+   "trapezoid_cointerior_angle"
+  ],
+  "noise": false
+ },
+ "triangle_altitude_and_bisector": {
+  "years": [
+   2020,
+   2026
+  ],
+  "crops": [
+   "nvo-viikl-math_17062020_p04_2.png",
+   "nvo26_matematika_7klasotgovori_19062026_p03_2.png"
+  ],
+  "covered_by": [
+   "triangle_for_cevians",
+   "tri_height_and_bisector"
+  ],
+  "noise": false
+ },
+ "triangle_altitude_and_median": {
+  "years": [
+   2018,
+   2019,
+   2020,
+   2021
+  ],
+  "crops": [
+   "7kl-math_230518_p08_4.png",
+   "math_190619-7kl_p04_1.png",
+   "nvo-math_7kl_18062021_p12_2.png",
+   "nvo-math_7kl_18062021_p13_1.png",
+   "nvo-viikl-math_17062020_p05_1.png"
+  ],
+  "covered_by": [
+   "triangle_for_cevians",
+   "tri_height_and_bisector"
+  ],
+  "noise": false
+ },
+ "triangle_bisector": {
+  "years": [
+   2016
+  ],
+  "crops": [
+   "vo_7kl_math_20052016_p03_5.png"
+  ],
+  "covered_by": [
+   "isosceles_triangle",
+   "tri_bisector_isosceles"
+  ],
+  "noise": false
+ },
+ "triangle_cevian_exterior_angle": {
+  "years": [
+   2017,
+   2018,
+   2024
+  ],
+  "crops": [
+   "7kl-math_230518_p04_3.png",
+   "7kl_math_22052017_p04_2.png",
+   "nvo_math-7klotgovori_21062024_p04_1.png"
+  ],
+  "covered_by": [
+   "triangle_for_three_cevians",
+   "tri_cevian_exterior_angle"
+  ],
+  "noise": false
+ },
+ "triangle_cevian_perpendicular": {
+  "years": [
+   2018,
+   2025
+  ],
+  "crops": [
+   "7kl-math_230518_p04_10.png",
+   "nvo-7-klas-math-v2-otgovori-20.06.2025_p04_1.png"
+  ],
+  "covered_by": [
+   "triangle_for_three_cevians",
+   "tri_perpendicular_from_side_point"
+  ],
+  "noise": false
+ },
+ "triangle_cevians_multi": {
+  "years": [
+   2015,
+   2017,
+   2019,
+   2020,
+   2023
+  ],
+  "crops": [
+   "7kl_math_22052017_p04_4.png",
+   "7kl_math_22052017_p05_2.png",
+   "math_190619-7kl_p11_1.png",
+   "nvo-viikl-math_17062020_p13_1.png",
+   "nvo_math_7klas_variant2_16.06.2023_p11_1.png",
+   "v3_math_7kl_may2015_p12_2.png"
+  ],
+  "covered_by": [
+   "triangle_for_three_cevians",
+   "tri_height_bisector_median"
+  ],
+  "noise": false
+ },
+ "triangle_circumcentre_perp_bisectors": {
+  "years": [
+   2019,
+   2025
+  ],
+  "crops": [
+   "math_190619-7kl_p04_3.png",
+   "nvo-7-klas-math-v2-otgovori-20.06.2025_p03_4.png"
+  ],
+  "covered_by": [
+   "triangle_for_circumcentre",
+   "tri_circumcentre_central_angle"
+  ],
+  "noise": false
+ },
+ "triangle_equal_segments_chain": {
+  "years": [
+   2022
+  ],
+  "crops": [
+   "7kl_nvo_math_16062022_p12_1.png"
+  ],
+  "covered_by": null,
+  "noise": false
+ },
+ "triangle_exterior_angle": {
+  "years": [
+   2015,
+   2022,
+   2023
+  ],
+  "crops": [
+   "7kl_nvo_math_16062022_p04_4.png",
+   "nvo_math_7klas_variant2_16.06.2023_p04_4.png",
+   "v3_math_7kl_may2015_p02_1.png"
+  ],
+  "covered_by": [
+   "triangle_with_extended_side",
+   "tri_exterior_angle_at_base"
+  ],
+  "noise": false
+ },
+ "triangle_incentre": {
+  "years": [
+   2020,
+   2026
+  ],
+  "crops": [
+   "nvo-viikl-math_17062020_p04_4.png",
+   "nvo26_matematika_7klasotgovori_19062026_p05_2.png"
+  ],
+  "covered_by": [
+   "triangle_for_cevians",
+   "incentre_angle"
+  ],
+  "noise": false
+ },
+ "triangle_line_through_vertex": {
+  "years": [
+   2019,
+   2025
+  ],
+  "crops": [
+   "math_190619-7kl_p03_4.png",
+   "nvo-7-klas-math-v2-otgovori-20.06.2025_p03_2.png"
+  ],
+  "covered_by": [
+   "triangle_for_three_cevians",
+   "line_through_vertex_angles"
+  ],
+  "noise": false
+ },
+ "triangle_median": {
+  "years": [
+   2017,
+   2026
+  ],
+  "crops": [
+   "7kl_math_22052017_p04_3.png",
+   "nvo26_matematika_7klasotgovori_19062026_p05_1.png"
+  ],
+  "covered_by": [
+   "right_triangle",
+   "median_to_hypotenuse"
+  ],
+  "noise": false
+ },
+ "triangle_midsegment": {
+  "years": [
+   2016
+  ],
+  "crops": [
+   "vo_7kl_math_20052016_p04_4.png"
+  ],
+  "covered_by": [
+   "triangle_for_three_cevians",
+   "triangle_midsegment_perimeter"
+  ],
+  "noise": false
+ },
+ "triangle_on_grid_shaded": {
+  "years": [
+   2016
+  ],
+  "crops": [
+   "vo_7kl_math_20052016_p03_6.png"
+  ],
+  "covered_by": [
+   "coordinate_grid(shaded)",
+   "coordinate_shaded_triangle_area"
+  ],
+  "noise": false
+ },
+ "triangle_perp_bisector_of_side": {
+  "years": [
+   2015,
+   2018,
+   2020,
+   2021,
+   2022,
+   2023,
+   2024,
+   2026
+  ],
+  "crops": [
+   "7kl-math_230518_p04_2.png",
+   "7kl_nvo_math_16062022_p05_1.png",
+   "nvo-math_7kl_18062021_p04_3.png",
+   "nvo-viikl-math_17062020_p04_3.png",
+   "nvo26_matematika_7klasotgovori_19062026_p03_3.png",
+   "nvo_math-7klotgovori_21062024_p04_2.png",
+   "nvo_math_7klas_variant2_16.06.2023_p04_2.png",
+   "v3_math_7kl_may2015_p04_2.png"
+  ],
+  "covered_by": [
+   "right_triangle",
+   "perp_bisector_of_hypotenuse"
+  ],
+  "noise": false
+ },
+ "triangle_plain": {
+  "years": [
+   2018,
+   2024
+  ],
+  "crops": [
+   "7kl-math_230518_p05_1.png",
+   "nvo_math-7klotgovori_21062024_p04_3.png"
+  ],
+  "covered_by": [
+   "scalene_triangle",
+   "order_sides_by_angles"
+  ],
+  "noise": false
+ },
+ "triangles_congruence_construction": {
+  "years": [
+   2025
+  ],
+  "crops": [
+   "nvo-7-klas-math-v2-otgovori-20.06.2025_p10_2.png",
+   "nvo-7-klas-math-v2-otgovori-20.06.2025_p10_3.png"
+  ],
+  "covered_by": null,
+  "noise": false
+ },
+ "triangles_congruent_pair": {
+  "years": [
+   2018,
+   2020,
+   2021
+  ],
+  "crops": [
+   "7kl-math_230518_p03_1.png",
+   "nvo-math_7kl_18062021_p03_4.png",
+   "nvo-viikl-math_17062020_p04_1.png"
+  ],
+  "covered_by": [
+   "scalene_triangle x2",
+   "congruent_triangles_angle"
+  ],
+  "noise": false
+ },
+ "triangles_on_a_line": {
+  "years": [
+   2017,
+   2023,
+   2024
+  ],
+  "crops": [
+   "7kl_math_22052017_p03_1.png",
+   "7kl_math_22052017_p05_1.png",
+   "nvo_math-7klotgovori_21062024_p03_4.png",
+   "nvo_math_7klas_variant2_16.06.2023_p04_3.png"
+  ],
+  "covered_by": [
+   "Figure (point-built)",
+   "two_triangles_on_a_line"
+  ],
+  "noise": false
+ },
+ "triangles_right_shared_side": {
+  "years": [
+   2019
+  ],
+  "crops": [
+   "math_190619-7kl_p04_4.png"
+  ],
+  "covered_by": null,
+  "noise": false
+ }
+}

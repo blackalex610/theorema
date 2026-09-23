@@ -242,6 +242,67 @@ launch go/no-go.
 
 ## 5. Phased Next Steps
 
+### Phase 0 — AI layer and model routing (this week)
+
+**Goal:** the NVO paper is assembled and dressed by AI on top of the
+deterministic generator, the phone pipeline is safe to demo, and every LLM call
+is on a deliberately chosen model instead of a hard-coded one.
+
+Full design in **[`docs/ai-architecture.md`](docs/ai-architecture.md)** — model
+routing table with live OpenRouter prices, the cost model, and the reskin
+contract. The load-bearing decision is recorded there and repeated here because
+it is easy to get wrong:
+
+> **The generator stays deterministic; the model is an editor on top of it.**
+> The LLM selects and reskins items — story, names, phrasing. It never touches
+> a number, a key, an option value or a figure. Every patch is re-run through
+> `verify.check_item`, and a rejected patch falls back to the original item,
+> which was already correct.
+>
+> The pool reaches 6.7 × 10⁴⁷ Part 1 combinations with every key re-derived by
+> independently written arithmetic. Handing the maths to a model trades that
+> for silent wrong answers.
+
+Ordered by payoff, not by dependency:
+
+- [ ] **Route models through config, not literals.** `mobile_uploads.py:499`
+      hard-codes `model="gpt-4o"`. Move vision to `gpt-5.6-luna-pro`
+      ($0.20/$1.20 vs $2.50/$10.00) — a ~12× cost cut and a quality *increase*
+- [ ] Add `OPENAI_VISION_MODEL`, `OPENAI_RESKIN_MODEL`, `OPENAI_ESCALATION_MODEL`
+      beside the existing `OPENAI_MODEL` / `OPENAI_NVO_MODEL`
+- [ ] Point the base URL at OpenRouter; keep model ids in config so a
+      direct-provider fallback stays a config change
+- [ ] **Mobile hardening:** bind `channel_id` to the authenticated account,
+      per-user vision quota (not per-IP), confirm short retention on photos of
+      minors' work
+- [ ] Reskin service: item → patch → apply → `verify.check_item` → accept or
+      fall back
+- [ ] Pre-warm reskinned papers into `nvo_exam_store`; never block "start test"
+      on an LLM call
+- [ ] Per-sub-part grading against the Part 2 `marking` scheme — the points are
+      a tuple precisely so credit can be partial
+- [ ] **OCR bake-off:** 30 real handwritten photos, four tiers, scored on
+      per-sub-part credit. Without it the routing table is a guess
+
+**Cost at this scale is not the constraint.** One complete exam attempt —
+reskin plus photo grading — is about **half a cent**; a thousand students
+sitting a paper is about **$5**. Choose on correctness and latency, then let
+the batch tier (50% off, `:batch` suffix) absorb pre-warming and embeddings.
+
+### Phase 0.5 — Sequencing note for the week
+
+School-centred work is running in parallel (separate agent). Teacher portals
+and the UI rework are each multi-day on their own, so the realistic order is:
+model routing → mobile hardening → reskin + grading → school-centred →
+teacher portals → UI. If the pitch is the fixed point, a rehearsed demo of the
+first four is a stronger pitch than eight half-finished items, and the
+generator's 10⁴⁷ figure is already a good slide.
+
+**Sidelined this pass:** curriculum/theory generation and the practice-problems
+surface (`ai_theory_service.generate_theory_content`, `generate_example_problems`,
+`generate_exercises`). They are the app's highest-volume LLM consumers, so when
+they return they should return on the cheap tier with caching.
+
 ### Phase 1 — Launchable MVP (2–4 weeks)
 
 **Goal:** Safe, stable deployment for beta users (single classroom / pilot).
@@ -378,6 +439,24 @@ launch go/no-go.
 | `OPENAI_API_KEY` | Yes for AI | Without it, fallbacks activate |
 | `OPENAI_MODEL` | Optional | Default `gpt-4o-mini` |
 | `OPENAI_NVO_MODEL` | Optional | Default `gpt-4.1` |
+| `OPENAI_BASE_URL` | Planned | Point at OpenRouter; one key, batch discounts |
+| `OPENAI_VISION_MODEL` | Planned | Replaces the literal at `mobile_uploads.py:499` |
+| `OPENAI_RESKIN_MODEL` | Planned | Bulk tier for item reskinning |
+| `OPENAI_ESCALATION_MODEL` | Planned | Disputed grades only; low volume |
+
+**Model routing** (live OpenRouter prices, 2026-09-22, USD per 1M tokens — see
+[`docs/ai-architecture.md`](docs/ai-architecture.md) for the full table and the
+seven AI jobs these three tiers cover):
+
+| tier | model | in | out | used for |
+|---|---|---|---|---|
+| cheap/bulk | `openai/gpt-5-nano` | 0.05 | 0.40 | item reskin, assistant chat |
+| workhorse | `openai/gpt-5.6-luna-pro` | 0.20 | 1.20 | OCR, grading, solutions |
+| escalation | `openai/gpt-5.6-sol` | 2.00 | 10.00 | disputed grades only |
+
+`gpt-5.6-luna-pro` is vision-capable with a 1M context at roughly mini-model
+pricing — it *undercuts* `gemini-3.1-flash-lite` (0.25/1.50) and is 12× cheaper
+than the `gpt-4o` currently doing our vision work.
 | `ENVIRONMENT` | Recommended | `production` |
 | `DEBUG` | Recommended | `False` in prod |
 | `CORS_ORIGINS` | ⚠️ Not wired | Should be implemented |

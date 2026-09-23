@@ -331,6 +331,9 @@ def value_of_collapsing_expression(rng: random.Random, slot: Slot) -> GeneratedI
             stem=f"Намерете числената стойност на израза ${expr}$ за $x = {x}$.",
             correct_answer=str(key), difficulty="medium",
             solution=solution, signature=f"val_collapse:{k}:{x}",
+            # the 2026 key: „2 т., при написано x + 1” — the simplified form
+            # without the substitution earns half
+            partial_credit={("x + 1" if k == 1 else f"{k}x + {k * k}"): slot.total_points // 2},
         )
 
     # x itself (dropped the +k), the unfactored value, the factor-free value,
@@ -388,8 +391,8 @@ def quadratic_by_factoring(rng: random.Random, slot: Slot) -> GeneratedItem:
     The trap is dividing both sides by x, which loses the root 0 — which is
     exactly why the key awards half marks for a single root.
     """
-    k = rng.choice([9, 12, 14, 16, 18, 20, 24, 25, 30, 36, 42, 49])
-    a = rng.choice([1, 1, 2, 3])           # leading coefficient
+    k = rng.randint(4, 60)
+    a = rng.choice([1, 1, 1, 2, 3, 4, 5])  # leading coefficient
     if a > 1 and k % a:
         raise Retry("the non-zero root must stay whole")
     root = k // a
@@ -410,30 +413,33 @@ def quadratic_by_factoring(rng: random.Random, slot: Slot) -> GeneratedItem:
 @template("isosceles_symbolic_perimeter",
           topics=["symbolic_perimeter"], kinds=["short"], weight=1.4, band="hard")
 def isosceles_symbolic_perimeter(rng: random.Random, slot: Slot) -> GeneratedItem:
-    """Isosceles triangle, sides in ratio 1:2, perimeter in terms of x.
+    """Isosceles triangle, two sides in ratio p : q, perimeter in terms of x.
 
-    The 2026 Q21 item, and a genuinely sharp one: taking the legs as x forces
-    x + x = 2x, a degenerate triangle, so the legs must be 2x and the base x —
-    perimeter 5x. The official key gives partial credit for 4x, which is the
-    answer you get if you miss the degenerate case, so that is recorded here.
+    The 2026 Q21 item (1 : 2 → 5x), and a genuinely sharp one: with the legs
+    as the shorter side the triangle is degenerate, so the legs must be the
+    longer one. Only ratios where that is the *only* possibility are drawn
+    (q ≥ 2p), and only where the answer is a whole multiple of x, as the key
+    prints it. The official key gives partial credit for the degenerate
+    reading, which is recorded in the solution.
     """
-    k = rng.choice([2, 3, 4])
-    # Legs x with base kx gives x + x ≤ kx for every k ≥ 2 — degenerate. So the
-    # legs must be the longer side: perimeter = 2·kx + x.
-    key = 2 * k + 1
-    wrong_but_credited = k + 2          # what you get if you miss the degeneracy
+    p, q = rng.choice([(1, k) for k in range(2, 8)] + [(2, k) for k in (5, 7, 9, 11)])
+    key = 1 + 2 * q // p                       # legs (q/p)x, base x
+    degenerate = 2 + q // p if p == 1 else None
     return GeneratedItem(
         topic=slot.topic, kind="short", points=slot.points,
         stem=(f"Две от страните на равнобедрен триъгълник се отнасят както "
-              f"$1:{k}$. Ако по-малката му страна е $x$ cm, "
+              f"${p}:{q}$. Ако по-малката му страна е $x$ cm, "
               f"изразете и запишете чрез $x$ периметъра на триъгълника."),
         correct_answer=f"{key}x", difficulty="hard",
-        solution=(f"Ако бедрата са $x$, то основата е ${k}x$ и "
-                  f"$x + x \\le {k}x$ — неравенството на триъгълника не е "
-                  f"изпълнено. Следователно бедрата са ${k}x$, основата е $x$ "
-                  f"и периметърът е ${key}x$. "
-                  f"(Частични точки за ${wrong_but_credited}x$.)"),
-        signature=f"iso_perimeter:1:{k}",
+        solution=(f"Ако бедрата са по-късите страни, неравенството на триъгълника не е "
+                  f"изпълнено. Следователно бедрата са "
+                  f"${'' if q == p else bg_number(Fraction(q, p))}x$, основата е $x$ "
+                  f"и периметърът е ${key}x$."
+                  + (f" (Частични точки за ${degenerate}x$.)" if degenerate else "")),
+        signature=f"iso_perimeter:{p}:{q}",
+        # the 2026 key: „2 т., ако е написано 4x; 3 т., ако е написано 4x и 5x”
+        partial_credit=({f"{degenerate}x": 2, f"{degenerate}x и {key}x": 3}
+                        if degenerate else None),
     )
 
 
@@ -441,31 +447,49 @@ def isosceles_symbolic_perimeter(rng: random.Random, slot: Slot) -> GeneratedIte
           topics=["symbolic_perimeter", "expression_from_words"],
           kinds=["short", "mc"], weight=1.0)
 def rectangle_symbolic_perimeter(rng: random.Random, slot: Slot) -> GeneratedItem:
-    """Perimeter of a rectangle whose length is stated relative to its width."""
-    a = rng.choice([2, 3, 4, 5, 6, 8])
-    key = f"4x + {2 * a}"
-    stem = (f"Ширината на правоъгълник е $x$ cm, а дължината му е с ${a}$ cm "
-            f"по-голяма от ширината. Изразете и запишете чрез $x$ периметъра "
-            f"на правоъгълника.")
-    solution = (rf"Дължината е $x + {a}$, а периметърът е "
-                rf"$2\left(x + x + {a}\right) = 4x + {2 * a}$")
+    """Perimeter of a rectangle whose length is stated relative to its width:
+    „с a cm по-голяма”, „k пъти по-голяма”, „с a cm по-малка от удвоената”."""
+    form = rng.choice(["more", "times", "less_double"])
+    a = rng.randint(1, 15)
+    k = rng.randint(2, 5)
+    if form == "more":
+        length_txt = f"с ${a}$ cm по-голяма от ширината"
+        length = f"x + {a}"
+        c1, c0 = 4, 2 * a
+    elif form == "times":
+        length_txt = f"${k}$ пъти по-голяма от ширината"
+        length = f"{k}x"
+        c1, c0 = 2 + 2 * k, 0
+    else:
+        length_txt = f"с ${a}$ cm по-малка от удвоената ширина"
+        length = f"2x - {a}"
+        c1, c0 = 6, -2 * a
+    key = f"{c1}x" + (f" + {c0}" if c0 > 0 else f" - {-c0}" if c0 < 0 else "")
+    stem = (f"Ширината на правоъгълник е $x$ cm, а дължината му е {length_txt}. "
+            f"Изразете и запишете чрез $x$ периметъра на правоъгълника.")
+    solution = (rf"Дължината е ${length}$, а периметърът е "
+                rf"$2\left(x + {length}\right) = {key}$")
+    sig = f"rect_perimeter:{form}:{a if form != 'times' else k}"
 
     if slot.kind == "short":
         return GeneratedItem(
             topic=slot.topic, kind="short", points=slot.points,
             stem=stem, correct_answer=key, difficulty="medium",
-            solution=solution, signature=f"rect_perimeter:{a}",
+            solution=solution, signature=sig,
         )
 
-    correct = rf"4x + {2 * a}"
-    wrongs = [rf"2x + {a}", rf"4x + {a}", rf"2x + {2 * a}"]
-    options, letter = shuffle_options(f"${correct}$", [f"${w}$" for w in wrongs], rng=rng)
+    half = f"{c1 // 2}x" + (f" + {c0 // 2}" if c0 > 0 else f" - {-c0 // 2}" if c0 < 0 else "")
+    wrongs = {half, f"{c1}x" + (f" + {c0 // 2}" if c0 > 0 else f" - {-c0 // 2}" if c0 < 0 else f" + {k}"),
+              f"{c1 - 2}x" + (f" + {c0}" if c0 > 0 else f" - {-c0}" if c0 < 0 else ""),
+              f"{c1 + 2}x" + (f" + {c0}" if c0 > 0 else f" - {-c0}" if c0 < 0 else "")}
+    wrongs.discard(key)
+    options, letter = shuffle_options(f"${key}$", [f"${w}$" for w in list(wrongs)[:3]], rng=rng)
     return GeneratedItem(
         topic=slot.topic, kind="mc", points=slot.points,
         stem=stem.replace("Изразете и запишете чрез $x$ периметъра на правоъгълника.",
                           "Периметърът на правоъгълника, изразен чрез $x$, е:"),
         options=options, correct_answer=letter, difficulty="medium",
-        solution=solution, signature=f"rect_perimeter:{a}",
+        solution=solution, signature=sig,
     )
 
 
@@ -473,8 +497,9 @@ def rectangle_symbolic_perimeter(rng: random.Random, slot: Slot) -> GeneratedIte
           topics=["expression_from_words"], kinds=["mc"], weight=1.2, band="easy")
 def expression_from_words_tariff(rng: random.Random, slot: Slot) -> GeneratedItem:
     """A fixed charge plus a per-unit rate — the 2025 Q17 taxi shape."""
-    base = Fraction(rng.choice([200, 250, 300, 350]), 100)
-    rate = Fraction(rng.choice([120, 150, 175, 200]), 100)
+    # euro fares since 2026: a flag-fall of a euro or two, under a euro per km
+    base = Fraction(rng.choice([120, 150, 180, 200, 250]), 100)
+    rate = Fraction(rng.choice([70, 80, 90, 110, 120]), 100)
     b, r = bg_decimal(base, places=3), bg_decimal(rate, places=3)
 
     correct = rf"{b} + {r}x"
@@ -482,9 +507,9 @@ def expression_from_words_tariff(rng: random.Random, slot: Slot) -> GeneratedIte
     options, letter = shuffle_options(f"${correct}$", [f"${w}$" for w in wrongs], rng=rng)
     return GeneratedItem(
         topic=slot.topic, kind="mc", points=slot.points,
-        stem=(f"Първоначалната такса при ползване на такси е ${b}$ лв. "
-              f"За всеки изминат километър се заплаща по ${r}$ лв. "
-              f"Кой от изразите представя сумата в лева, която клиент трябва "
+        stem=(f"Първоначалната такса при ползване на такси е ${b}$ евро. "
+              f"За всеки изминат километър се заплаща по ${r}$ евро. "
+              f"Кой от изразите представя сумата в евро, която клиент трябва "
               f"да заплати при изминаване на $x$ километра?"),
         options=options, correct_answer=letter, difficulty="easy",
         solution=f"Постоянната такса ${b}$ плюс ${r}$ за всеки от $x$ километра: ${correct}$",
@@ -497,7 +522,7 @@ def expression_from_words_tariff(rng: random.Random, slot: Slot) -> GeneratedIte
 def expression_from_words_purchase(rng: random.Random, slot: Slot) -> GeneratedItem:
     """x of one item and a multiple of another — the 2024 Q16 balloon shape."""
     mult = rng.choice([2, 3, 4])
-    price = Fraction(rng.choice([100, 150, 200, 250]), 100)
+    price = Fraction(rng.choice([40, 50, 60, 80, 120]), 100)
     total_each = price * (1 + mult)
     p = bg_decimal(price, places=3)
     correct = rf"{bg_decimal(total_each, places=3)}x"
@@ -510,7 +535,7 @@ def expression_from_words_purchase(rng: random.Random, slot: Slot) -> GeneratedI
     return GeneratedItem(
         topic=slot.topic, kind="mc", points=slot.points,
         stem=(f"Ива купила $x$ на брой бели балона и ${mult}$ пъти повече сини. "
-              f"Един балон струва ${p}$ лева. Общата стойност на покупката, "
+              f"Един балон струва ${p}$ евро. Общата стойност на покупката, "
               f"изразена чрез $x$, е:"),
         options=options, correct_answer=letter, difficulty="medium",
         solution=(rf"Балоните са $x + {mult}x = {mult + 1}x$, а стойността е "
@@ -640,8 +665,8 @@ def value_of_cubic_identity(rng: random.Random, slot: Slot) -> GeneratedItem:
           topics=["quadratic_by_factoring"], kinds=["short"], weight=1.1, band="easy")
 def quadratic_common_factor(rng: random.Random, slot: Slot) -> GeneratedItem:
     """ax² + bx = 0 — the gentlest form of the 2026 Q15 trap."""
-    a = rng.choice([1, 2, 3])
-    m = rng.randint(2, 9)
+    a = rng.randint(1, 6)
+    m = rng.randint(2, 20)
     b = a * m
     lhs = "x^2" if a == 1 else f"{a}x^2"
     factored = "x" if a == 1 else f"{a}x"
@@ -666,8 +691,8 @@ def quadratic_shared_factor(rng: random.Random, slot: Slot) -> GeneratedItem:
     silently discards x = a, which is exactly what the official keys award half
     marks against.
     """
-    a = rng.randint(2, 9)
-    k = rng.randint(5, 16)
+    a = rng.randint(2, 15)
+    k = rng.randint(3, 25)
     other = k - a
     if other == a or other == 0:
         raise Retry("want two distinct, non-trivial roots")

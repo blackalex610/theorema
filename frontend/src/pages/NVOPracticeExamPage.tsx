@@ -1907,15 +1907,62 @@ const NVOPracticeExamPage: React.FC = () => {
               {submitResult && (
                 <div className="max-w-md mx-auto mb-5">
                   <p className="text-5xl font-black text-blue-600 mb-1">{submitResult.percentage_correct}%</p>
+                  <p className="text-lg font-semibold text-gray-800">
+                    {submitResult.total_score} от {submitResult.total_max_score} точки
+                  </p>
                   <p className="text-sm text-gray-500">
-                    {submitResult.mcq_score} верни от {submitResult.mcq_max_score} задачи с избор (Модул 1)
-                    {submitResult.total_open_max_score > 0 && (
-                      <> · {submitResult.total_open_score} верни от {submitResult.total_open_max_score} отворени (Модул 2)</>
+                    {submitResult.part1_max_score ? (
+                      <>
+                        Първа част: {submitResult.part1_score} от {submitResult.part1_max_score} т.
+                        {(submitResult.part2_max_score ?? 0) > 0 && (
+                          <> · Втора част: {submitResult.part2_score} от {submitResult.part2_max_score} т.</>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        {submitResult.mcq_score} от {submitResult.mcq_max_score} т. от задачите с избор
+                        {submitResult.total_open_max_score > 0 && (
+                          <> · {submitResult.total_open_score} от {submitResult.total_open_max_score} т. от задачите със свободен отговор</>
+                        )}
+                      </>
                     )}
                   </p>
                 </div>
               )}
-              
+
+              {/* Written answers are marked like the real exam — part marks per
+                  sub-part — so show each one's points and the examiner's note. */}
+              {submitResult && submitResult.open_results.length > 0 && (
+                <div className="max-w-xl mx-auto mb-6 text-left">
+                  <h3 className="text-sm font-bold text-gray-700 mb-2">Задачи със свободен отговор</h3>
+                  <ul className="divide-y divide-gray-100 rounded-xl border border-gray-200">
+                    {[...submitResult.open_results]
+                      .sort((a, b) => a.problemId - b.problemId)
+                      .map((r) => (
+                        <li key={r.problemId} className="px-4 py-3">
+                          <div className="flex items-baseline justify-between gap-3">
+                            <span className="font-semibold text-gray-800">Задача {r.problemId}</span>
+                            <span
+                              className={
+                                r.score === r.max_score
+                                  ? 'font-bold text-green-700'
+                                  : r.score > 0
+                                    ? 'font-bold text-amber-700'
+                                    : 'font-bold text-red-700'
+                              }
+                            >
+                              {r.score} от {r.max_score} т.
+                            </span>
+                          </div>
+                          {r.score < r.max_score && r.feedback && (
+                            <p className="mt-1 text-sm text-gray-600">{r.feedback}</p>
+                          )}
+                        </li>
+                      ))}
+                  </ul>
+                </div>
+              )}
+
               {/* XP Award Breakdown */}
               {xpAwardResult && (
                 <div className="max-w-md mx-auto mb-6 rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 p-4">

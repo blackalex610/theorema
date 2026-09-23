@@ -63,6 +63,9 @@ def question_payload(number: int, item: GeneratedItem, topic: str) -> dict[str, 
         # Extra context the client may use and older clients simply ignore.
         "points": list(item.points),
         "kind": item.kind,
+        # For the grader only — stripped with the key before the client sees it.
+        "marking": item.solution if item.kind != "mc" else None,
+        "partial_credit": item.partial_credit,
     }
 
 

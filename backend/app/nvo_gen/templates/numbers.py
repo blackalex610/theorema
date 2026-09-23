@@ -69,30 +69,38 @@ def arith_whole_minus_negative_product(rng: random.Random, slot: Slot) -> Genera
 @template("arith_unit_fraction_chain",
           topics=["arithmetic_expression"], kinds=["mc"], weight=1.2, band="easy")
 def arith_unit_fraction_chain(rng: random.Random, slot: Slot) -> GeneratedItem:
-    """1/k − 1/k·m  — the 2026 shape, answer is a negative decimal."""
-    k = rng.choice(slot.profile.tier([2, 4, 5], [4, 5, 10], [4, 5, 8, 10, 20],
-                                     [8, 20, 25, 40]))
+    """1/k − 1/k·m  — the 2026 shape, answer is a negative decimal.
+
+    k is kept to divisors of 100, so every option prints in at most two
+    decimals like the paper's −1,8 / −2,2 / −4,8. The old pool allowed k = 8
+    and a "divided instead of multiplied" distractor 1/k − 1/(km), which is a
+    repeating decimal and printed rounded — „0,229”, an option no key has.
+    """
+    k = rng.choice(slot.profile.tier([2, 4, 5], [4, 5, 10], [4, 5, 10, 20, 25],
+                                     [20, 25, 50]))
     m = rng.choice(slot.profile.tier([2, 3, 4], [4, 6, 8], [6, 8, 10, 12, 15],
                                      [12, 15, 18, 24]))
     key = Fraction(1, k) - Fraction(m, k)
-    if key == 0 or not is_clean_decimal(key, places=3):
+    if key == 0 or not is_clean_decimal(key, places=2):
         raise Retry("key must be a clean decimal")
 
     wrong = [
         sign_flip(key),
-        Fraction(1, k) * (1 - m) * -1,                 # sign slip inside the bracket
+        Fraction(1 + m, k),                             # sign slip: 1/k + m/k
         (Fraction(1, k) - Fraction(1, k)) * m,          # left to right → 0
+        -Fraction(m, k),                                # dropped the first term
         Fraction(1, k) - Fraction(1, k * m),            # divided instead of multiplied
     ]
+    wrong = [w for w in wrong if is_clean_decimal(Fraction(w), places=2)]
     options, letter = numeric_options(
-        key, wrong, rng=rng, fmt=lambda v: bg_decimal(v, places=3))
+        key, wrong, rng=rng, fmt=lambda v: bg_decimal(v, places=2))
     expr = rf"\frac{{1}}{{{k}}} - \frac{{1}}{{{k}}}\cdot {m}"
     return GeneratedItem(
         topic=slot.topic, kind="mc", points=slot.points,
         stem=f"Стойността на израза ${expr}$ е:",
         options=options, correct_answer=letter, difficulty="easy",
-        solution=f"${expr} = {bg_decimal(Fraction(1, k), places=3)} - "
-                 f"{bg_decimal(Fraction(m, k), places=3)} = {bg_decimal(key, places=3)}$",
+        solution=f"${expr} = {bg_decimal(Fraction(1, k), places=2)} - "
+                 f"{bg_decimal(Fraction(m, k), places=2)} = {bg_decimal(key, places=2)}$",
         signature=f"arith_ufc:{k}:{m}",
     )
 
@@ -256,56 +264,101 @@ def shortcut_difference_of_squares(rng: random.Random, slot: Slot) -> GeneratedI
 
 # ─── percent and simple interest ─────────────────────────────────────────────
 
+_DEPOSITS = [
+    # (where the money went, what grew)
+    ("В инвестиционен фонд вложили {p} евро и след една година сумата нараснала на {t} евро.",
+     "Колко е бил годишният лихвен процент?"),
+    ("В банка внесли {p} евро на едногодишен депозит и след една година получили общо {t} евро.",
+     "Какъв е годишният лихвен процент по депозита?"),
+    ("На спестовна сметка има {p} евро. След една година с натрупаната лихва сумата става {t} евро.",
+     "Колко процента е годишната лихва?"),
+    ("Фирма вложила {p} евро, а след една година вложената сума нараснала на {t} евро.",
+     "С колко процента е нараснала сумата?"),
+]
+
+
 @template("percent_annual_interest",
           topics=["percent_interest"], kinds=["mc"], weight=1.3, band="easy")
 def percent_annual_interest(rng: random.Random, slot: Slot) -> GeneratedItem:
-    """Deposit grows over a year; find the rate — the 2026 Q7 shape."""
-    principal = rng.choice([8_000, 12_000, 15_000, 20_000, 25_000])
-    rate = rng.choice([2, 3, 4, 5, 6])
-    interest = principal * rate // 100
+    """Deposit grows over a year; find the rate — the 2026 Q7 shape.
+
+    The paper: 15 000 евро to 15 600 евро, 4%. Rates include the half
+    percents banks quote (2,5%), and the distractors are the paper's own:
+    the misplaced decimal (0,4%), the growth factor read as a percent (1,04%).
+    """
+    principal = rng.choice(slot.profile.tier([10_000, 20_000, 50_000],
+                                             list(range(5_000, 30_001, 5_000)),
+                                             list(range(4_000, 50_001, 1_000)),
+                                             list(range(12_000, 90_001, 2_000))))
+    rate = Fraction(rng.choice(slot.profile.tier([2, 3, 4, 5], [2, 3, 4, 5, 6],
+                                                 [3, 4, 5, 6, 7, 8, 10, 15, 25],
+                                                 [5, 7, 9, 11, 15, 25, 35])), 2)
+    interest = principal * rate / 100
+    if interest.denominator != 1 or rate.denominator != 1 and rate < 2:
+        raise Retry("interest must be whole euros")
     total = principal + interest
 
     wrong = [
-        Fraction(rate, 10),                 # arrested: misplaced the decimal
-        Fraction(100 + rate, 100),          # gave the growth factor as a percent
+        rate / 10,                          # arrested: misplaced the decimal
+        Fraction(100, 100) + rate / 100,    # gave the growth factor as a percent
         rate * 10,
-        Fraction(interest, principal),
+        rate + 1 if rate.denominator == 1 else rate * 2,
     ]
     options, letter = numeric_options(
         rate, wrong, rng=rng, positive_only=True,
-        fmt=lambda v: f"{bg_decimal(Fraction(v), places=3)}\\%")
+        fmt=lambda v: f"{bg_decimal(Fraction(v), places=2)}\\%")
+    fmt_money = lambda v: f"{int(v):,}".replace(",", " ")
+    told, asked = rng.choice(_DEPOSITS)
     return GeneratedItem(
         topic=slot.topic, kind="mc", points=slot.points,
-        stem=(f"В инвестиционен фонд вложили {principal:,} евро и след една година "
-              f"сумата нараснала на {total:,} евро. Колко е бил годишният лихвен процент?"
-              ).replace(",", " "),
+        stem=told.format(p=fmt_money(principal), t=fmt_money(total)) + " " + asked,
         options=options, correct_answer=letter, difficulty="easy",
-        solution=f"Лихвата е ${interest}$ евро, а ${interest} : {principal} = {bg_decimal(Fraction(rate, 100), places=4)} = {rate}\\%$",
+        solution=(f"Лихвата е ${int(interest)}$ евро, а "
+                  f"${int(interest)} : {principal} = {bg_decimal(rate / 100, places=4)} = "
+                  f"{bg_decimal(rate, places=2)}\\%$"),
         signature=f"pct_interest:{principal}:{rate}",
     )
+
+
+_PARTS_OF_A_WHOLE = [
+    # (the whole, one part given, the part asked) — {n} total, {k} given
+    "В един клас има {n} ученици, от които {k} са момчета. Колко процента от учениците са момичетата?",
+    "В училищен хор пеят {n} деца, от които {k} са от пети клас. Колко процента от хористите не са от пети клас?",
+    "На паркинг има {n} автомобила, от които {k} са бели. Колко процента от автомобилите не са бели?",
+    "В една библиотека има {n} нови книги, от които {k} са романи. Колко процента от новите книги не са романи?",
+    "От {n} засадени дръвчета {k} са борове, а останалите са липи. Колко процента от дръвчетата са липи?",
+    "В турнир участват {n} отбора, от които {k} са от София. Колко процента от отборите не са от София?",
+]
 
 
 @template("percent_of_a_quantity",
           topics=["percent_interest"], kinds=["mc"], weight=1.0, band="easy")
 def percent_of_a_quantity(rng: random.Random, slot: Slot) -> GeneratedItem:
-    """What percent of a class are girls — the 2022 Q6 shape."""
-    total = rng.choice([20, 25, 40, 50])
-    boys = rng.choice([12, 14, 16, 18, 22, 28])
-    if not 0 < boys < total or (total - boys) * 100 % total:
-        raise Retry("need a whole-number percentage")
-    girls = total - boys
-    key = girls * 100 // total
+    """What percent of a whole the *other* part is — the 2022 Q6 shape.
 
-    wrong = [boys * 100 // total, girls, boys, 100 - key * 2]
+    The trap the paper sets is answering with the given part's percentage,
+    or with the head-count itself; both are offered.
+    """
+    total = rng.choice([20, 25, 40, 50, 60, 80, 120, 150, 200, 250])
+    given = rng.randint(max(2, total // 10), total - max(2, total // 10))
+    rest = total - given
+    if (rest * 100) % total:
+        raise Retry("need a whole-number percentage")
+    key = rest * 100 // total
+    if key == 50:
+        raise Retry("50% makes the given-part distractor coincide with the key")
+
+    wrong = [given * 100 // total if (given * 100) % total == 0 else 100 - key + 5,
+             rest, given, abs(100 - key * 2) or 10]
     options, letter = numeric_options(
-        key, wrong, rng=rng, positive_only=True, fmt=lambda v: f"{v}\\%")
+        key, [w for w in wrong if 0 < w <= 100], rng=rng, positive_only=True,
+        fmt=lambda v: f"{v}\\%")
     return GeneratedItem(
         topic=slot.topic, kind="mc", points=slot.points,
-        stem=(f"В един клас има {total} ученици, от които {boys} са момчета. "
-              f"Колко процента са момичетата в този клас?"),
+        stem=rng.choice(_PARTS_OF_A_WHOLE).format(n=total, k=given),
         options=options, correct_answer=letter, difficulty="easy",
-        solution=rf"Момичетата са ${girls}$, а $\frac{{{girls}}}{{{total}}} = {key}\%$",
-        signature=f"pct_of:{total}:{boys}",
+        solution=rf"Другата част е ${rest}$, а $\frac{{{rest}}}{{{total}}} = {key}\%$",
+        signature=f"pct_of:{total}:{given}",
     )
 
 
@@ -399,23 +452,23 @@ def percent_two_stage_price(rng: random.Random, slot: Slot) -> GeneratedItem:
     raised = Fraction(base * (100 + p), 100)
     final = raised * Fraction(100 - q, 100)
     if final.denominator != 1 or raised.denominator != 1:
-        raise Retry("both stages must land on whole leva")
+        raise Retry("both stages must land on whole euros")
     key = final.numerator
 
     naive = base * (100 + p - q) // 100          # netted the percentages
     wrong = [naive, raised.numerator, base * (100 - q) // 100, base]
     options, letter = numeric_options(key, wrong, rng=rng, positive_only=True,
-                                      suffix="лв.")
+                                      suffix="евро")
     return GeneratedItem(
         topic=slot.topic, kind="mc", points=slot.points,
-        stem=(f"Цената на един артикул е ${base}$ лв. Първо тя се увеличава с "
+        stem=(f"Цената на един артикул е ${base}$ евро. Първо тя се увеличава с "
               f"${p}\\%$, а след това новата цена се намалява с ${q}\\%$. "
               f"Крайната цена на артикула е:"),
         options=options, correct_answer=letter, difficulty="hard",
-        solution=(rf"След увеличението цената е ${raised.numerator}$ лв., "
+        solution=(rf"След увеличението цената е ${raised.numerator}$ евро, "
                   rf"а след намалението ${raised.numerator}\cdot "
-                  rf"\frac{{{100 - q}}}{{100}} = {key}$ лв. "
-                  rf"(Не е ${naive}$ лв. — второто намаление е от новата цена.)"),
+                  rf"\frac{{{100 - q}}}{{100}} = {key}$ евро "
+                  rf"(не ${naive}$ евро — второто намаление е от новата цена)."),
         signature=f"pct_two_stage:{base}:{p}:{q}",
     )
 

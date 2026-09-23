@@ -62,6 +62,9 @@ class GeneratedItem:
     #: spot the same numbers coming round twice.
     signature: str = ""
     template_code: str = ""
+    #: Part marks the official key gives for a short answer that is not the
+    #: key — answer -> points, „4x и 5x” meaning both written (2026 Q21).
+    partial_credit: dict[str, int] | None = None
 
     @property
     def total_points(self) -> int:
@@ -155,6 +158,7 @@ def _ensure_loaded() -> None:
     _loaded = True
     from app.nvo_gen.templates import (  # noqa: F401  (import for side effects)
         algebra,
+        corpus,
         data,
         geometry,
         numbers,

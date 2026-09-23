@@ -153,27 +153,127 @@ Seven scene kinds: `figure` (plane geometry), `grid`, `bars`, `pie`, `solid`,
 `schematic`, `table`.
 
 ```python
-f = triangle_for_cevians()
+f = triangle_for_cevians(rng=rng)
 A, B, C = f.points["A"], f.points["B"], f.points["C"]
 H = f.put("H", foot_of_perpendicular(B, A, C))
-f.put("L", lerp(A, H, 0.62))
+f.put("L", lerp(A, H, rng.uniform(0.50, 0.74)))
 f.path(["A", "B", "C"], close=True)
 f.seg("B", "H"); f.seg("B", "L")
 f.right_angle("H", "B", "C")
 f.angle("C", "H", "B", label=deg(gamma), radius=22)
-scene = f.to_spec(aria="Триъгълник ABC с височина BH и ъглополовяща BL…")
+scene = f.to_spec(aria="Триъгълник ABC с височина BH и ъглополовяща BL…", rng=rng)
 ```
 
-Two traps worth knowing:
+### Layouts are sampled, not fixed
 
-* **Pick a layout whose topology matches the construction.** The generic
-  `scalene_triangle()` is nearly right-angled at C, so the foot of the
-  perpendicular from B lands *on* C. `triangle_for_cevians()` exists because of
-  that; `right_triangle()` puts C on the circle with diameter AB so the
-  right-angle mark sits on a real right angle.
+A layout used to return the same three points every time, so every paper
+printed the same triangle with different numbers on it — all 21 plane-geometry
+templates emitted exactly one geometry across 60 papers. They now sample per
+draw, and every figure is additionally *posed*: mirrored, rotated a few degrees
+and rescaled in `to_spec(rng=...)`. A similarity transform preserves everything
+a figure asserts, so posing is safe even for figures built point by point
+rather than from a named layout.
+
+Sampling is only safe because each layout **declares its contract**, and the
+decorator resamples until it holds:
+
+```python
+@layout(invariants=[
+    angle_below("A", "B", "C", 85.0),    # both base angles comfortably acute,
+    angle_below("C", "A", "B", 85.0),    # so a perpendicular's foot lands inside
+    angle_above("B", "A", "C", 24.0),
+    sides_differ("A", "B", "C"),         # a scalene triangle must look scalene
+    points_inside(),
+])
+def scalene_triangle(fig=None, *, flat=False, rng=None): ...
+```
+
+That contract used to live in a docstring, which is exactly why it broke once:
+the old `scalene_triangle()` was 87.9° at C, so the foot of the perpendicular
+from B landed on top of C and the figure contradicted its own stem —
+`triangle_for_cevians()` exists because of that. As a predicate it fails in CI
+instead. Called with no rng a layout still returns a fixed canonical sample,
+and that sample is checked against the same contract.
+
+A layout that cannot close raises `LayoutError`, which is a `Retry`: the
+assembler resamples rather than failing the paper.
+
+Three traps worth knowing:
+
 * **Scene labels are plain SVG text.** `"$12$"` renders with the dollar signs
   showing. The verifier rejects markup in figure labels. Table cells are the
   exception — they are real DOM and go through KaTeX.
+* **Guardrails are errors, not warnings.** Nobody eyeballs each figure now, so
+  `verify.py` rejects any scene with overlapping labels (`MIN_LABEL_GAP`), a
+  point near the box edge (`MIN_BOX_MARGIN`) or an arc too thin to read
+  (`MIN_ANGLE_DEG`). The three constants are the tightest values the old
+  hand-tuned figures produced, rounded down, so nothing that was acceptable
+  before became an error.
+* **Two items may not print the same picture.** `check_paper` compares
+  `scene.geometry_hash()`, which ignores labels — so "same triangle, different
+  angle written on it" counts as a repeat. This used to fire on half of all
+  papers: `median_to_hypotenuse` and `median_hypotenuse_from_median` both drew
+  the canonical right triangle.
+
+### Coverage against the real papers
+
+The figure set is not guesswork about what NVO prints — it was audited against
+the thirteen papers. `scripts/extract_nvo_figures.py` crops every vector-drawing
+cluster out of `NVOS/*.pdf` with its stem text; `scripts/build_contact_sheets.py`
+tiles them; `scripts/build_coverage_report.py` joins a hand classification to
+the template registry and writes `docs/nvo-figures/coverage.md`.
+
+What it found, and what the numbers mean for anyone adding to this:
+
+| | |
+|---|---|
+| figures extracted | 209 |
+| of those, not actually figures | 69 — instruction glyphs, marking tables, formula sheets, prose |
+| real archetypes | 59 |
+| expressible now | 48 |
+| uncovered, recurring in 2+ papers | **0** |
+| uncovered one-offs | 11 |
+
+Every archetype that recurs across two or more papers is covered. The eleven
+that remain each appear once *and* need machinery nothing else would reuse;
+`coverage.md` lists the reason beside each.
+
+Two of the recurring nine needed new scene machinery rather than a new layout,
+and are worth knowing about:
+
+* **`linegraph`** — a plot in *data* coordinates. It is the one scene kind that
+  is deliberately drawn to scale: the scale notice covers figures, and these
+  items ask the student to read values off the picture. The renderer maps data
+  coordinates faithfully instead of laying anything out by eye.
+* **`Figure.fills` and `coordinate_grid(shaded=...)`** — shaded regions. "The
+  shaded part" has no referent without them, so shading is scene data that
+  `geometry_hash` counts, not styling.
+
+**The two-paper bar was about fidelity, not usefulness.** A template does not
+fire once because its shape appeared once: registered, it joins the eligible
+pool for its topic and is drawable on any paper. Eight one-offs were therefore
+built anyway, chosen because they feed the thinnest slots — three of them go to
+`geom_quadrilateral`, which had the least depth of any geometry slot.
+
+One structural limit is worth recording. The 2018 paper's four-panel item
+(`parallels_transversal_panel`) makes *the four figures* the options А–Г.
+`GeneratedItem.options` is a list of strings, so an item whose options are
+scenes cannot be expressed without widening that shape and the client's
+`NVOQuestion` with it. It is the only archetype blocked by the data model
+rather than by missing drawing machinery.
+
+Two lessons from building the seven are worth carrying forward:
+
+* **A hidden point that gets an arc drawn round it needs `inside_box`.**
+  `points_inside` deliberately exempts hidden points, since they anchor lines
+  meant to run off the figure. The exterior-angle layout's anchor is hidden and
+  yet must be reachable; extending a slanted side instead of the base put it
+  off the box in 137 of 200 draws.
+* **Solve for a constrained position, don't sample and hope.** In
+  `tri_height_bisector_median` the bisector's foot must clear `M` by 25 for the
+  labels and sit at least `h·tan 16°` from `P` for the arc. Sampling the
+  segment satisfied both so rarely that the template retried on essentially
+  every draw; computing the admissible interval fixed it outright.
 
 ### Looking at the figures
 
@@ -202,10 +302,13 @@ cd ../frontend && SCENES_JSON=/tmp/scenes.json SCENES_HTML=/tmp/scenes.html \
 
 ---
 
-## Part 2 is curated, not generated
+## Part 2: parameterised transcriptions
 
-`part2_bank.py` holds hand-authored extended items with their own marking
-schemes. The reasoning:
+Every Part 2 item is a real paper's item, transcribed with its marking scheme
+and then generalised exactly as far as its reasoning allows. Algebra and word
+problems are generated inside that shape (`part2_algebra.py`, `part2_word.py`);
+geometry proofs stay closer to the page (`part2_bank.py`, `part2_geometry.py`).
+The reasoning for keeping them transcribed rather than invented:
 
 * An 11–12 point proof is marked on *intermediate* results — "1 т. за съставяне
   и опростяване на уравнението". Generating a stem is the easy half.
@@ -214,10 +317,58 @@ schemes. The reasoning:
 * The cost of being wrong is asymmetric: a flawed Part 1 item wastes two
   minutes, a flawed proof wastes twenty and teaches a false method.
 
-A student therefore gets an unlimited supply of Part 1 and a deep but finite
-Part 2, which is the right trade — nobody sits enough papers to exhaust a few
-dozen proofs. Items carry light parameterisation where the numbers genuinely do
-not change the reasoning.
+**The algebra and word problems used to be wrong.** Before the corpus study,
+four of the six were: the 2021 Q22 equation transcribed with `x(x − 4)/9` for
+`x(0,5x − 4)/9` (x² no longer cancels, every variant had irrational roots), an
+inequality solving to x > 125/59 keyed as „Линейно неравенство…”, a bus/car
+meeting whose three stated facts contradict each other, and a brigade problem
+with fractional days in 8 draws of 9. The rebuild rests on two rules:
+
+* **One tree for stem and key.** `poly.Expr` renders the LaTeX and evaluates to
+  an exact `Poly` from the same object, so the printed expression and the
+  computed answer cannot drift apart.
+* **Draw the free quantities, solve for the rest.** A word problem states
+  several facts that fix each other; drawing them independently is how the
+  meeting problem went wrong. Each builder draws what is free, solves for what
+  is determined, and rejects a draw whose derived numbers a key would not print.
+
+`test_nvo_part2_keys.py` re-derives every key from the printed stem — the
+LaTeX parsed by a reader independent of `poly.Expr`, the story's numbers pulled
+out of the text — and fails on each of the four bugs above.
+
+### Adding one: transcribe, do not invent
+
+The thirteen papers hold 39 Part 2 items and the *otgovori* editions carry the
+ministry's own marking. Transcribing one is far safer than inventing one, and
+`scripts/extract_part2_items.py` pulls the text out.
+
+The real work is deciding **how far the item generalises**, and the two proofs
+added most recently are the two answers to that:
+
+* `two_isosceles_and_parallelogram` (2025 Q23) printed one angle ratio, but the
+  whole construction depends on the obtuse angle alone — ∠BCP = ∠BAM = ∠MDP =
+  2β − 180 and every other marked angle is 180 − β. So it parameterises over
+  the ratio and reaches **30 variants** from one transcription.
+* `right_triangle_bisector_midpoint` (2022 Q23) does **not** generalise. NA = NL
+  and LM = BN/2 hold for any acute angle, but △AML ≅ △BNL and the equilateral
+  △NML are specific to ∠CAB = 60°. The ratio therefore stays as printed and the
+  given length varies instead — 7 variants, honestly.
+
+Check which case you are in *numerically* before widening a pool, and assert
+the answer in a test. Widening `right_triangle_bisector_midpoint` would leave
+parts В and Г quietly false, which is precisely the failure this file's
+opening paragraphs are about.
+
+**State a real answer.** `correct_answer` is what a human marker and the vision
+grader compare against; `"Доказателство"` gives them nothing. No placeholder
+remains, and `test_every_part2_item_verifies_and_carries_a_real_key` fails on
+one. The grader also receives the item's marking scheme now (see below).
+
+**Solve the figure.** A proof figure is the one a student stares at for twenty
+minutes. Three older ones placed L, P, Q and K at random along a side, so the
+bisector did not bisect and the perpendicular was not one; every proof figure
+is now built from its construction and `test_nvo_part2_figures.py` asserts each
+claim the item makes on the posed figure.
 
 Each entry declares its own sub-part points; the sum must equal the blueprint
 slot total (12 / 11 / 12), which the verifier enforces.
@@ -231,6 +382,19 @@ per sub-part — "2 т., при един верен отговор" on the 2026 
 е написано 4x" on the perimeter item — and retrofitting a points structure onto
 items already in the database costs far more than carrying it from the start.
 It reaches the client as `NVOQuestion.points`.
+
+**Grading uses it.** `/nvo/submit` scores in NVO points — a full paper is out of
+100, reported as Part 1 / 65 and Part 2 / 35 — and each written sub-part earns
+its own points (`app/services/nvo_grading.py`). Before, every question counted
+one point, so the three Part 2 items were 12,5% of the score instead of 35%.
+
+Short answers are checked **exactly, in code** where the key allows it —
+numbers and root sets („0 и 25”), relations and intervals, clock times, months
+(the 2026 key's „или V, или 05”), and plain polynomials such as „3x + 10” —
+lenient on form, strict on value. Only proofs and worded verdicts go to the
+language model, now with the item's marking scheme. A sub-part the model cannot
+grade (no API key) is marked with the key instead of failing the submission,
+which is what used to happen to every paper with a short answer on it.
 
 ---
 
@@ -267,6 +431,39 @@ floor at three.
 
 ---
 
+## How much can it actually generate?
+
+`scripts/measure_capacity.py` counts it rather than guessing. It samples each
+template's reachable `signature` values per slot and multiplies out, so every
+number below is a **lower bound**.
+
+| | `classic` | `nvo2026` |
+|---|---|---|
+| Part 1 combinations | 1.6 × 10⁶³ | 2.9 × 10⁶¹ |
+| Part 2 combinations | 5.0 × 10⁹ | 5.0 × 10⁹ |
+
+The product is not the number that matters. A student meets each position once
+per paper, so what they notice is the **thinnest position**, and in Part 2 the
+number of *shapes* — a proof seen once is recognised with new numbers.
+
+| | before the corpus study | now |
+|---|---|---|
+| thinnest Part 1 position | 21 items (`shortcut_multiplication`) | 203 (`work_rate`) |
+| `open_algebra` | 3 shapes, 28 items (2 of them wrong) | 5 shapes, 7 468 items |
+| `open_word_problem` | 3 shapes, 53 items (2 wrong) | 6 shapes, 6 899 items |
+| `open_geometry_proof` | 5 shapes, 43 items | 12 figures × claim pools: 98 question sets, ~2 000 items |
+
+Geometry proofs: every paper since 2015 has exactly one, so the corpus holds
+twelve, and all twelve are in `part2_proofs.py`. Each figure carries a **pool
+of claims** (6–10: prompt, key, marking steps, a check measured on the drawn
+figure, dependencies); a paper asks 3–4 of them summing to 12 points, easy to
+hard. Each configuration's docstring records how far its numbers may vary and
+why — most proofs hold only at one angle, so only a length or an area moves.
+`test_nvo_part2_figures.py` measures every claim of every pool on its figure.
+`test_every_position_has_room_for_many_papers` holds every Part 1 position of
+both blueprints at 80+ distinct items. See `docs/nvo-realism-study.md` for how
+these numbers were reached.
+
 ## Where things live
 
 ```
@@ -276,8 +473,12 @@ backend/app/nvo_gen/
   scene.py        figure specs and the builders that emit them
   distractors.py  the eight wrong-answer families, Bulgarian number formatting
   registry.py     GeneratedItem, the @template decorator, slot eligibility
-  templates/      numbers · algebra · wordproblems · data · geometry
-  part2_bank.py   curated extended items
+  poly.py         exact polynomials and Expr trees that render their own LaTeX
+  templates/      numbers · algebra · wordproblems · data · geometry · corpus
+                  (corpus: the shapes the study found in 2023–2026 and lacked)
+  part2_bank.py   Part 2 registry and the older geometry proofs
+  part2_algebra.py / part2_word.py   the generalised algebra and word transcriptions
+  part2_proofs.py   the twelve geometry proofs, each a pool of claims
   verify.py       the gate — item-level and paper-level
   assemble.py     the generation loop
   api.py          translation to the client's existing NVOQuestion shape
@@ -286,7 +487,26 @@ frontend/src/components/
   SceneRenderer.tsx          draws any scene
   NVOBlueprintSelector.tsx   the format picker
   NVODifficultySelector.tsx  the difficulty picker
+
+scripts/                     analysis tools, not shipped with the server
+  extract_nvo_figures.py     crops every figure out of NVOS/*.pdf
+  build_contact_sheets.py    tiles the crops for classification
+  build_coverage_report.py   archetypes × papers, and the gap list
+  dump_new_scenes.py         sample scenes for the renderer contact sheet
+  measure_capacity.py        how many distinct papers are actually reachable
+  extract_part2_items.py     Part 2 stems and official marking, out of the PDFs
+
+docs/nvo-figures/            the audit's evidence
+  crops/                     209 figures, one PNG each, with provenance
+  sheets/                    24 labelled contact sheets
+  inventory.json             provenance, stem text, item number per crop
+  archetypes.json            archetype → papers, crops, covering template
+  coverage.md                the report
 ```
+
+The `scripts/` tools need `pymupdf` and `pillow`, which are deliberately **not**
+in `requirements.txt` — they are analysis dependencies, and the server never
+imports them.
 
 `renderNvoDiagram` routes `diagram_type: "scene"` to `SceneRenderer`; the twelve
 hand-written diagram components stay for anything the legacy catalog generator
@@ -317,3 +537,22 @@ difficulty changes the items, never the format — plus two things worth naming:
   distractor pools sat entirely outside the plausibility band, so
   `numeric_options` raised on every draw and the slot silently fell through to
   another template while `coverage_report` still counted them.
+
+`backend/tests/test_nvo_figures.py` holds the figure guarantees. Beyond the
+three guardrails and `geometry_hash`, the one to know about is
+`test_a_new_figure_asserts_what_its_stem_claims`.
+
+The scale notice („Чертежите са само за илюстрация…”) licenses a figure whose
+angles do not match its stem's numbers. It does **not** license one where `M` is
+not really the midpoint, or where a segment the stem calls a perpendicular is
+not perpendicular — a student reading that picture is reading a lie, and no
+guardrail in `verify.py` would notice. So each figure template declares the
+topology its stem promises as a predicate over the drawn points, and it is
+checked on the *posed* output: every claim used — betweenness, midpoints,
+perpendicularity, equal radii, collinearity — survives the similarity transform
+`to_spec` applies, which is exactly why posing is safe.
+
+`test_a_new_layout_closes_on_every_draw` is a lower bar than it looks. A layout
+whose contract holds only sometimes still "works", because the decorator
+resamples — but it burns tries per figure and raises `LayoutError` under load.
+Every draw closing is the real bar.

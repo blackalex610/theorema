@@ -14,7 +14,8 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db, SessionLocal
 from app.services.playground_problems import select_playground_problems
-from app.routers.mobile_uploads import _ai_grade
+from app.services.nvo_grading import ai_mark as _ai_mark
+from app.services.nvo_grading import grade_written
 from app.services.progress_service import ProgressService
 from app.services import nvo_exam_store
 from app.services.nvo_content_retrieval import (
@@ -59,6 +60,13 @@ class NVOQuestion(BaseModel):
     # отговор"). Carried from generation so the marking screen can award
     # partial credit instead of treating every item as all-or-nothing.
     points: List[int] | None = None
+    # The item's marking scheme („1 т. за съставяне на уравнението…”), handed
+    # to the grader alongside the key. Server-side only: _strip_answer_key
+    # clears it with correct_answer.
+    marking: str | None = None
+    # The key's own part marks for a short answer, answer -> points („4x” -> 2
+    # on 2026 Q21). Server-side only, stripped with the key.
+    partial_credit: dict[str, int] | None = None
     # "mc" | "short" | "open". The 2026 format reinstated a short-answer block
     # between the multiple choice and the extended items; before that Part 1
     # was multiple choice throughout.
@@ -142,6 +150,12 @@ class NVOExamSubmitResponse(BaseModel):
     total_score: int
     total_max_score: int
     percentage_correct: int
+    # NVO points per part, as the official result reports them: out of 65 and
+    # 35 on a full paper. Defaults keep older clients and stored shapes valid.
+    part1_score: int = 0
+    part1_max_score: int = 0
+    part2_score: int = 0
+    part2_max_score: int = 0
 
 
 class NVOGenerationRequest(BaseModel):
@@ -401,7 +415,9 @@ def _strip_answer_key(exam: "NVOExam") -> "NVOExam":
     correct_answer, so it is not sent at all.
     """
     return exam.model_copy(update={
-        "questions": [q.model_copy(update={"correct_answer": None}) for q in exam.questions]
+        "questions": [q.model_copy(update={"correct_answer": None, "marking": None,
+                                      "partial_credit": None})
+                      for q in exam.questions]
     })
 
 
@@ -980,48 +996,52 @@ async def submit_nvo_exam(
 
     image_by_problem = {item.problemId: item.image for item in payload.open_answer_images}
     open_results: list[NVOOpenGradeResult] = []
+    # Every score below is in NVO points, not questions: a full paper is out of
+    # 100 (65 + 35), a 3-point item earns 3, and a written item earns its
+    # points sub-part by sub-part the way the official key awards them. Items
+    # without `points` (the legacy catalog path) count one point each, which is
+    # what every score used to be.
     total_open_score = 0
     total_open_max_score = 0
     mcq_score = 0
     mcq_max_score = 0
+    part_score = {1: 0, 2: 0}
+    part_max = {1: 0, 2: 0}
 
     for question in exam.questions:
+        weight = sum(question.points or []) or 1
+        part = 2 if (question.kind == "open" or (question.kind is None and question.options is None)) else 1
+        part_max[part] += weight
+
         if question.options is not None:
             # MCQ — graded here against the server's own stored correct_answer.
             # The client never received that value in the first place (see
             # _strip_answer_key), so it can only report which option it
             # picked; it has nothing left to forge.
-            mcq_max_score += 1
+            mcq_max_score += weight
             submitted = payload.answers.get(str(question.number), "")
             selected = submitted if isinstance(submitted, str) else ""
             correct = question.correct_answer if isinstance(question.correct_answer, str) else ""
             if selected and _normalize_option_key(selected) == _normalize_option_key(correct):
-                mcq_score += 1
+                mcq_score += weight
+                part_score[part] += weight
             continue
 
         raw_answer = payload.answers.get(str(question.number), "")
-        if isinstance(raw_answer, dict):
-            student_work = " ".join(f"{k}: {v}" for k, v in raw_answer.items()).strip()
-        else:
-            student_work = str(raw_answer or "").strip()
+        answered = (any(str(v).strip() for v in raw_answer.values())
+                    if isinstance(raw_answer, dict) else bool(str(raw_answer or "").strip()))
 
         image_data_url = image_by_problem.get(question.number, "")
         if image_data_url and not image_data_url.startswith("data:image/"):
             raise HTTPException(status_code=400, detail=f"Invalid image format for problem {question.number}")
 
-        correct_answer = question.correct_answer
-        if isinstance(correct_answer, list):
-            correct_xy = " | ".join(str(item) for item in correct_answer)
-        else:
-            correct_xy = str(correct_answer or "")
-
-        if not student_work and not image_data_url:
-            total_open_max_score += 1
+        total_open_max_score += weight
+        if not answered and not image_data_url:
             open_results.append(
                 NVOOpenGradeResult(
                     problemId=question.number,
                     score=0,
-                    max_score=1,
+                    max_score=weight,
                     is_correct=False,
                     extracted_answer="",
                     feedback="Липсва подаден отговор за тази задача.",
@@ -1030,28 +1050,34 @@ async def submit_nvo_exam(
             continue
 
         try:
-            is_correct, extracted, feedback = _ai_grade(
+            grade = grade_written(
                 statement=question.question,
-                correct_xy=correct_xy,
-                student_work=student_work or "(вижте снимката)",
+                parts=question.open_parts,
+                correct=question.correct_answer,
+                points=question.points,
+                marking=question.marking,
+                raw_answer=raw_answer,
                 image_data_url=image_data_url or None,
+                kind=question.kind or ("open" if question.number > (exam.part1_count or 0) else "short"),
+                partial_credit=question.partial_credit,
+                # looked up at call time so tests can stub the module's _ai_mark
+                ai_mark=_ai_mark,
             )
         except HTTPException:
             raise
         except Exception as exc:
             raise HTTPException(status_code=502, detail="Failed to grade open-ended response") from exc
 
-        total_open_max_score += 1
-        score = 1 if is_correct else 0
-        total_open_score += score
+        total_open_score += grade.score
+        part_score[part] += grade.score
         open_results.append(
             NVOOpenGradeResult(
                 problemId=question.number,
-                score=score,
-                max_score=1,
-                is_correct=is_correct,
-                extracted_answer=extracted,
-                feedback=feedback,
+                score=grade.score,
+                max_score=grade.max_score,
+                is_correct=grade.is_correct,
+                extracted_answer=grade.extracted,
+                feedback=grade.feedback,
             )
         )
 
@@ -1089,6 +1115,10 @@ async def submit_nvo_exam(
         total_score=total_score,
         total_max_score=total_max_score,
         percentage_correct=percentage_correct,
+        part1_score=part_score[1],
+        part1_max_score=part_max[1],
+        part2_score=part_score[2],
+        part2_max_score=part_max[2],
     )
 
 

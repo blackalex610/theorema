@@ -1,0 +1,3810 @@
+[
+ {
+  "crop": "7kl-math_230518_p01_1.png",
+  "paper": "7kl-math_230518",
+  "year": null,
+  "page": 1,
+  "bbox": [
+   193.9,
+   512.3,
+   342.8,
+   544.8
+  ],
+  "item_no": null,
+  "stem": "Например: Ако след това прецените, че първоначалният Ви отговор не е верен, запълнете кръгчето с грешния отговор и зачертайте със знака Х буквата на друг отговор, който приемате за верен.",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl-math_230518_p01_2.png",
+  "paper": "7kl-math_230518",
+  "year": null,
+  "page": 1,
+  "bbox": [
+   188.6,
+   454.6,
+   348.2,
+   484.4
+  ],
+  "item_no": null,
+  "stem": "според Вас отговори да отбелязвате внимателно в листа за отговори. За да отбележите своя отговор, срещу номера на съответната задача зачертайте със знака X буквата на избрания от Вас отговор.",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl-math_230518_p03_1.png",
+  "paper": "7kl-math_230518",
+  "year": null,
+  "page": 3,
+  "bbox": [
+   154.4,
+   601.6,
+   576.3,
+   712.2
+  ],
+  "item_no": null,
+  "stem": "Г) 3",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl-math_230518_p04_1.png",
+  "paper": "7kl-math_230518",
+  "year": null,
+  "page": 4,
+  "bbox": [
+   56.7,
+   72.2,
+   483.6,
+   154.5
+  ],
+  "item_no": 10,
+  "stem": "10. Ако 10 и 30 x y    , на кои от чертежите правите a и b са успоредни? чертеж 1 чертеж 2 чертеж 3 чертеж 4",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl-math_230518_p04_2.png",
+  "paper": "7kl-math_230518",
+  "year": null,
+  "page": 4,
+  "bbox": [
+   238.3,
+   585.0,
+   536.2,
+   692.8
+  ],
+  "item_no": null,
+  "stem": "В) 43 Г) 28",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl-math_230518_p04_3.png",
+  "paper": "7kl-math_230518",
+  "year": null,
+  "page": 4,
+  "bbox": [
+   331.9,
+   411.3,
+   530.2,
+   516.3
+  ],
+  "item_no": null,
+  "stem": "В) 16cm Г) 12cm",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl-math_230518_p04_10.png",
+  "paper": "7kl-math_230518",
+  "year": null,
+  "page": 4,
+  "bbox": [
+   385.6,
+   240.6,
+   543.2,
+   369.0
+  ],
+  "item_no": null,
+  "stem": "Б) 1 и 4 В) 3 и 4 Г) 2 и 3",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl-math_230518_p05_1.png",
+  "paper": "7kl-math_230518",
+  "year": null,
+  "page": 5,
+  "bbox": [
+   373.5,
+   46.5,
+   530.2,
+   154.3
+  ],
+  "item_no": null,
+  "stem": "",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl-math_230518_p05_2.png",
+  "paper": "7kl-math_230518",
+  "year": null,
+  "page": 5,
+  "bbox": [
+   319.3,
+   324.3,
+   530.2,
+   423.7
+  ],
+  "item_no": null,
+  "stem": "В) 72 Г) 90",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl-math_230518_p05_3.png",
+  "paper": "7kl-math_230518",
+  "year": null,
+  "page": 5,
+  "bbox": [
+   87.0,
+   46.8,
+   178.6,
+   67.2
+  ],
+  "item_no": null,
+  "stem": "",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl-math_230518_p06_1.png",
+  "paper": "7kl-math_230518",
+  "year": null,
+  "page": 6,
+  "bbox": [
+   86.2,
+   330.5,
+   433.9,
+   464.8
+  ],
+  "item_no": 20,
+  "stem": "20. За всяко от уравненията запишете номера на съответното му решение.",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl-math_230518_p07_1.png",
+  "paper": "7kl-math_230518",
+  "year": null,
+  "page": 7,
+  "bbox": [
+   51.0,
+   338.9,
+   554.4,
+   380.8
+  ],
+  "item_no": null,
+  "stem": "съгласно дадените указания. Време за работа – 90 минути. ПОЖЕЛАВАМЕ ВИ УСПЕШНА РАБОТА!",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl-math_230518_p07_2.png",
+  "paper": "7kl-math_230518",
+  "year": null,
+  "page": 7,
+  "bbox": [
+   141.2,
+   463.5,
+   468.2,
+   697.6
+  ],
+  "item_no": 21,
+  "stem": "21. Проведена е анкета с 500 ученици в едно училище относно начина на придвижване на учениците до училище. Отговорите са представени на следната диаграма:",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl-math_230518_p08_1.png",
+  "paper": "7kl-math_230518",
+  "year": null,
+  "page": 8,
+  "bbox": [
+   52.9,
+   348.0,
+   529.5,
+   391.4
+  ],
+  "item_no": null,
+  "stem": "Намерете и запишете най-високата и най-ниската температура за седмицата по Целзий ( С  ), както и средноаритметичната им стойност по Целзий ( С  ).",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl-math_230518_p08_4.png",
+  "paper": "7kl-math_230518",
+  "year": null,
+  "page": 8,
+  "bbox": [
+   357.3,
+   637.1,
+   544.8,
+   739.1
+  ],
+  "item_no": null,
+  "stem": "уравнението. Указание. На задача 24. напишете пълно решение, придружено с чертеж. Даденият чертеж е само за илюстрация – не е начертан в мащаб и не е предназначен за директно измерване на дължини на отсечки и мерки на ъгли.",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl-math_230518_p08_6.png",
+  "paper": "7kl-math_230518",
+  "year": null,
+  "page": 8,
+  "bbox": [
+   184.4,
+   718.1,
+   282.5,
+   739.3
+  ],
+  "item_no": null,
+  "stem": "вътрешна за отсечката АВ. Точката M е средата на BC и AH CH HM   . Точката N е от отсечката HB и е такава, че HN MN NB   .",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl-math_230518_p09_1.png",
+  "paper": "7kl-math_230518",
+  "year": null,
+  "page": 9,
+  "bbox": [
+   51.0,
+   188.8,
+   539.0,
+   794.1
+  ],
+  "item_no": null,
+  "stem": "23 МАЙ 2018 Ключ с верните отговори",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl-math_230518_p10_1.png",
+  "paper": "7kl-math_230518",
+  "year": null,
+  "page": 10,
+  "bbox": [
+   51.0,
+   26.0,
+   539.0,
+   750.2
+  ],
+  "item_no": null,
+  "stem": "",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "marking_table"
+ },
+ {
+  "crop": "7kl-math_230518_p11_1.png",
+  "paper": "7kl-math_230518",
+  "year": null,
+  "page": 11,
+  "bbox": [
+   51.0,
+   69.7,
+   531.8,
+   453.3
+  ],
+  "item_no": null,
+  "stem": "Задача 23. Решение, оценяване и точки по критерии:",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl-math_230518_p11_2.png",
+  "paper": "7kl-math_230518",
+  "year": null,
+  "page": 11,
+  "bbox": [
+   51.0,
+   515.3,
+   531.9,
+   759.9
+  ],
+  "item_no": null,
+  "stem": "Задача 24. Решение, оценяване и точки по критерии:",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl-math_230518_p12_1.png",
+  "paper": "7kl-math_230518",
+  "year": null,
+  "page": 12,
+  "bbox": [
+   51.0,
+   28.3,
+   531.9,
+   507.9
+  ],
+  "item_no": null,
+  "stem": "",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_math_22052017_p01_6.png",
+  "paper": "7kl_math_22052017",
+  "year": 2052,
+  "page": 1,
+  "bbox": [
+   236.6,
+   527.5,
+   295.1,
+   552.6
+  ],
+  "item_no": null,
+  "stem": "За да отбележите своя отговор, срещу номера на съответната задача зачертайте със знака X буквата на избрания от Вас отговор. А Б В Г Например: Ако след това прецените, че първоначалният Ви отговор не е верен, запълнете кръгчето с грешния отговор и зачертайте със знака Х буквата на друг отговор, който приемате за верен.",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_math_22052017_p03_1.png",
+  "paper": "7kl_math_22052017",
+  "year": 2052,
+  "page": 3,
+  "bbox": [
+   318.0,
+   575.1,
+   513.6,
+   627.9
+  ],
+  "item_no": 9,
+  "stem": "9. Върху правата AQ са построени ABC и C N",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_math_22052017_p03_2.png",
+  "paper": "7kl_math_22052017",
+  "year": 2052,
+  "page": 3,
+  "bbox": [
+   72.1,
+   555.8,
+   298.9,
+   645.1
+  ],
+  "item_no": null,
+  "stem": "Г) 0",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_math_22052017_p04_1.png",
+  "paper": "7kl_math_22052017",
+  "year": 2052,
+  "page": 4,
+  "bbox": [
+   317.5,
+   62.3,
+   510.6,
+   148.6
+  ],
+  "item_no": 10,
+  "stem": "10. На чертежа правата с пресича правите b",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_math_22052017_p04_2.png",
+  "paper": "7kl_math_22052017",
+  "year": 2052,
+  "page": 4,
+  "bbox": [
+   196.6,
+   200.9,
+   509.4,
+   280.7
+  ],
+  "item_no": null,
+  "stem": "Г) 25",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_math_22052017_p04_3.png",
+  "paper": "7kl_math_22052017",
+  "year": 2052,
+  "page": 4,
+  "bbox": [
+   389.2,
+   436.5,
+   497.4,
+   480.6
+  ],
+  "item_no": 12,
+  "stem": "Г) 10 cm 12. В АBС страната 5сm АС  и страната",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_math_22052017_p04_4.png",
+  "paper": "7kl_math_22052017",
+  "year": 2052,
+  "page": 4,
+  "bbox": [
+   365.0,
+   627.4,
+   501.5,
+   706.0
+  ],
+  "item_no": 13,
+  "stem": "C 13. В ABC ъглополовящите 1 AA и 1 BB се",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_math_22052017_p04_9.png",
+  "paper": "7kl_math_22052017",
+  "year": 2052,
+  "page": 4,
+  "bbox": [
+   179.5,
+   634.7,
+   282.3,
+   680.0
+  ],
+  "item_no": 13,
+  "stem": "C 13. В ABC ъглополовящите 1 AA и 1 BB се",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_math_22052017_p05_1.png",
+  "paper": "7kl_math_22052017",
+  "year": 2052,
+  "page": 5,
+  "bbox": [
+   350.3,
+   65.0,
+   496.5,
+   142.8
+  ],
+  "item_no": 14,
+  "stem": "14. На чертежа правите а и b се пресичат под a",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_math_22052017_p05_2.png",
+  "paper": "7kl_math_22052017",
+  "year": 2052,
+  "page": 5,
+  "bbox": [
+   386.7,
+   232.7,
+   485.3,
+   318.5
+  ],
+  "item_no": 15,
+  "stem": "15. В остроъгълния ABC с височини AN и BP C",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_math_22052017_p05_3.png",
+  "paper": "7kl_math_22052017",
+  "year": 2052,
+  "page": 5,
+  "bbox": [
+   319.8,
+   404.0,
+   478.1,
+   446.3
+  ],
+  "item_no": 16,
+  "stem": "16. В ромба АВСD DH AB  и DP BC  . 6 cm D C",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_math_22052017_p06_1.png",
+  "paper": "7kl_math_22052017",
+  "year": 2052,
+  "page": 6,
+  "bbox": [
+   398.4,
+   135.7,
+   519.7,
+   200.3
+  ],
+  "item_no": 19,
+  "stem": "D C 19. В правоъгълника ABCD, DM AC    M AC  и",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_math_22052017_p06_2.png",
+  "paper": "7kl_math_22052017",
+  "year": 2052,
+  "page": 6,
+  "bbox": [
+   65.2,
+   344.0,
+   234.2,
+   432.6
+  ],
+  "item_no": 20,
+  "stem": "20. За всяко от уравненията А), Б) и В) запишете номера от (1) до (5), срещу който са дадени съответните му корени.",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_math_22052017_p06_3.png",
+  "paper": "7kl_math_22052017",
+  "year": 2052,
+  "page": 6,
+  "bbox": [
+   264.3,
+   341.8,
+   411.9,
+   450.2
+  ],
+  "item_no": 20,
+  "stem": "20. За всяко от уравненията А), Б) и В) запишете номера от (1) до (5), срещу който са дадени съответните му корени.",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_math_22052017_p06_4.png",
+  "paper": "7kl_math_22052017",
+  "year": 2052,
+  "page": 6,
+  "bbox": [
+   72.5,
+   143.8,
+   166.7,
+   164.9
+  ],
+  "item_no": 19,
+  "stem": "D C 19. В правоъгълника ABCD, DM AC    M AC  и",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_math_22052017_p06_5.png",
+  "paper": "7kl_math_22052017",
+  "year": 2052,
+  "page": 6,
+  "bbox": [
+   217.9,
+   164.9,
+   266.0,
+   207.3
+  ],
+  "item_no": 19,
+  "stem": "19. В правоъгълника ABCD, DM AC    M AC  и : 2:3 CAB ACB  . Определете: O",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_math_22052017_p06_6.png",
+  "paper": "7kl_math_22052017",
+  "year": 2052,
+  "page": 6,
+  "bbox": [
+   181.6,
+   228.6,
+   281.5,
+   248.8
+  ],
+  "item_no": null,
+  "stem": "A B (3) двете двойки еднакви равнобедрени триъгълници",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_math_22052017_p07_1.png",
+  "paper": "7kl_math_22052017",
+  "year": 2052,
+  "page": 7,
+  "bbox": [
+   70.8,
+   608.5,
+   427.1,
+   781.8
+  ],
+  "item_no": null,
+  "stem": "комедии? Представете отношението с несъкратима дроб. Б) Колко са учениците от седми клас в това училище, ако 15 деца нямат предпочитан жанр филми, а любителите на анимация са 9?",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_math_22052017_p08_1.png",
+  "paper": "7kl_math_22052017",
+  "year": 2052,
+  "page": 8,
+  "bbox": [
+   121.6,
+   173.9,
+   516.2,
+   259.1
+  ],
+  "item_no": null,
+  "stem": "увеличили с 4, а присъстващите били 70 % от всички ученици в класа. А) Пречертайте и попълнете следната таблица.",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_math_22052017_p09_1.png",
+  "paper": "7kl_math_22052017",
+  "year": 2052,
+  "page": 9,
+  "bbox": [
+   65.2,
+   91.1,
+   540.3,
+   778.2
+  ],
+  "item_no": null,
+  "stem": "РЪКОВОДСТВО ЗА ОЦЕНЯВАНЕ",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_math_22052017_p10_1.png",
+  "paper": "7kl_math_22052017",
+  "year": 2052,
+  "page": 10,
+  "bbox": [
+   65.2,
+   49.7,
+   540.3,
+   777.3
+  ],
+  "item_no": null,
+  "stem": "",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_math_22052017_p11_1.png",
+  "paper": "7kl_math_22052017",
+  "year": 2052,
+  "page": 11,
+  "bbox": [
+   65.2,
+   49.7,
+   540.3,
+   196.1
+  ],
+  "item_no": null,
+  "stem": "",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_math_22052017_p11_2.png",
+  "paper": "7kl_math_22052017",
+  "year": 2052,
+  "page": 11,
+  "bbox": [
+   65.2,
+   216.7,
+   533.0,
+   302.1
+  ],
+  "item_no": null,
+  "stem": "При друг отговор 0 точки Общо 7 точки",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_math_22052017_p11_3.png",
+  "paper": "7kl_math_22052017",
+  "year": 2052,
+  "page": 11,
+  "bbox": [
+   65.2,
+   446.9,
+   547.4,
+   771.6
+  ],
+  "item_no": 23,
+  "stem": "23. Критерии за оценяване и брой точки по всеки критерий:",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_math_22052017_p12_1.png",
+  "paper": "7kl_math_22052017",
+  "year": 2052,
+  "page": 12,
+  "bbox": [
+   65.2,
+   49.7,
+   547.4,
+   119.9
+  ],
+  "item_no": null,
+  "stem": "",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_math_22052017_p12_2.png",
+  "paper": "7kl_math_22052017",
+  "year": 2052,
+  "page": 12,
+  "bbox": [
+   65.2,
+   181.9,
+   519.1,
+   450.4
+  ],
+  "item_no": 24,
+  "stem": "24. Критерии за оценяване и брой точки по всеки критерий:",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_nvo_math_16062022_p02_1.png",
+  "paper": "7kl_nvo_math_16062022",
+  "year": 2022,
+  "page": 2,
+  "bbox": [
+   177.0,
+   574.8,
+   557.2,
+   786.2
+  ],
+  "item_no": 7,
+  "stem": "7. По данните от диаграмата определете годината, в която отношението на участниците в клуб „Умник“ към участниците в клуб „Атлет“ е най-голямо.",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_nvo_math_16062022_p04_3.png",
+  "paper": "7kl_nvo_math_16062022",
+  "year": 2022,
+  "page": 4,
+  "bbox": [
+   290.9,
+   280.6,
+   522.5,
+   405.8
+  ],
+  "item_no": 13,
+  "stem": "Г) 54 13. По данните от чертежа мярката на по-малкия ъгъл, получен при пресичането на",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_nvo_math_16062022_p04_4.png",
+  "paper": "7kl_nvo_math_16062022",
+  "year": 2022,
+  "page": 4,
+  "bbox": [
+   281.8,
+   454.6,
+   477.8,
+   578.2
+  ],
+  "item_no": 14,
+  "stem": "14. По данните от чертежа градусната мярка на външния ъгъл при върха В на ΔАВС е:",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_nvo_math_16062022_p04_5.png",
+  "paper": "7kl_nvo_math_16062022",
+  "year": 2022,
+  "page": 4,
+  "bbox": [
+   318.0,
+   639.8,
+   466.4,
+   750.4
+  ],
+  "item_no": 15,
+  "stem": "15. На чертежа ABC  е равнобедрен( ), АC BC CH  e височина, 3 cm AH  и : 3: 4. AH HC  Дължината на бедрото ВС е:",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_nvo_math_16062022_p04_6.png",
+  "paper": "7kl_nvo_math_16062022",
+  "year": 2022,
+  "page": 4,
+  "bbox": [
+   318.0,
+   114.2,
+   506.9,
+   248.6
+  ],
+  "item_no": 12,
+  "stem": "за директно измерване на дължини и на ъгли. 12. На чертежа точката О лежи на правата АС и ODе ъглополовящата на BOC  .",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_nvo_math_16062022_p05_1.png",
+  "paper": "7kl_nvo_math_16062022",
+  "year": 2022,
+  "page": 5,
+  "bbox": [
+   283.2,
+   80.2,
+   498.2,
+   226.6
+  ],
+  "item_no": 16,
+  "stem": "16. На чертежа в ABC  30 ABC    и симетралата на страната ВС пресича страните АВ и ВС съответно в точките M и D. Ако 2 cm MD  , дължината на отсечката СM е:",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_nvo_math_16062022_p05_2.png",
+  "paper": "7kl_nvo_math_16062022",
+  "year": 2022,
+  "page": 5,
+  "bbox": [
+   291.4,
+   443.5,
+   470.9,
+   601.0
+  ],
+  "item_no": 18,
+  "stem": "18. Трите измерения на правоъгълен паралелепипед са 20 cm, 300 mm и 5 dm. Обемът му в кубически дециметри е:",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_nvo_math_16062022_p05_3.png",
+  "paper": "7kl_nvo_math_16062022",
+  "year": 2022,
+  "page": 5,
+  "bbox": [
+   263.5,
+   267.8,
+   480.5,
+   378.2
+  ],
+  "item_no": 17,
+  "stem": "17. В успоредника ABCD DL е ъглополовящата на ъгъла при върха D и 65 ALD    .",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_nvo_math_16062022_p06_3.png",
+  "paper": "7kl_nvo_math_16062022",
+  "year": 2022,
+  "page": 6,
+  "bbox": [
+   112.0,
+   178.6,
+   431.9,
+   336.2
+  ],
+  "item_no": null,
+  "stem": "от годината. На диаграмата са представени данните от проучването, като всеки анкетиран е посочил само един сезон.",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_nvo_math_16062022_p06_4.png",
+  "paper": "7kl_nvo_math_16062022",
+  "year": 2022,
+  "page": 6,
+  "bbox": [
+   316.6,
+   522.5,
+   520.3,
+   714.5
+  ],
+  "item_no": 20,
+  "stem": "20. На чертежа правоъгълните ABC  и ABD  са с обща хипотенуза AB. Точката C е от симетралата на отсечка AB и : 1:5. BAD ABD    Ако точката М е средата на отсечката AB",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_nvo_math_16062022_p07_5.png",
+  "paper": "7kl_nvo_math_16062022",
+  "year": 2022,
+  "page": 7,
+  "bbox": [
+   115.0,
+   353.8,
+   442.8,
+   439.9
+  ],
+  "item_no": null,
+  "stem": "В 9 часà от град В към град С тръгва камион със скорост 60 km/h, а в 10 часà и 45 минути от град А към С тръгва лека кола със скорост 85 km/h, която настига камиона на 34 km преди град С.",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_nvo_math_16062022_p09_2.png",
+  "paper": "7kl_nvo_math_16062022",
+  "year": 2022,
+  "page": 9,
+  "bbox": [
+   57.8,
+   220.3,
+   525.8,
+   735.1
+  ],
+  "item_no": null,
+  "stem": "ПО МАТЕМАТИКА – VII клас, 16 юни 2022 г. Ключ с верните отговори – Вариант 1",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "marking_table"
+ },
+ {
+  "crop": "7kl_nvo_math_16062022_p10_1.png",
+  "paper": "7kl_nvo_math_16062022",
+  "year": 2022,
+  "page": 10,
+  "bbox": [
+   57.8,
+   91.0,
+   525.8,
+   586.4
+  ],
+  "item_no": null,
+  "stem": "",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "marking_table"
+ },
+ {
+  "crop": "7kl_nvo_math_16062022_p10_2.png",
+  "paper": "7kl_nvo_math_16062022",
+  "year": 2022,
+  "page": 10,
+  "bbox": [
+   81.2,
+   640.2,
+   480.0,
+   737.5
+  ],
+  "item_no": null,
+  "stem": "Задача 21. Примерно решение: А)",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_nvo_math_16062022_p12_1.png",
+  "paper": "7kl_nvo_math_16062022",
+  "year": 2022,
+  "page": 12,
+  "bbox": [
+   288.1,
+   612.8,
+   460.6,
+   731.3
+  ],
+  "item_no": null,
+  "stem": "        Задача 23. Примерно решение:",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_nvo_math_16062022_p14_1.png",
+  "paper": "7kl_nvo_math_16062022",
+  "year": 2022,
+  "page": 14,
+  "bbox": [
+   63.2,
+   110.2,
+   527.4,
+   713.4
+  ],
+  "item_no": null,
+  "stem": "МИНИСТЕРСТВО НА ОБРАЗОВАНИЕТО И НАУКАТА МАТЕМАТИКА VII КЛАС ФОРМУЛИ",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_nvo_math_16062022_p15_1.png",
+  "paper": "7kl_nvo_math_16062022",
+  "year": 2022,
+  "page": 15,
+  "bbox": [
+   65.2,
+   28.3,
+   531.9,
+   780.1
+  ],
+  "item_no": null,
+  "stem": "",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "7kl_nvo_math_16062022_p16_1.png",
+  "paper": "7kl_nvo_math_16062022",
+  "year": 2022,
+  "page": 16,
+  "bbox": [
+   63.4,
+   28.3,
+   519.8,
+   292.8
+  ],
+  "item_no": null,
+  "stem": "",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "math_190619-7kl_p03_3.png",
+  "paper": "math_190619-7kl",
+  "year": null,
+  "page": 3,
+  "bbox": [
+   320.4,
+   235.4,
+   518.4,
+   340.1
+  ],
+  "item_no": null,
+  "stem": "В) 350 cm2 Г) 600 cm2",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "math_190619-7kl_p03_4.png",
+  "paper": "math_190619-7kl",
+  "year": null,
+  "page": 3,
+  "bbox": [
+   343.0,
+   595.2,
+   511.4,
+   707.5
+  ],
+  "item_no": null,
+  "stem": "",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "math_190619-7kl_p03_5.png",
+  "paper": "math_190619-7kl",
+  "year": null,
+  "page": 3,
+  "bbox": [
+   285.8,
+   393.1,
+   511.4,
+   530.6
+  ],
+  "item_no": null,
+  "stem": "Б) 150 В) 135 Г) 120",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "math_190619-7kl_p04_1.png",
+  "paper": "math_190619-7kl",
+  "year": null,
+  "page": 4,
+  "bbox": [
+   309.1,
+   235.2,
+   506.9,
+   343.7
+  ],
+  "item_no": 14,
+  "stem": "14. Точката М е средата на хипотенузата АВ в правоъгълния ABC  на чертежа. Ако 30 ABC    и CP AB  , то е вярно, че:",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "math_190619-7kl_p04_2.png",
+  "paper": "math_190619-7kl",
+  "year": null,
+  "page": 4,
+  "bbox": [
+   361.4,
+   392.4,
+   526.8,
+   523.7
+  ],
+  "item_no": null,
+  "stem": "В) 2 3 РВ АВ  Г) 3 4 РВ АВ ",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "math_190619-7kl_p04_3.png",
+  "paper": "math_190619-7kl",
+  "year": null,
+  "page": 4,
+  "bbox": [
+   317.0,
+   590.6,
+   526.6,
+   719.8
+  ],
+  "item_no": null,
+  "stem": "В)   2 a b a b   Г) 2 2 a ab b  ",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "math_190619-7kl_p04_4.png",
+  "paper": "math_190619-7kl",
+  "year": null,
+  "page": 4,
+  "bbox": [
+   378.7,
+   35.3,
+   500.2,
+   166.6
+  ],
+  "item_no": null,
+  "stem": "",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "math_190619-7kl_p05_3.png",
+  "paper": "math_190619-7kl",
+  "year": null,
+  "page": 5,
+  "bbox": [
+   309.4,
+   552.7,
+   538.7,
+   701.5
+  ],
+  "item_no": null,
+  "stem": "Б) изразете и запишете чрез x броя на помагалата S и приведете израза в нормален вид; В) пресметнете и запишете броя на помагалата по трите учебни предмета, ако S = 200.",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "math_190619-7kl_p05_4.png",
+  "paper": "math_190619-7kl",
+  "year": null,
+  "page": 5,
+  "bbox": [
+   343.4,
+   35.3,
+   542.2,
+   179.0
+  ],
+  "item_no": null,
+  "stem": "",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "math_190619-7kl_p06_3.png",
+  "paper": "math_190619-7kl",
+  "year": null,
+  "page": 6,
+  "bbox": [
+   339.1,
+   481.7,
+   513.8,
+   613.2
+  ],
+  "item_no": 22,
+  "stem": "22. Чипровските килими са част от културното наследство на България. Изобразената",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "math_190619-7kl_p06_4.png",
+  "paper": "math_190619-7kl",
+  "year": null,
+  "page": 6,
+  "bbox": [
+   276.0,
+   183.6,
+   530.6,
+   421.4
+  ],
+  "item_no": null,
+  "stem": "ВТОРА ЧАСТ (90 минути) Отговорите на задачите от 21. до 25. включително запишете в свитъка за белова.",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "math_190619-7kl_p08_1.png",
+  "paper": "math_190619-7kl",
+  "year": null,
+  "page": 8,
+  "bbox": [
+   70.8,
+   180.4,
+   553.0,
+   763.9
+  ],
+  "item_no": null,
+  "stem": "КЛЮЧ С ВЕРНИТЕ ОТГОВОРИ",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "marking_table"
+ },
+ {
+  "crop": "math_190619-7kl_p09_1.png",
+  "paper": "math_190619-7kl",
+  "year": null,
+  "page": 9,
+  "bbox": [
+   70.8,
+   35.4,
+   553.0,
+   774.2
+  ],
+  "item_no": null,
+  "stem": "",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "marking_table"
+ },
+ {
+  "crop": "math_190619-7kl_p10_1.png",
+  "paper": "math_190619-7kl",
+  "year": null,
+  "page": 10,
+  "bbox": [
+   70.8,
+   35.4,
+   553.0,
+   143.9
+  ],
+  "item_no": null,
+  "stem": "",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "marking_table"
+ },
+ {
+  "crop": "math_190619-7kl_p11_1.png",
+  "paper": "math_190619-7kl",
+  "year": null,
+  "page": 11,
+  "bbox": [
+   334.6,
+   39.6,
+   522.5,
+   203.3
+  ],
+  "item_no": null,
+  "stem": "",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo-7-klas-math-v2-otgovori-20.06.2025_p03_2.png",
+  "paper": "nvo-7-klas-math-v2-otgovori-20.06.2025",
+  "year": 2025,
+  "page": 3,
+  "bbox": [
+   356.9,
+   499.4,
+   510.5,
+   605.8
+  ],
+  "item_no": null,
+  "stem": "Б) 2 10cm В) 2 18cm Г) 2 20cm",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo-7-klas-math-v2-otgovori-20.06.2025_p03_3.png",
+  "paper": "nvo-7-klas-math-v2-otgovori-20.06.2025",
+  "year": 2025,
+  "page": 3,
+  "bbox": [
+   283.9,
+   275.0,
+   517.0,
+   452.6
+  ],
+  "item_no": 10,
+  "stem": "Г) 83о 10. На чертежа в координатна система Охy с единична отсечка 1 cm са отбелязани точките А и В. Точката С е симетрична на точка А спрямо ординатата ос Оу. Лицето на ΔАВС е:",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo-7-klas-math-v2-otgovori-20.06.2025_p03_4.png",
+  "paper": "nvo-7-klas-math-v2-otgovori-20.06.2025",
+  "year": 2025,
+  "page": 3,
+  "bbox": [
+   364.6,
+   657.0,
+   500.3,
+   786.7
+  ],
+  "item_no": 12,
+  "stem": "Г) 9 cm 12. Симетралите на страните АВ и AC на ABC  се пресичат в точката О, така че 42 OCA    и 35 , OBA    както е показано на чертежа. Мярката на BOC  е:",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo-7-klas-math-v2-otgovori-20.06.2025_p03_5.png",
+  "paper": "nvo-7-klas-math-v2-otgovori-20.06.2025",
+  "year": 2025,
+  "page": 3,
+  "bbox": [
+   313.4,
+   138.5,
+   480.2,
+   235.7
+  ],
+  "item_no": 9,
+  "stem": "директно измерване на дължини и на ъгли. 9. На чертежа правите c и d са успоредни. По данните от чертежа мярката на ъгъл  е:",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo-7-klas-math-v2-otgovori-20.06.2025_p04_1.png",
+  "paper": "nvo-7-klas-math-v2-otgovori-20.06.2025",
+  "year": 2025,
+  "page": 4,
+  "bbox": [
+   395.0,
+   275.5,
+   524.9,
+   400.6
+  ],
+  "item_no": 14,
+  "stem": "14. В равностранния ABC  от точка P, която е от страната АC, е издигнат перпендикуляр PM   M AB  . Ако 4 cm AP  и 5 cm, MB  то дължината на страната АВ е:",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo-7-klas-math-v2-otgovori-20.06.2025_p04_2.png",
+  "paper": "nvo-7-klas-math-v2-otgovori-20.06.2025",
+  "year": 2025,
+  "page": 4,
+  "bbox": [
+   394.6,
+   109.0,
+   488.2,
+   210.7
+  ],
+  "item_no": 13,
+  "stem": "13. Цветарник с форма на куб има обиколка на основата 12 dm. Колко литра почва са необходими за запълването на 2",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo-7-klas-math-v2-otgovori-20.06.2025_p05_1.png",
+  "paper": "nvo-7-klas-math-v2-otgovori-20.06.2025",
+  "year": 2025,
+  "page": 5,
+  "bbox": [
+   181.3,
+   439.1,
+   541.3,
+   497.8
+  ],
+  "item_no": 19,
+  "stem": "Г) 90% 19. В книжарница за един месец са продадени общо 1200 книги от видовете: художествена литература, детска литература, техническа литература и фантастика. В таблицата е представено разпределението на броя продадени книги по видове. Колко броя книги художествена литература са продадени за този месец?",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo-7-klas-math-v2-otgovori-20.06.2025_p05_2.png",
+  "paper": "nvo-7-klas-math-v2-otgovori-20.06.2025",
+  "year": 2025,
+  "page": 5,
+  "bbox": [
+   334.3,
+   573.6,
+   513.1,
+   691.0
+  ],
+  "item_no": 20,
+  "stem": "75% от n 2 n 4 n n Г) 120 20. За укрепването на стълб с височина 3 m се използва метално въже с дължина 5 m. На какво разстояние от основата на стълба трябва да се закрепи въжето?",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo-7-klas-math-v2-otgovori-20.06.2025_p07_1.png",
+  "paper": "nvo-7-klas-math-v2-otgovori-20.06.2025",
+  "year": 2025,
+  "page": 7,
+  "bbox": [
+   59.4,
+   213.7,
+   540.2,
+   666.2
+  ],
+  "item_no": null,
+  "stem": "НАЦИОНАЛНО ВЪНШНО ОЦЕНЯВАНЕ ПО МАТЕМАТИКА – VII клас, 20 юни 2025 година Ключ с верните отговори – Вариант 2",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo-7-klas-math-v2-otgovori-20.06.2025_p08_1.png",
+  "paper": "nvo-7-klas-math-v2-otgovori-20.06.2025",
+  "year": 2025,
+  "page": 8,
+  "bbox": [
+   59.4,
+   58.6,
+   540.2,
+   507.0
+  ],
+  "item_no": null,
+  "stem": "",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "marking_table"
+ },
+ {
+  "crop": "nvo-7-klas-math-v2-otgovori-20.06.2025_p09_1.png",
+  "paper": "nvo-7-klas-math-v2-otgovori-20.06.2025",
+  "year": 2025,
+  "page": 9,
+  "bbox": [
+   121.2,
+   371.5,
+   375.8,
+   433.9
+  ],
+  "item_no": 3,
+  "stem": "Най-малкото цяло отрицателно решение на неравенството e   3 .  Задача 22. Примерно решение:",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo-7-klas-math-v2-otgovori-20.06.2025_p10_1.png",
+  "paper": "nvo-7-klas-math-v2-otgovori-20.06.2025",
+  "year": 2025,
+  "page": 10,
+  "bbox": [
+   54.0,
+   98.0,
+   188.4,
+   162.7
+  ],
+  "item_no": null,
+  "stem": "Б) Шофьорът на автомобила е долял 7,8 литра гориво. Автомобилът е изразходвал за 150 km 7,8 литра гориво.",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo-7-klas-math-v2-otgovori-20.06.2025_p10_2.png",
+  "paper": "nvo-7-klas-math-v2-otgovori-20.06.2025",
+  "year": 2025,
+  "page": 10,
+  "bbox": [
+   348.5,
+   340.6,
+   553.7,
+   495.1
+  ],
+  "item_no": null,
+  "stem": "Разходът на автомобила е 5,2 литра за 100 километра. Задача 23. Примерно решение:",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo-7-klas-math-v2-otgovori-20.06.2025_p10_3.png",
+  "paper": "nvo-7-klas-math-v2-otgovori-20.06.2025",
+  "year": 2025,
+  "page": 10,
+  "bbox": [
+   274.1,
+   611.8,
+   494.4,
+   777.8
+  ],
+  "item_no": null,
+  "stem": "45 AMB    - MAB  равнобедрен, тъй като AB MA   90 MAB    Б) , 15 , 30 45 DC AB AD BC DCA CAB ACB CAD DAB                 ABCD успоредник с ъгли 45 и 135 .Разглеждаме MDA  и : DPC ",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo-math_7kl_18062021_p03_3.png",
+  "paper": "nvo-math_7kl_18062021",
+  "year": 2021,
+  "page": 3,
+  "bbox": [
+   303.4,
+   576.6,
+   421.4,
+   700.6
+  ],
+  "item_no": 11,
+  "stem": "11. На чертежа е дадена правилна осмоъгълна пирамида. Лицето на една от околните ѝ стени е 18 cm2. Лицето на околната повърхнина на пирамидата е:",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo-math_7kl_18062021_p03_4.png",
+  "paper": "nvo-math_7kl_18062021",
+  "year": 2021,
+  "page": 3,
+  "bbox": [
+   267.7,
+   407.3,
+   486.7,
+   515.2
+  ],
+  "item_no": 56,
+  "stem": "10. Дадени са ABC  и MNP  , за които AC NP  , BC MP  , 47 CAB    и 56 . ACB MPN      Мярката на NMP  е:",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo-math_7kl_18062021_p04_1.png",
+  "paper": "nvo-math_7kl_18062021",
+  "year": 2021,
+  "page": 4,
+  "bbox": [
+   267.4,
+   263.4,
+   477.4,
+   419.2
+  ],
+  "item_no": 13,
+  "stem": "13. На чертежа правите a и b са успоредни, BC е ъглополовяща на ABM  , а 55 BCA    .",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo-math_7kl_18062021_p04_2.png",
+  "paper": "nvo-math_7kl_18062021",
+  "year": 2021,
+  "page": 4,
+  "bbox": [
+   286.2,
+   461.2,
+   438.8,
+   571.6
+  ],
+  "item_no": 14,
+  "stem": "14. В ABC  oтсечката CN е ъглополовяща на ( ) ACB N AB   , 70 CNB    и . AN CN ",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo-math_7kl_18062021_p04_3.png",
+  "paper": "nvo-math_7kl_18062021",
+  "year": 2021,
+  "page": 4,
+  "bbox": [
+   298.7,
+   645.8,
+   454.4,
+   743.9
+  ],
+  "item_no": 15,
+  "stem": "15. В ABC  симетралата s на страната AC пресича AB в точка М. Ако CM е медиана и 36 MCB    , то мярката на BAC  е:",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo-math_7kl_18062021_p04_4.png",
+  "paper": "nvo-math_7kl_18062021",
+  "year": 2021,
+  "page": 4,
+  "bbox": [
+   329.2,
+   91.8,
+   468.1,
+   202.3
+  ],
+  "item_no": 12,
+  "stem": "12. Правите a, b и c се пресичат в точка O. По данните от чертежа мярката на ъгъл α е:",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo-math_7kl_18062021_p05_1.png",
+  "paper": "nvo-math_7kl_18062021",
+  "year": 2021,
+  "page": 5,
+  "bbox": [
+   321.7,
+   260.4,
+   494.2,
+   381.2
+  ],
+  "item_no": 17,
+  "stem": "17. В квадратна мрежа с единична отсечка x cm е начертан ромб ABCD. Ако обиколката на",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo-math_7kl_18062021_p05_2.png",
+  "paper": "nvo-math_7kl_18062021",
+  "year": 2021,
+  "page": 5,
+  "bbox": [
+   318.0,
+   104.6,
+   486.0,
+   199.2
+  ],
+  "item_no": 16,
+  "stem": "16. На чертежа ABC  е правоъгълен, 30 ABC    и отсечката AL е ъглополовяща на . BAC  Ако 18 cm BL  , то дължината на BC е:",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo-math_7kl_18062021_p06_3.png",
+  "paper": "nvo-math_7kl_18062021",
+  "year": 2021,
+  "page": 6,
+  "bbox": [
+   69.0,
+   177.7,
+   518.9,
+   209.9
+  ],
+  "item_no": 19,
+  "stem": "19. Три туристически агенции „Атлас“, „Блян“ и „Мечта“ разполагат общо с 240 пакета за екскурзии в чужбина и продали 75%, като всяка от агенциите е продала различен брой от тях. Данните за всички продадени пакети в проценти са представени в таблицата:",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo-math_7kl_18062021_p06_4.png",
+  "paper": "nvo-math_7kl_18062021",
+  "year": 2021,
+  "page": 6,
+  "bbox": [
+   309.1,
+   424.3,
+   500.5,
+   632.9
+  ],
+  "item_no": 20,
+  "stem": "20. Върху правоъгълна координатна система Oxy с единична отсечка 1 cm е дадена точка А. Като използвате чертежа, намерете и запишете:",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo-math_7kl_18062021_p07_5.png",
+  "paper": "nvo-math_7kl_18062021",
+  "year": 2021,
+  "page": 7,
+  "bbox": [
+   147.6,
+   388.9,
+   442.9,
+   559.0
+  ],
+  "item_no": null,
+  "stem": "следните четири вида: „Астра“, „Букет“, „Сладост“ и „Добуш“. От торти „Добуш“ са произведени 40 броя, а на диаграмата е представен броят на произведените торти от останалите три вида.",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo-math_7kl_18062021_p09_2.png",
+  "paper": "nvo-math_7kl_18062021",
+  "year": 2021,
+  "page": 9,
+  "bbox": [
+   74.3,
+   206.3,
+   538.3,
+   742.8
+  ],
+  "item_no": null,
+  "stem": "ПО МАТЕМАТИКА – VII клас, 18 юни 2021 г. Ключ с верните отговори – Вариант 1",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "marking_table"
+ },
+ {
+  "crop": "nvo-math_7kl_18062021_p10_1.png",
+  "paper": "nvo-math_7kl_18062021",
+  "year": 2021,
+  "page": 10,
+  "bbox": [
+   74.3,
+   70.2,
+   538.3,
+   627.8
+  ],
+  "item_no": null,
+  "stem": "",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "marking_table"
+ },
+ {
+  "crop": "nvo-math_7kl_18062021_p12_2.png",
+  "paper": "nvo-math_7kl_18062021",
+  "year": 2021,
+  "page": 12,
+  "bbox": [
+   364.0,
+   475.8,
+   517.2,
+   583.1
+  ],
+  "item_no": null,
+  "stem": "3 9 2 3 9 6 9 6 9 3 .( 5) .45 3 .5 .9.5 3 .5 .3 3 .5 1 0,2 9 .( 5) (3 ) .5 3 .5 3 .5 5 m m           Г) 15 0,2 0,2 1,5 1,7 10 10 x m       1,7 1,6    не е решение на неравенството.",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo-math_7kl_18062021_p13_1.png",
+  "paper": "nvo-math_7kl_18062021",
+  "year": 2021,
+  "page": 13,
+  "bbox": [
+   310.7,
+   203.5,
+   529.2,
+   279.2
+  ],
+  "item_no": 3,
+  "stem": "Tогава 180 60 DMK DMB KMC         . DKМ  e равнобедрен с ъгъл от 60о. Следователно e равностранен и обиколката му е 3. 6 DKМ P DM    cm.",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo-viikl-math_17062020_p03_1.png",
+  "paper": "nvo-viikl-math_17062020",
+  "year": 2020,
+  "page": 3,
+  "bbox": [
+   407.3,
+   242.3,
+   469.8,
+   298.1
+  ],
+  "item_no": 9,
+  "stem": "В) 15 лв. Г) 20 лв. 9. Кутия за сладки има форма на куб с обем 1000 cm3. Ръбът на кутията е с дължина: А) 20 cm",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo-viikl-math_17062020_p03_2.png",
+  "paper": "nvo-viikl-math_17062020",
+  "year": 2020,
+  "page": 3,
+  "bbox": [
+   366.0,
+   495.7,
+   523.1,
+   615.8
+  ],
+  "item_no": 11,
+  "stem": "В) 3 4 90      Г) 2 3 90      11. Правите a, b и c се пресичат в точката О, като a и b са перпендикулярни. По данните от",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo-viikl-math_17062020_p03_3.png",
+  "paper": "nvo-viikl-math_17062020",
+  "year": 2020,
+  "page": 3,
+  "bbox": [
+   347.4,
+   348.8,
+   495.1,
+   429.0
+  ],
+  "item_no": 10,
+  "stem": "Б) 15 cm В) 10 cm Г) 5 cm 10. Пресичащите се прави a и b на чертежа не са перпендикулярни. Кое от следните",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo-viikl-math_17062020_p03_4.png",
+  "paper": "nvo-viikl-math_17062020",
+  "year": 2020,
+  "page": 3,
+  "bbox": [
+   378.1,
+   640.4,
+   515.3,
+   744.5
+  ],
+  "item_no": 12,
+  "stem": "Г) 90 12. Успоредните прави a и b са пресечени от правата c. По данните от чертежа мярката",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo-viikl-math_17062020_p04_1.png",
+  "paper": "nvo-viikl-math_17062020",
+  "year": 2020,
+  "page": 4,
+  "bbox": [
+   342.8,
+   235.3,
+   514.3,
+   350.2
+  ],
+  "item_no": 14,
+  "stem": "Г) 75 14. Дадени са ABC  и NMP  , за които , AC NP BC MP   и 56 ACB NPM      . Ако",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo-viikl-math_17062020_p04_2.png",
+  "paper": "nvo-viikl-math_17062020",
+  "year": 2020,
+  "page": 4,
+  "bbox": [
+   353.6,
+   71.5,
+   498.2,
+   184.1
+  ],
+  "item_no": 13,
+  "stem": "13. На чертежа AH и BL са съответно височина и ъглополовяща в ABC  , като AH BL P  ",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo-viikl-math_17062020_p04_3.png",
+  "paper": "nvo-viikl-math_17062020",
+  "year": 2020,
+  "page": 4,
+  "bbox": [
+   344.5,
+   412.6,
+   498.2,
+   518.0
+  ],
+  "item_no": 15,
+  "stem": "15. На чертежа симетралата s на страната AC на ABC  пресича отсечката AB в точка Q. Ако AB = 14 cm и BC = 4 cm, то периметърът на QBC  е равен на:",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo-viikl-math_17062020_p04_4.png",
+  "paper": "nvo-viikl-math_17062020",
+  "year": 2020,
+  "page": 4,
+  "bbox": [
+   325.4,
+   576.2,
+   492.7,
+   683.0
+  ],
+  "item_no": 16,
+  "stem": "16. В ABC  на чертежа ъглополовящите на ъглите BAC  и ACB  се пресичат в точка О и 110 AОC    . Мярката на ABC  е:",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo-viikl-math_17062020_p05_1.png",
+  "paper": "nvo-viikl-math_17062020",
+  "year": 2020,
+  "page": 5,
+  "bbox": [
+   316.8,
+   73.8,
+   506.3,
+   175.8
+  ],
+  "item_no": 17,
+  "stem": "17. За ABC  на чертежа е дадено, че 90 , ACB    30 АBС    и страната AC = 4 cm.",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo-viikl-math_17062020_p05_2.png",
+  "paper": "nvo-viikl-math_17062020",
+  "year": 2020,
+  "page": 5,
+  "bbox": [
+   248.5,
+   272.3,
+   499.1,
+   548.0
+  ],
+  "item_no": 18,
+  "stem": "18. В правоъгълна координатна система е дадена точката А. По данните от чертежа намерете координатите на точката B, която е симетричната на точката А относно абсцисната ос.",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo-viikl-math_17062020_p06_3.png",
+  "paper": "nvo-viikl-math_17062020",
+  "year": 2020,
+  "page": 6,
+  "bbox": [
+   108.6,
+   214.9,
+   500.4,
+   447.0
+  ],
+  "item_no": null,
+  "stem": "Диаграмата представя данни за брой работещи по пол и по професия в една фирма. Професиите са именувани с A, B, C и D.",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo-viikl-math_17062020_p07_1.png",
+  "paper": "nvo-viikl-math_17062020",
+  "year": 2020,
+  "page": 7,
+  "bbox": [
+   292.3,
+   109.8,
+   532.3,
+   265.8
+  ],
+  "item_no": 20,
+  "stem": "20. На чертежа ∆MPQ и ∆MPN са правоъгълни с обща хипотенуза MP, като 30 , MPQ    15 MPN    и 2 PO  cm, където O е средата на отсечката MP.",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo-viikl-math_17062020_p10_1.png",
+  "paper": "nvo-viikl-math_17062020",
+  "year": 2020,
+  "page": 10,
+  "bbox": [
+   70.8,
+   235.9,
+   546.0,
+   744.7
+  ],
+  "item_no": null,
+  "stem": "КЛЮЧ С ВЕРНИТЕ ОТГОВОРИ",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "marking_table"
+ },
+ {
+  "crop": "nvo-viikl-math_17062020_p11_1.png",
+  "paper": "nvo-viikl-math_17062020",
+  "year": 2020,
+  "page": 11,
+  "bbox": [
+   70.8,
+   49.7,
+   546.0,
+   688.4
+  ],
+  "item_no": null,
+  "stem": "",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "marking_table"
+ },
+ {
+  "crop": "nvo-viikl-math_17062020_p13_1.png",
+  "paper": "nvo-viikl-math_17062020",
+  "year": 2020,
+  "page": 13,
+  "bbox": [
+   295.8,
+   421.1,
+   530.0,
+   572.4
+  ],
+  "item_no": null,
+  "stem": "че пътят, който е изминал Стоян с автомобила си, е 550 km. Задача 23. Примерно решение:",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo26_matematika_7klasotgovori_19062026_p02_6.png",
+  "paper": "nvo26_matematika_7klasotgovori_19062026",
+  "year": 2026,
+  "page": 2,
+  "bbox": [
+   74.7,
+   373.6,
+   553.0,
+   403.6
+  ],
+  "item_no": null,
+  "stem": "5 Г) 4 9",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo26_matematika_7klasotgovori_19062026_p03_1.png",
+  "paper": "nvo26_matematika_7klasotgovori_19062026",
+  "year": 2026,
+  "page": 3,
+  "bbox": [
+   193.1,
+   102.7,
+   406.3,
+   286.1
+  ],
+  "item_no": 10,
+  "stem": "10. В координатна система са дадени точките ( ) 1;2 А , ( ) 4;2 B и ( ) 3;5 . C Коя от точките P, Q, R и S определя с дадените точки върхове на успоредник?",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo26_matematika_7klasotgovori_19062026_p03_2.png",
+  "paper": "nvo26_matematika_7klasotgovori_19062026",
+  "year": 2026,
+  "page": 3,
+  "bbox": [
+   219.4,
+   307.7,
+   464.4,
+   455.4
+  ],
+  "item_no": null,
+  "stem": "Б) ( ) 3;–1 Q В) ( ) –1;5 R Г) ( ) 6;5 S",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo26_matematika_7klasotgovori_19062026_p03_3.png",
+  "paper": "nvo26_matematika_7klasotgovori_19062026",
+  "year": 2026,
+  "page": 3,
+  "bbox": [
+   226.4,
+   670.1,
+   369.0,
+   759.3
+  ],
+  "item_no": 13,
+  "stem": "Г) 85 13. Симетралата на хипотенузата AВ на правоъгълния ABC  пресича катета му АС в точка М. Ако AC = 24 cm и 30 , BAC =   то дължината на СМ е: А) 6 cm",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo26_matematika_7klasotgovori_19062026_p03_4.png",
+  "paper": "nvo26_matematika_7klasotgovori_19062026",
+  "year": 2026,
+  "page": 3,
+  "bbox": [
+   170.0,
+   500.0,
+   385.1,
+   647.5
+  ],
+  "item_no": 12,
+  "stem": "В) 62 Г) 82 12. На чертежа правите а и b са успоредни. По данните на чертежа мярката на ACB  е:",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo26_matematika_7klasotgovori_19062026_p04_2.png",
+  "paper": "nvo26_matematika_7klasotgovori_19062026",
+  "year": 2026,
+  "page": 4,
+  "bbox": [
+   56.7,
+   272.2,
+   553.0,
+   314.0
+  ],
+  "item_no": null,
+  "stem": "В) 52 Г) 76 Задачи с кратък свободен отговор",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo26_matematika_7klasotgovori_19062026_p04_3.png",
+  "paper": "nvo26_matematika_7klasotgovori_19062026",
+  "year": 2026,
+  "page": 4,
+  "bbox": [
+   146.1,
+   484.5,
+   448.2,
+   615.0
+  ],
+  "item_no": 17,
+  "stem": "17. Строителна фирма продава апартаменти. На диаграмата е представен броят на апартаментите, продадени през месеците април, май, юни, юли и август.",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo26_matematika_7klasotgovori_19062026_p04_4.png",
+  "paper": "nvo26_matematika_7klasotgovori_19062026",
+  "year": 2026,
+  "page": 4,
+  "bbox": [
+   205.4,
+   103.8,
+   404.0,
+   181.7
+  ],
+  "item_no": null,
+  "stem": "",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo26_matematika_7klasotgovori_19062026_p05_1.png",
+  "paper": "nvo26_matematika_7klasotgovori_19062026",
+  "year": 2026,
+  "page": 5,
+  "bbox": [
+   307.2,
+   53.8,
+   524.4,
+   205.1
+  ],
+  "item_no": null,
+  "stem": "",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo26_matematika_7klasotgovori_19062026_p05_2.png",
+  "paper": "nvo26_matematika_7klasotgovori_19062026",
+  "year": 2026,
+  "page": 5,
+  "bbox": [
+   135.0,
+   223.9,
+   366.0,
+   399.7
+  ],
+  "item_no": null,
+  "stem": "Б) Намерете мярката на СMB  .",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo26_matematika_7klasotgovori_19062026_p06_7.png",
+  "paper": "nvo26_matematika_7klasotgovori_19062026",
+  "year": 2026,
+  "page": 6,
+  "bbox": [
+   161.5,
+   688.5,
+   262.5,
+   709.2
+  ],
+  "item_no": 24,
+  "stem": "24. В правоъгълника ABCD диагоналите се пресичат в точка О. Ъглополовящите на DBC  и ADB  пресичат CD и АВ съответно в точките P и Q. През точка А е построена права, успоредна на BD, която пресича правата СВ в точка R.",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo26_matematika_7klasotgovori_19062026_p06_8.png",
+  "paper": "nvo26_matematika_7klasotgovori_19062026",
+  "year": 2026,
+  "page": 6,
+  "bbox": [
+   260.6,
+   732.9,
+   353.4,
+   753.6
+  ],
+  "item_no": null,
+  "stem": "успоредна на BD, която пресича правата СВ в точка R. А) Докажете, че . DQO BPO   Б) Докажете, че . AC AR =",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo26_matematika_7klasotgovori_19062026_p06_9.png",
+  "paper": "nvo26_matematika_7klasotgovori_19062026",
+  "year": 2026,
+  "page": 6,
+  "bbox": [
+   113.8,
+   756.2,
+   230.8,
+   776.9
+  ],
+  "item_no": null,
+  "stem": "А) Докажете, че . DQO BPO   Б) Докажете, че . AC AR = В) Докажете, че сборът от лицата на ADQ  и QBP  е равен на половината от лицето на АВСD.",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo26_matematika_7klasotgovori_19062026_p07_3.png",
+  "paper": "nvo26_matematika_7klasotgovori_19062026",
+  "year": 2026,
+  "page": 7,
+  "bbox": [
+   128.9,
+   212.2,
+   480.7,
+   637.6
+  ],
+  "item_no": null,
+  "stem": "ПО МАТЕМАТИКА – VII клас, 19 юни 2026 година Вариант 1 Ключ с верните отговори",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo26_matematika_7klasotgovori_19062026_p08_1.png",
+  "paper": "nvo26_matematika_7klasotgovori_19062026",
+  "year": 2026,
+  "page": 8,
+  "bbox": [
+   67.2,
+   56.7,
+   542.6,
+   735.0
+  ],
+  "item_no": null,
+  "stem": "",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "marking_table"
+ },
+ {
+  "crop": "nvo26_matematika_7klasotgovori_19062026_p10_2.png",
+  "paper": "nvo26_matematika_7klasotgovori_19062026",
+  "year": 2026,
+  "page": 10,
+  "bbox": [
+   58.4,
+   53.4,
+   582.4,
+   291.2
+  ],
+  "item_no": null,
+  "stem": "",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo26_matematika_7klasotgovori_19062026_p10_3.png",
+  "paper": "nvo26_matematika_7klasotgovori_19062026",
+  "year": 2026,
+  "page": 10,
+  "bbox": [
+   58.4,
+   470.1,
+   236.3,
+   543.9
+  ],
+  "item_no": null,
+  "stem": "AD AQ QB S AD AB S S ( ) . 2 2 2 + + = = = ABCD ADQ QBP Г)",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo26_matematika_7klasotgovori_19062026_p10_4.png",
+  "paper": "nvo26_matematika_7klasotgovori_19062026",
+  "year": 2026,
+  "page": 10,
+  "bbox": [
+   69.4,
+   573.8,
+   172.2,
+   595.5
+  ],
+  "item_no": null,
+  "stem": "В : 2 ADQ DQ AQ =  (катет, лежащ срещу ъгъл от 30) 30 QDB ABD = =   => DQB  е равнобедрен => 2 DQ QB AQ = = Тогава 3 : 1:3 AB AQ AQ AB =  =",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo_math-7klotgovori_21062024_p02_1.png",
+  "paper": "nvo_math-7klotgovori_21062024",
+  "year": 2024,
+  "page": 2,
+  "bbox": [
+   69.1,
+   483.5,
+   542.8,
+   561.4
+  ],
+  "item_no": 7,
+  "stem": "Г) 8 7. Стойността на израза 2 2 1012 2000.1012 1000   е:",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo_math-7klotgovori_21062024_p02_2.png",
+  "paper": "nvo_math-7klotgovori_21062024",
+  "year": 2024,
+  "page": 2,
+  "bbox": [
+   384.5,
+   628.7,
+   521.3,
+   769.9
+  ],
+  "item_no": 8,
+  "stem": "Г) 2 2012 8. Колело е разделено на 8 еднакви сектора, във всеки от които е написана по една от следните думи: успех, късмет и здраве. Колелото е завъртяно и след спирането стрелката сочи точно един сектор. Каква е вероятността това да е сектор с думата успех?",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo_math-7klotgovori_21062024_p03_3.png",
+  "paper": "nvo_math-7klotgovori_21062024",
+  "year": 2024,
+  "page": 3,
+  "bbox": [
+   69.1,
+   307.0,
+   517.9,
+   395.3
+  ],
+  "item_no": 10,
+  "stem": "Чертежите са само за илюстрация. Те не са начертани в мащаб и не са предназначени за директно измерване на дължини и на ъгли. 10. При пресичането на две прави мярката на един от получените ъгли е равна на сбора от мерките на двата му съседни ъгъла. Мярката на по-големия от ъглите е:",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo_math-7klotgovori_21062024_p03_4.png",
+  "paper": "nvo_math-7klotgovori_21062024",
+  "year": 2024,
+  "page": 3,
+  "bbox": [
+   364.6,
+   445.0,
+   500.2,
+   526.9
+  ],
+  "item_no": 11,
+  "stem": "Г) 60 11. На чертежа AОC  и ОBD  са построени върху обща права AB, така че CAO DOB    и . DBO COD    По данните от чертежа дължината на отсечката АВ е:",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo_math-7klotgovori_21062024_p03_5.png",
+  "paper": "nvo_math-7klotgovori_21062024",
+  "year": 2024,
+  "page": 3,
+  "bbox": [
+   320.5,
+   570.2,
+   517.6,
+   690.4
+  ],
+  "item_no": 12,
+  "stem": "Г) 16 cm 12. В ромба АВСD 52 , BAD    а АL   L BC  е ъглополовящата на . BAC  Мярката на",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo_math-7klotgovori_21062024_p04_1.png",
+  "paper": "nvo_math-7klotgovori_21062024",
+  "year": 2024,
+  "page": 4,
+  "bbox": [
+   69.1,
+   306.5,
+   508.7,
+   400.5
+  ],
+  "item_no": null,
+  "stem": "",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo_math-7klotgovori_21062024_p04_2.png",
+  "paper": "nvo_math-7klotgovori_21062024",
+  "year": 2024,
+  "page": 4,
+  "bbox": [
+   368.0,
+   109.2,
+   463.6,
+   274.2
+  ],
+  "item_no": 13,
+  "stem": "13. В равнобедрения ABC    AC BC  ъгълът между бедрата е 20° и симетралата на бедрото АС пресича ВС в точка F. Мерките на ъглите на ABF  са:",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo_math-7klotgovori_21062024_p04_3.png",
+  "paper": "nvo_math-7klotgovori_21062024",
+  "year": 2024,
+  "page": 4,
+  "bbox": [
+   318.0,
+   442.0,
+   498.8,
+   565.0
+  ],
+  "item_no": null,
+  "stem": "В) 90 Г) 80",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo_math-7klotgovori_21062024_p05_1.png",
+  "paper": "nvo_math-7klotgovori_21062024",
+  "year": 2024,
+  "page": 5,
+  "bbox": [
+   69.1,
+   204.2,
+   542.8,
+   325.2
+  ],
+  "item_no": null,
+  "stem": "Б) 4,5% В) 6% Г) 6,4%",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo_math-7klotgovori_21062024_p05_2.png",
+  "paper": "nvo_math-7klotgovori_21062024",
+  "year": 2024,
+  "page": 5,
+  "bbox": [
+   319.5,
+   381.7,
+   548.8,
+   534.2
+  ],
+  "item_no": 19,
+  "stem": "В) 25 Г) 50 19. Училищно тържество е с продължителност 90 минути. По данните от диаграмата продължителността на спортните изпълнения в минути е:",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo_math-7klotgovori_21062024_p07_2.png",
+  "paper": "nvo_math-7klotgovori_21062024",
+  "year": 2024,
+  "page": 7,
+  "bbox": [
+   59.4,
+   201.4,
+   540.2,
+   653.9
+  ],
+  "item_no": null,
+  "stem": "НАЦИОНАЛНО ВЪНШНО ОЦЕНЯВАНЕ ПО МАТЕМАТИКА – VII клас, 21 юни 2024 година Ключ с верните отговори – Вариант 1",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo_math-7klotgovori_21062024_p08_1.png",
+  "paper": "nvo_math-7klotgovori_21062024",
+  "year": 2024,
+  "page": 8,
+  "bbox": [
+   59.4,
+   72.0,
+   540.2,
+   490.2
+  ],
+  "item_no": null,
+  "stem": "",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "marking_table"
+ },
+ {
+  "crop": "nvo_math-7klotgovori_21062024_p09_1.png",
+  "paper": "nvo_math-7klotgovori_21062024",
+  "year": 2024,
+  "page": 9,
+  "bbox": [
+   52.6,
+   599.4,
+   542.4,
+   777.6
+  ],
+  "item_no": null,
+  "stem": "Извод: 2  не е решение, 3 е решение. Задача 22. Примерно решение:",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo_math-7klotgovori_21062024_p09_2.png",
+  "paper": "nvo_math-7klotgovori_21062024",
+  "year": 2024,
+  "page": 9,
+  "bbox": [
+   193.7,
+   248.9,
+   301.7,
+   293.0
+  ],
+  "item_no": null,
+  "stem": "62 29 x  4 2 29 x ",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo_math-7klotgovori_21062024_p10_1.png",
+  "paper": "nvo_math-7klotgovori_21062024",
+  "year": 2024,
+  "page": 10,
+  "bbox": [
+   52.6,
+   72.0,
+   542.8,
+   259.2
+  ],
+  "item_no": null,
+  "stem": "",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo_math-7klotgovori_21062024_p10_2.png",
+  "paper": "nvo_math-7klotgovori_21062024",
+  "year": 2024,
+  "page": 10,
+  "bbox": [
+   323.5,
+   411.6,
+   595.2,
+   522.0
+  ],
+  "item_no": null,
+  "stem": ".36 180 x  180:36 x  5 x  Предвиденият добив е увеличен с 5%. Задача 23. Примерно решение:",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo_math-7klotgovori_21062024_p10_3.png",
+  "paper": "nvo_math-7klotgovori_21062024",
+  "year": 2024,
+  "page": 10,
+  "bbox": [
+   291.4,
+   633.6,
+   571.0,
+   747.4
+  ],
+  "item_no": 2,
+  "stem": "Окончателно за ъглите на ADL  получаваме 45 ;60 ;75   . От ADH  (правоъгълен с ъгъл 30°) следва, че 2. . AD DH  Следователно : 2:1, BC DH  защото . AD BC  Б) Нека . FAK    Тогава 90 и . AFK DFH FDH         ",
+  "detection": "vector",
+  "has_key": true,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo_math_7klas_variant2_16.06.2023_p03_4.png",
+  "paper": "nvo_math_7klas_variant2_16.06.2023",
+  "year": 2023,
+  "page": 3,
+  "bbox": [
+   322.0,
+   634.9,
+   513.2,
+   736.9
+  ],
+  "item_no": 12,
+  "stem": "Г) 144 12. Правите a и b са успоредни. По данните от чертежа градусната мярка на ъгъл х е:",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo_math_7klas_variant2_16.06.2023_p04_1.png",
+  "paper": "nvo_math_7klas_variant2_16.06.2023",
+  "year": 2023,
+  "page": 4,
+  "bbox": [
+   319.2,
+   281.7,
+   539.3,
+   396.1
+  ],
+  "item_no": 14,
+  "stem": "14. Катетите на правоъгълния ABC    =90 ACB   са 8 cm и 6 cm. Периметърът на",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo_math_7klas_variant2_16.06.2023_p04_2.png",
+  "paper": "nvo_math_7klas_variant2_16.06.2023",
+  "year": 2023,
+  "page": 4,
+  "bbox": [
+   322.4,
+   448.7,
+   552.1,
+   584.5
+  ],
+  "item_no": 15,
+  "stem": "Г) 24 cm 15. На чертежа АBC  е правоъгълен, 30 АBC    и 4 cm АC  . Симетралата на страната",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo_math_7klas_variant2_16.06.2023_p04_3.png",
+  "paper": "nvo_math_7klas_variant2_16.06.2023",
+  "year": 2023,
+  "page": 4,
+  "bbox": [
+   291.9,
+   635.2,
+   542.0,
+   758.9
+  ],
+  "item_no": 80,
+  "stem": "16. На чертежа . ABC PMT   Отсечките BC и MT се пресичат в точка O, 70 MOC    и 80 . АCB    Мярката на BAC  е:",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo_math_7klas_variant2_16.06.2023_p04_4.png",
+  "paper": "nvo_math_7klas_variant2_16.06.2023",
+  "year": 2023,
+  "page": 4,
+  "bbox": [
+   363.8,
+   79.3,
+   470.3,
+   232.4
+  ],
+  "item_no": 13,
+  "stem": "13. По данните от чертежа мярката на ABC  е:",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo_math_7klas_variant2_16.06.2023_p05_3.png",
+  "paper": "nvo_math_7klas_variant2_16.06.2023",
+  "year": 2023,
+  "page": 5,
+  "bbox": [
+   348.5,
+   478.4,
+   520.6,
+   641.8
+  ],
+  "item_no": 19,
+  "stem": "срещу нея. 19. На диаграмата е представено времето в минути, за което всеки от двама оператори на машина сам почиства пода на спортна зала. Като използвате данните от диаграмата:",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo_math_7klas_variant2_16.06.2023_p05_4.png",
+  "paper": "nvo_math_7klas_variant2_16.06.2023",
+  "year": 2023,
+  "page": 5,
+  "bbox": [
+   327.0,
+   98.3,
+   506.7,
+   230.3
+  ],
+  "item_no": 60,
+  "stem": "17. В ромба ABCD точка О е пресечната точка на диагоналите, точката M е средата на BC и 60 . ADB    По данните от чертежа мярката на COM  е:",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo_math_7klas_variant2_16.06.2023_p06_1.png",
+  "paper": "nvo_math_7klas_variant2_16.06.2023",
+  "year": 2023,
+  "page": 6,
+  "bbox": [
+   170.2,
+   79.2,
+   426.6,
+   309.6
+  ],
+  "item_no": 20,
+  "stem": "20. В координатна система Oxy с единична отсечка 1 cm са дадени точките M, N и P.",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo_math_7klas_variant2_16.06.2023_p08_2.png",
+  "paper": "nvo_math_7klas_variant2_16.06.2023",
+  "year": 2023,
+  "page": 8,
+  "bbox": [
+   59.4,
+   167.5,
+   540.2,
+   737.4
+  ],
+  "item_no": null,
+  "stem": "НАЦИОНАЛНО ВЪНШНО ОЦЕНЯВАНЕ ПО МАТЕМАТИКА – VII клас, 16 юни 2023 г. Ключ с верните отговори – Вариант 2",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "marking_table"
+ },
+ {
+  "crop": "nvo_math_7klas_variant2_16.06.2023_p09_1.png",
+  "paper": "nvo_math_7klas_variant2_16.06.2023",
+  "year": 2023,
+  "page": 9,
+  "bbox": [
+   59.4,
+   45.0,
+   540.2,
+   439.4
+  ],
+  "item_no": null,
+  "stem": "",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "marking_table"
+ },
+ {
+  "crop": "nvo_math_7klas_variant2_16.06.2023_p10_1.png",
+  "paper": "nvo_math_7klas_variant2_16.06.2023",
+  "year": 2023,
+  "page": 10,
+  "bbox": [
+   90.5,
+   574.7,
+   504.7,
+   658.1
+  ],
+  "item_no": null,
+  "stem": "Броят на работниците във втората бригада е 6 + 4 = 10. Производителността на първата бригада е 8.2 = 16 стаи на ден. Производителността на втората бригада е 10.3 = 30 стаи на ден.",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "nvo_math_7klas_variant2_16.06.2023_p11_1.png",
+  "paper": "nvo_math_7klas_variant2_16.06.2023",
+  "year": 2023,
+  "page": 11,
+  "bbox": [
+   303.6,
+   91.9,
+   510.0,
+   194.4
+  ],
+  "item_no": null,
+  "stem": "Задача 23. Примерно решение: А) Нека CBL LBA x     ( BL е ъглополовяща на АВС  ).",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "v3_math_7kl_may2015_p01_6.png",
+  "paper": "v3_math_7kl_may2015",
+  "year": 2015,
+  "page": 1,
+  "bbox": [
+   236.6,
+   538.1,
+   295.2,
+   563.2
+  ],
+  "item_no": null,
+  "stem": "За да отбележите своя отговор, срещу номера на съответната задача зачертайте със знака X буквата на избрания от Вас отговор. А Б В Г Например: Ако след това прецените, че първоначалният Ви отговор не е верен, запълнете кръгчето с грешния отговор и зачертайте със знака Х буквата на друг отговор, който приемате за верен.",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "v3_math_7kl_may2015_p02_1.png",
+  "paper": "v3_math_7kl_may2015",
+  "year": 2015,
+  "page": 2,
+  "bbox": [
+   366.1,
+   504.1,
+   507.6,
+   603.5
+  ],
+  "item_no": null,
+  "stem": "В)   2 2 1 2 4 ab b a   Г)   2 2 2 4 ab a  M",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "v3_math_7kl_may2015_p03_1.png",
+  "paper": "v3_math_7kl_may2015",
+  "year": 2015,
+  "page": 3,
+  "bbox": [
+   371.4,
+   578.0,
+   571.5,
+   744.7
+  ],
+  "item_no": 10,
+  "stem": "9. Кое от числата е решение на неравенството 5 15 x   ? А) 0 Б) –3,5 В) –3 Г) –2,5 10. На щанд има три вида плодове. От тях 1 3 са дюли, а 1 4 от всички плодове са праскови. Кое от числата може да е броят на всички плодове на щанда?",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "v3_math_7kl_may2015_p04_2.png",
+  "paper": "v3_math_7kl_may2015",
+  "year": 2015,
+  "page": 4,
+  "bbox": [
+   380.1,
+   391.5,
+   544.5,
+   470.0
+  ],
+  "item_no": null,
+  "stem": "За задачи 14, 15 и 16 използвайте следното условие: P s",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "v3_math_7kl_may2015_p04_5.png",
+  "paper": "v3_math_7kl_may2015",
+  "year": 2015,
+  "page": 4,
+  "bbox": [
+   109.2,
+   536.9,
+   208.6,
+   557.1
+  ],
+  "item_no": null,
+  "stem": "30 o M N T Q",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "v3_math_7kl_may2015_p04_6.png",
+  "paper": "v3_math_7kl_may2015",
+  "year": 2015,
+  "page": 4,
+  "bbox": [
+   269.4,
+   536.9,
+   368.9,
+   557.1
+  ],
+  "item_no": null,
+  "stem": "30 o M N T Q",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "v3_math_7kl_may2015_p04_7.png",
+  "paper": "v3_math_7kl_may2015",
+  "year": 2015,
+  "page": 4,
+  "bbox": [
+   415.7,
+   537.1,
+   508.7,
+   557.0
+  ],
+  "item_no": null,
+  "stem": "30 o M N T Q",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "v3_math_7kl_may2015_p05_2.png",
+  "paper": "v3_math_7kl_may2015",
+  "year": 2015,
+  "page": 5,
+  "bbox": [
+   100.2,
+   159.5,
+   468.4,
+   192.7
+  ],
+  "item_no": null,
+  "stem": "",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "v3_math_7kl_may2015_p05_3.png",
+  "paper": "v3_math_7kl_may2015",
+  "year": 2015,
+  "page": 5,
+  "bbox": [
+   206.1,
+   384.2,
+   390.8,
+   548.5
+  ],
+  "item_no": 17,
+  "stem": "Отговорите на задачи 17. – 20. запишете на съответното място в листа с отговори. ЗАДАЧИ СЪС СВОБОДЕН ОТГОВОР 17. Известно е, че х е цяло число, по-голямо от 5. A B х cm 2х cm (х + 12) cm C D",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "v3_math_7kl_may2015_p06_1.png",
+  "paper": "v3_math_7kl_may2015",
+  "year": 2015,
+  "page": 6,
+  "bbox": [
+   82.6,
+   213.7,
+   511.7,
+   393.8
+  ],
+  "item_no": 20,
+  "stem": " започва да представя данните в таблица и чрез кръгова диаграма. За диаграмата той използва окръжност, разделена на 12 равни части. Довършете представянето на данните, като попълните празните полета в таблицата и начертаете кръговата диаграма. Означете кой вид превозно средство сте представили на всеки от секторите в диаграмата. В сектора, който съответства на броя на камионите, запишете градусната мярка на ъгъла му.",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "v3_math_7kl_may2015_p07_3.png",
+  "paper": "v3_math_7kl_may2015",
+  "year": 2015,
+  "page": 7,
+  "bbox": [
+   70.6,
+   514.6,
+   524.7,
+   571.9
+  ],
+  "item_no": 21,
+  "stem": "Указание. Отговорите на задачи 21.А), 21.Б), 22.А), 22.Б) и 22.B) запишете на съответното място в свитъка. 21. САЛ В РЕКАТА Разстоянието между два кея A и B на една река е 9 km. Реката тече от A към B. В 8 часà и 30 минути от A е спуснат сал. В 8 часà и 45 минути от B към A тръгва лодка, която в 10 часà среща сала. Скоростта на лодката в спокойна вода е 7 km/h. 21.А) Пречертайте и попълнете таблицата.",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "v3_math_7kl_may2015_p08_3.png",
+  "paper": "v3_math_7kl_may2015",
+  "year": 2015,
+  "page": 8,
+  "bbox": [
+   141.4,
+   583.5,
+   473.4,
+   658.3
+  ],
+  "item_no": null,
+  "stem": "P L M N",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "v3_math_7kl_may2015_p08_4.png",
+  "paper": "v3_math_7kl_may2015",
+  "year": 2015,
+  "page": 8,
+  "bbox": [
+   204.8,
+   383.6,
+   542.0,
+   477.2
+  ],
+  "item_no": null,
+  "stem": "ете с правилния текст така, че да отговорите на въпроса: Колко най-много минути над безплатните може да си позволи да говори Слави през месец юни, ако за този месец е планирал месечната му сметка да е не повече от 20 лв.? Неравенството с неизвестно t, което показва, че месечната му сметка не надвишава планираната, е ……………………………… С точност до цяло число, Слави може да си позволи най-много ……….. минути над безплатните.",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "v3_math_7kl_may2015_p08_5.png",
+  "paper": "v3_math_7kl_may2015",
+  "year": 2015,
+  "page": 8,
+  "bbox": [
+   87.5,
+   414.0,
+   180.4,
+   448.9
+  ],
+  "item_no": null,
+  "stem": "Неравенството с неизвестно t, което показва, че месечната му сметка не надвишава планираната, е ……………………………… С точност до цяло число, Слави може да си позволи най-много ……….. минути над безплатните. P",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "v3_math_7kl_may2015_p09_2.png",
+  "paper": "v3_math_7kl_may2015",
+  "year": 2015,
+  "page": 9,
+  "bbox": [
+   65.2,
+   182.8,
+   538.9,
+   758.6
+  ],
+  "item_no": null,
+  "stem": "МАТЕМАТИКА, СЕДМИ КЛАС 22 май 2015 ВАРИАНТ 3",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "v3_math_7kl_may2015_p10_1.png",
+  "paper": "v3_math_7kl_may2015",
+  "year": 2015,
+  "page": 10,
+  "bbox": [
+   65.2,
+   70.8,
+   538.9,
+   760.7
+  ],
+  "item_no": null,
+  "stem": "",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "v3_math_7kl_may2015_p11_1.png",
+  "paper": "v3_math_7kl_may2015",
+  "year": 2015,
+  "page": 11,
+  "bbox": [
+   65.2,
+   70.8,
+   538.9,
+   759.8
+  ],
+  "item_no": null,
+  "stem": "",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "v3_math_7kl_may2015_p12_1.png",
+  "paper": "v3_math_7kl_may2015",
+  "year": 2015,
+  "page": 12,
+  "bbox": [
+   65.2,
+   70.8,
+   538.9,
+   526.5
+  ],
+  "item_no": null,
+  "stem": "",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "v3_math_7kl_may2015_p12_2.png",
+  "paper": "v3_math_7kl_may2015",
+  "year": 2015,
+  "page": 12,
+  "bbox": [
+   378.6,
+   567.2,
+   506.1,
+   621.1
+  ],
+  "item_no": null,
+  "stem": "една минута (мерната единица)   14 80 0 31 100 20 t    , , 16 или 16 минути Отговор, в който се казва, че 0,31 лв. е цената на всяка минута (от минутите) разговор над 100-ната (безплатните). P",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "v3_math_7kl_may2015_p12_4.png",
+  "paper": "v3_math_7kl_may2015",
+  "year": 2015,
+  "page": 12,
+  "bbox": [
+   89.0,
+   637.1,
+   158.0,
+   677.7
+  ],
+  "item_no": null,
+  "stem": "K M N T",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "v3_math_7kl_may2015_p13_1.png",
+  "paper": "v3_math_7kl_may2015",
+  "year": 2015,
+  "page": 13,
+  "bbox": [
+   72.5,
+   68.6,
+   318.9,
+   117.5
+  ],
+  "item_no": null,
+  "stem": "",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "v3_math_7kl_may2015_p13_3.png",
+  "paper": "v3_math_7kl_may2015",
+  "year": 2015,
+  "page": 13,
+  "bbox": [
+   152.5,
+   154.6,
+   549.6,
+   222.1
+  ],
+  "item_no": null,
+  "stem": "",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "vo_7kl_math_20052016_p01_6.png",
+  "paper": "vo_7kl_math_20052016",
+  "year": 2005,
+  "page": 1,
+  "bbox": [
+   236.6,
+   508.9,
+   295.1,
+   534.0
+  ],
+  "item_no": null,
+  "stem": "За да отбележите своя отговор, срещу номера на съответната задача зачертайте със знака X буквата на избрания от Вас отговор. А Б В Г Например: Ако след това прецените, че първоначалният Ви отговор не е верен, запълнете кръгчето с грешния отговор и зачертайте със знака Х буквата на друг отговор, който приемате за верен.",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "vo_7kl_math_20052016_p03_1.png",
+  "paper": "vo_7kl_math_20052016",
+  "year": 2005,
+  "page": 3,
+  "bbox": [
+   102.0,
+   217.6,
+   292.1,
+   327.6
+  ],
+  "item_no": 9,
+  "stem": "5 от този булевард, ако работят заедно? А) 2 чàса и 20 мин. Б) 2 чàса и 30 мин. В) 1 час и 20 мин. Г) 1 час и 30 мин. 9. Коко пробягал 3 километра за 15 минути. Седнал да си почине за 15 минути и продължил да тича по маршрута си. Коя от графиките представя вярно движението му?",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "vo_7kl_math_20052016_p03_2.png",
+  "paper": "vo_7kl_math_20052016",
+  "year": 2005,
+  "page": 3,
+  "bbox": [
+   326.5,
+   217.6,
+   516.6,
+   327.6
+  ],
+  "item_no": 9,
+  "stem": "5 от този булевард, ако работят заедно? А) 2 чàса и 20 мин. Б) 2 чàса и 30 мин. В) 1 час и 20 мин. Г) 1 час и 30 мин. 9. Коко пробягал 3 километра за 15 минути. Седнал да си почине за 15 минути и продължил да тича по маршрута си. Коя от графиките представя вярно движението му?",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "vo_7kl_math_20052016_p03_3.png",
+  "paper": "vo_7kl_math_20052016",
+  "year": 2005,
+  "page": 3,
+  "bbox": [
+   101.8,
+   343.7,
+   292.6,
+   455.0
+  ],
+  "item_no": null,
+  "stem": "В) Г)",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "vo_7kl_math_20052016_p03_4.png",
+  "paper": "vo_7kl_math_20052016",
+  "year": 2005,
+  "page": 3,
+  "bbox": [
+   327.4,
+   343.1,
+   515.2,
+   453.6
+  ],
+  "item_no": null,
+  "stem": "В) Г)",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "vo_7kl_math_20052016_p03_5.png",
+  "paper": "vo_7kl_math_20052016",
+  "year": 2005,
+  "page": 3,
+  "bbox": [
+   443.9,
+   485.6,
+   565.6,
+   570.4
+  ],
+  "item_no": null,
+  "stem": "10 20 30 C",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "vo_7kl_math_20052016_p03_6.png",
+  "paper": "vo_7kl_math_20052016",
+  "year": 2005,
+  "page": 3,
+  "bbox": [
+   408.8,
+   633.8,
+   559.1,
+   775.4
+  ],
+  "item_no": null,
+  "stem": "C 25 o 25 o B A",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "vo_7kl_math_20052016_p04_3.png",
+  "paper": "vo_7kl_math_20052016",
+  "year": 2005,
+  "page": 4,
+  "bbox": [
+   71.4,
+   591.1,
+   523.9,
+   699.7
+  ],
+  "item_no": 14,
+  "stem": "AD  и 4 cm CP  , дължината на СH в сантиметри е: А) 2 Б) 3 В) 4 Г) 5 Отговорите на задачи 17. – 20. запишете на съответното място в листа с отговори. ЗАДАЧИ СЪС СВОБОДЕН ОТГОВОР 17. В първата колона на таблицата са изпълнени последователно указания за привеждане на израза   2 2 3 3 2 x x x x    в нормален вид. Попълнете празната 2 1 3 2 x x x     . колона, като следвате същите указания за израза    ",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "vo_7kl_math_20052016_p04_4.png",
+  "paper": "vo_7kl_math_20052016",
+  "year": 2005,
+  "page": 4,
+  "bbox": [
+   413.1,
+   59.7,
+   551.3,
+   140.9
+  ],
+  "item_no": null,
+  "stem": "C",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "vo_7kl_math_20052016_p04_5.png",
+  "paper": "vo_7kl_math_20052016",
+  "year": 2005,
+  "page": 4,
+  "bbox": [
+   414.6,
+   177.2,
+   531.3,
+   274.6
+  ],
+  "item_no": null,
+  "stem": "K P A B Q",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "vo_7kl_math_20052016_p05_1.png",
+  "paper": "vo_7kl_math_20052016",
+  "year": 2005,
+  "page": 5,
+  "bbox": [
+   97.6,
+   202.7,
+   497.7,
+   231.7
+  ],
+  "item_no": 19,
+  "stem": "19. Диаграмата показва броя на оценките, получени на една контролна работа. (1) Колко е процентът на броя оценки „слаб“ от броя оценки „отличен“? (2) Ако броят на оценките „среден“ е n, попълнете таблицата, като изразите чрез n броя на другите оценки и общия брой на всички оценки.",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "vo_7kl_math_20052016_p05_2.png",
+  "paper": "vo_7kl_math_20052016",
+  "year": 2005,
+  "page": 5,
+  "bbox": [
+   200.7,
+   366.9,
+   434.5,
+   575.2
+  ],
+  "item_no": null,
+  "stem": "(2) Ако броят на оценките „среден“ е n, попълнете таблицата, като изразите чрез n броя на другите оценки и общия брой на всички оценки. Оценка слаб среден добър мн. добър отличен общо Брой n (3) Оценките „среден“ са осем на брой. Колко е броят на всички оценки, показани на диаграмата?",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "vo_7kl_math_20052016_p05_3.png",
+  "paper": "vo_7kl_math_20052016",
+  "year": 2005,
+  "page": 5,
+  "bbox": [
+   328.2,
+   53.7,
+   544.8,
+   183.8
+  ],
+  "item_no": null,
+  "stem": "",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "vo_7kl_math_20052016_p06_1.png",
+  "paper": "vo_7kl_math_20052016",
+  "year": 2005,
+  "page": 6,
+  "bbox": [
+   64.9,
+   254.3,
+   531.7,
+   298.4
+  ],
+  "item_no": null,
+  "stem": "Вариант 1 В предоставения свитък за свободните отговори запишете отговорите и решенията съгласно дадените указания. Време за работа – 90 минути. ПОЖЕЛАВАМЕ ВИ УСПЕШНА РАБОТА!",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "vo_7kl_math_20052016_p06_2.png",
+  "paper": "vo_7kl_math_20052016",
+  "year": 2005,
+  "page": 6,
+  "bbox": [
+   33.6,
+   605.3,
+   568.8,
+   766.1
+  ],
+  "item_no": 22,
+  "stem": "ане и кацане се задават в местно време. Една авиокомпания осъществява редовен полет с: час на излитане от Бургас – 07:10 часà (местно време) и час на кацане в Прага – 08:05 часà (местно време). Колко минути е продължителността на полета на тази авиокомпания? 22. РАЗРЯЗВАНЕ НА ПРАВОЪГЪЛНИК На всеки чертеж са означени размерите в сантиметри на правоъгълник, разрязан на по-малки правоъгълници, част от които са оцветени.",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "vo_7kl_math_20052016_p06_3.png",
+  "paper": "vo_7kl_math_20052016",
+  "year": 2005,
+  "page": 6,
+  "bbox": [
+   417.5,
+   320.9,
+   552.8,
+   427.8
+  ],
+  "item_no": null,
+  "stem": "Вариант 1 В предоставения свитък за свободните отговори запишете отговорите и решенията съгласно дадените указания. Време за работа – 90 минути. ПОЖЕЛАВАМЕ ВИ УСПЕШНА РАБОТА!",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "vo_7kl_math_20052016_p07_1.png",
+  "paper": "vo_7kl_math_20052016",
+  "year": 2005,
+  "page": 7,
+  "bbox": [
+   126.9,
+   133.2,
+   475.5,
+   182.8
+  ],
+  "item_no": null,
+  "stem": "22А) Намерете в коя фигура оцветената част има най-голям периметър и на колко сантиметра е равен той, ако 8 cm x  и 5 cm y  . 22Б) Пречертайте и попълнете таблицата, като изразите чрез x и y лицето на оцветената част във всеки от правоъгълниците.",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "vo_7kl_math_20052016_p07_3.png",
+  "paper": "vo_7kl_math_20052016",
+  "year": 2005,
+  "page": 7,
+  "bbox": [
+   101.7,
+   372.9,
+   500.7,
+   438.4
+  ],
+  "item_no": 23,
+  "stem": "имост, и намерете всички стойности на х, за които това е вярно. Указание. На задача 23. напишете решението с необходимите обосновки. 23. В една работилница майстор и чирак изработват еднакви чашки. Майсторът изработва по 60 чашки за 1 час. За да изработят един и същ брой чашки, на чирака е нужно с 25% повече време, отколкото на майстора. Пречертайте и попълнете липсващите данни в таблицата и обосновете отговорите си.",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "vo_7kl_math_20052016_p07_5.png",
+  "paper": "vo_7kl_math_20052016",
+  "year": 2005,
+  "page": 7,
+  "bbox": [
+   420.6,
+   634.8,
+   537.2,
+   733.0
+  ],
+  "item_no": null,
+  "stem": "1 час Майстор 60 Чирак Един ден майсторът започнал сам работа в 8:00 часà. След известно време, машината се развалила. Ремонтът продължил 4 чàса. След ремонта започнал да работи само чиракът и изработил толкова чашки, колкото е изработил майсторът преди да се развали машината. Най-много по колко чашки е изработил всеки от тях, ако чиракът е приключил работа не по-късно от 18:00 часà? C D",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "vo_7kl_math_20052016_p08_1.png",
+  "paper": "vo_7kl_math_20052016",
+  "year": 2005,
+  "page": 8,
+  "bbox": [
+   65.2,
+   154.7,
+   538.9,
+   758.1
+  ],
+  "item_no": null,
+  "stem": "МАТЕМАТИКА, СЕДМИ КЛАС 20 май 2016 ВАРИАНТ 1",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "vo_7kl_math_20052016_p09_1.png",
+  "paper": "vo_7kl_math_20052016",
+  "year": 2005,
+  "page": 9,
+  "bbox": [
+   65.2,
+   70.8,
+   538.9,
+   770.6
+  ],
+  "item_no": null,
+  "stem": "",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "vo_7kl_math_20052016_p10_1.png",
+  "paper": "vo_7kl_math_20052016",
+  "year": 2005,
+  "page": 10,
+  "bbox": [
+   65.2,
+   70.8,
+   538.9,
+   302.9
+  ],
+  "item_no": null,
+  "stem": "",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "vo_7kl_math_20052016_p10_3.png",
+  "paper": "vo_7kl_math_20052016",
+  "year": 2005,
+  "page": 10,
+  "bbox": [
+   99.9,
+   466.7,
+   495.6,
+   524.0
+  ],
+  "item_no": null,
+  "stem": "Майсторът изработва една чашка за 1 минута, а чиракът – за 5 4 минути. Тогава за 1 час чиракът изработва 5 60: 48 4  чашки. – 2 точки",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "vo_7kl_math_20052016_p11_1.png",
+  "paper": "vo_7kl_math_20052016",
+  "year": 2005,
+  "page": 11,
+  "bbox": [
+   70.8,
+   373.0,
+   207.4,
+   423.7
+  ],
+  "item_no": null,
+  "stem": "K H M – 1 точка Намиране на 20 ABL LBD    – 1 точка ІI етап – Намиране ъглите на MND – 3 точки Намиране на всеки от ъглите на триъгълника – по 1 точка Примерно решение:",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "vo_7kl_math_20052016_p11_2.png",
+  "paper": "vo_7kl_math_20052016",
+  "year": 2005,
+  "page": 11,
+  "bbox": [
+   70.8,
+   485.1,
+   173.7,
+   519.5
+  ],
+  "item_no": null,
+  "stem": "B От BDC получаваме 90 50 40 BDC    . От BML получаваме 90 20 70 BML DMN     . Тогава от MND следва   180 40 70 70 MND     . ІII етап – Намиране на разстоянието от М до AD – 3 точки Начертаване на LH BD  и MK AD    K AD  . – 1 точка Доказване, че 8 cm MK MH   . – 2 точки Примерно решение:",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "vo_7kl_math_20052016_p11_4.png",
+  "paper": "vo_7kl_math_20052016",
+  "year": 2005,
+  "page": 11,
+  "bbox": [
+   435.9,
+   349.1,
+   534.1,
+   423.6
+  ],
+  "item_no": null,
+  "stem": "N C D",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "vo_7kl_math_20052016_p11_5.png",
+  "paper": "vo_7kl_math_20052016",
+  "year": 2005,
+  "page": 11,
+  "bbox": [
+   141.4,
+   316.4,
+   277.4,
+   351.5
+  ],
+  "item_no": 3,
+  "stem": " но е обоснована оценката за най-много, решението се приема за вярно. 6. Пълен брой точки за всеки етап и за всяка стъпка се дават при пълни математически обосновки. Допуска се, в процеса на оценяването оценителят да използва 0,5 точки за дадена стъпка. 24. Критерии за оценяване и точки по критериите, съпътстващи решението. І етап – 2 точки Начертаване на правоъгълник ABCD и на точките M и N, отговарящи на условието.",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "vo_7kl_math_20052016_p11_6.png",
+  "paper": "vo_7kl_math_20052016",
+  "year": 2005,
+  "page": 11,
+  "bbox": [
+   225.5,
+   372.4,
+   329.4,
+   423.8
+  ],
+  "item_no": null,
+  "stem": "K H M – 1 точка Намиране на 20 ABL LBD    – 1 точка ІI етап – Намиране ъглите на MND – 3 точки Намиране на всеки от ъглите на триъгълника – по 1 точка Примерно решение:",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "vo_7kl_math_20052016_p11_7.png",
+  "paper": "vo_7kl_math_20052016",
+  "year": 2005,
+  "page": 11,
+  "bbox": [
+   225.5,
+   484.5,
+   274.5,
+   519.6
+  ],
+  "item_no": null,
+  "stem": "B От BDC получаваме 90 50 40 BDC    . От BML получаваме 90 20 70 BML DMN     . Тогава от MND следва   180 40 70 70 MND     . ІII етап – Намиране на разстоянието от М до AD – 3 точки Начертаване на LH BD  и MK AD    K AD  . – 1 точка Доказване, че 8 cm MK MH   . – 2 точки Примерно решение:",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "vo_7kl_math_20052016_p11_10.png",
+  "paper": "vo_7kl_math_20052016",
+  "year": 2005,
+  "page": 11,
+  "bbox": [
+   256.8,
+   640.2,
+   390.5,
+   688.3
+  ],
+  "item_no": null,
+  "stem": " Доказване, че 8 cm MK MH   . – 2 точки Примерно решение: От HML получаваме 90 70 20 MLH    . От DLN получаваме 90 70 20 DLN    . Следователно LM е ъглополовящата на DLH и 8 cm MK MH   . IV етап – Доказване, че BM BH DM AB DN     . – 4 точки Изразяване BM BH HM   – 1 точка Доказване, че BH = AB. – 1 точка Доказване, че BH DM AB DN    – 1 точка Доказване, че HM DM  – 1 точка Примерно решение:",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ },
+ {
+  "crop": "vo_7kl_math_20052016_p11_11.png",
+  "paper": "vo_7kl_math_20052016",
+  "year": 2005,
+  "page": 11,
+  "bbox": [
+   136.8,
+   667.5,
+   216.1,
+   702.5
+  ],
+  "item_no": null,
+  "stem": " Доказване, че 8 cm MK MH   . – 2 точки Примерно решение: От HML получаваме 90 70 20 MLH    . От DLN получаваме 90 70 20 DLN    . Следователно LM е ъглополовящата на DLH и 8 cm MK MH   . IV етап – Доказване, че BM BH DM AB DN     . – 4 точки Изразяване BM BH HM   – 1 точка Доказване, че BH = AB. – 1 точка Доказване, че BH DM AB DN    – 1 точка Доказване, че HM DM  – 1 точка Примерно решение:",
+  "detection": "vector",
+  "has_key": false,
+  "kind_hint": "figure"
+ }
+]
