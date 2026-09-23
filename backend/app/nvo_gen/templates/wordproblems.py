@@ -392,7 +392,7 @@ def percent_discount_price(rng: random.Random, slot: Slot) -> GeneratedItem:
     base = rng.choice([40, 60, 80, 120, 150, 200, 250, 300])
     pct = rng.choice([10, 20, 25, 50, 40])
     if base * pct % 100:
-        raise Retry("the discount must be a whole number of leva")
+        raise Retry("the discount must be a whole number of euros")
     key = base * (100 - pct) // 100
 
     # The indefinite article agrees with the noun's gender and is not derivable
@@ -401,15 +401,15 @@ def percent_discount_price(rng: random.Random, slot: Slot) -> GeneratedItem:
         ("едно", "яке"), ("един", "чифт обувки"), ("една", "раница"),
         ("един", "велосипед"), ("един", "часовник"), ("една", "тениска"),
     ])
-    opening = f"Цената на {article} {goods} е ${base}$ лв."
-    solution = (rf"Намалението е ${base * pct // 100}$ лв., а новата цена "
-                rf"${base} - {base * pct // 100} = {key}$ лв.")
+    opening = f"Цената на {article} {goods} е ${base}$ евро."
+    solution = (rf"Намалението е ${base * pct // 100}$ евро, а новата цена "
+                rf"${base} - {base * pct // 100} = {key}$ евро.")
 
     if slot.kind == "short":
         return GeneratedItem(
             topic=slot.topic, kind="short", points=slot.points,
             stem=f"{opening} Намерете новата цена при намаление от ${pct}\\%$.",
-            correct_answer=f"{key} лв.",
+            correct_answer=f"{key} евро",
             difficulty="easy", solution=solution,
             signature=f"pct_discount:{base}:{pct}",
         )
@@ -419,7 +419,7 @@ def percent_discount_price(rng: random.Random, slot: Slot) -> GeneratedItem:
     wrong = [base * pct // 100, base * (100 + pct) // 100, base - pct,
              base * (100 - pct) // 200]
     options, letter = numeric_options(key, wrong, rng=rng, positive_only=True,
-                                      suffix="лв.")
+                                      suffix="евро")
     return GeneratedItem(
         topic=slot.topic, kind="mc", points=slot.points,
         stem=stem, options=options, correct_answer=letter, difficulty="easy",

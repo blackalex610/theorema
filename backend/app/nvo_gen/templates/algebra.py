@@ -473,8 +473,9 @@ def rectangle_symbolic_perimeter(rng: random.Random, slot: Slot) -> GeneratedIte
           topics=["expression_from_words"], kinds=["mc"], weight=1.2, band="easy")
 def expression_from_words_tariff(rng: random.Random, slot: Slot) -> GeneratedItem:
     """A fixed charge plus a per-unit rate — the 2025 Q17 taxi shape."""
-    base = Fraction(rng.choice([200, 250, 300, 350]), 100)
-    rate = Fraction(rng.choice([120, 150, 175, 200]), 100)
+    # euro fares since 2026: a flag-fall of a euro or two, under a euro per km
+    base = Fraction(rng.choice([120, 150, 180, 200, 250]), 100)
+    rate = Fraction(rng.choice([70, 80, 90, 110, 120]), 100)
     b, r = bg_decimal(base, places=3), bg_decimal(rate, places=3)
 
     correct = rf"{b} + {r}x"
@@ -482,9 +483,9 @@ def expression_from_words_tariff(rng: random.Random, slot: Slot) -> GeneratedIte
     options, letter = shuffle_options(f"${correct}$", [f"${w}$" for w in wrongs], rng=rng)
     return GeneratedItem(
         topic=slot.topic, kind="mc", points=slot.points,
-        stem=(f"Първоначалната такса при ползване на такси е ${b}$ лв. "
-              f"За всеки изминат километър се заплаща по ${r}$ лв. "
-              f"Кой от изразите представя сумата в лева, която клиент трябва "
+        stem=(f"Първоначалната такса при ползване на такси е ${b}$ евро. "
+              f"За всеки изминат километър се заплаща по ${r}$ евро. "
+              f"Кой от изразите представя сумата в евро, която клиент трябва "
               f"да заплати при изминаване на $x$ километра?"),
         options=options, correct_answer=letter, difficulty="easy",
         solution=f"Постоянната такса ${b}$ плюс ${r}$ за всеки от $x$ километра: ${correct}$",
@@ -497,7 +498,7 @@ def expression_from_words_tariff(rng: random.Random, slot: Slot) -> GeneratedIte
 def expression_from_words_purchase(rng: random.Random, slot: Slot) -> GeneratedItem:
     """x of one item and a multiple of another — the 2024 Q16 balloon shape."""
     mult = rng.choice([2, 3, 4])
-    price = Fraction(rng.choice([100, 150, 200, 250]), 100)
+    price = Fraction(rng.choice([40, 50, 60, 80, 120]), 100)
     total_each = price * (1 + mult)
     p = bg_decimal(price, places=3)
     correct = rf"{bg_decimal(total_each, places=3)}x"
@@ -510,7 +511,7 @@ def expression_from_words_purchase(rng: random.Random, slot: Slot) -> GeneratedI
     return GeneratedItem(
         topic=slot.topic, kind="mc", points=slot.points,
         stem=(f"Ива купила $x$ на брой бели балона и ${mult}$ пъти повече сини. "
-              f"Един балон струва ${p}$ лева. Общата стойност на покупката, "
+              f"Един балон струва ${p}$ евро. Общата стойност на покупката, "
               f"изразена чрез $x$, е:"),
         options=options, correct_answer=letter, difficulty="medium",
         solution=(rf"Балоните са $x + {mult}x = {mult + 1}x$, а стойността е "

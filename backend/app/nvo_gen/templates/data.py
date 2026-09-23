@@ -381,41 +381,102 @@ def table_share_of_total(rng: random.Random, slot: Slot) -> GeneratedItem:
 # 2026 Q17 key does it ("2 т.", "3 т.").
 # ═════════════════════════════════════════════════════════════════════════════
 
+_MONTHS = ["януари", "февруари", "март", "април", "май", "юни", "юли", "август",
+           "септември", "октомври", "ноември", "декември"]
+
+#: Each context is written out whole. Building the sentences from one noun
+#: phrase is what printed „броя на продадени велосипеда” and „Колко общо са
+#: продадени велосипеда” — the count form after a non-number, and no article.
+#: (intro, А question, Б-total question, Б-difference question with {a} {b},
+#:  answer unit)
+_CHART_CONTEXTS = [
+    ("Диаграмата показва броя на продадените велосипеди в един магазин",
+     "През кой месец са продадени най-много велосипеди?",
+     "Колко велосипеда общо са продадени през показаните месеци?",
+     "С колко велосипеда повече са продадени през {a}, отколкото през {b}?",
+     "велосипеда"),
+    ("Диаграмата показва броя на посетителите на една изложба",
+     "През кой месец изложбата е имала най-много посетители?",
+     "Колко посетители общо е имала изложбата през показаните месеци?",
+     "С колко посетители повече е имало през {a}, отколкото през {b}?",
+     "посетители"),
+    ("Диаграмата показва броя на издадените читателски карти в една библиотека",
+     "През кой месец са издадени най-много читателски карти?",
+     "Колко читателски карти общо са издадени през показаните месеци?",
+     "С колко карти повече са издадени през {a}, отколкото през {b}?",
+     "карти"),
+    ("Строителна фирма продава апартаменти. Диаграмата показва броя на "
+     "продадените апартаменти",
+     "През кой месец са продадени най-много апартаменти?",
+     "Колко апартамента общо са продадени през показаните месеци?",
+     "С колко апартамента повече са продадени през {a}, отколкото през {b}?",
+     "апартамента"),
+    ("Диаграмата показва броя на нощувките в един хотел",
+     "През кой месец в хотела е имало най-много нощувки?",
+     "Колко нощувки общо е имало в хотела през показаните месеци?",
+     "С колко нощувки повече е имало през {a}, отколкото през {b}?",
+     "нощувки"),
+    ("Диаграмата показва броя на продадените билети в едно кино",
+     "През кой месец са продадени най-много билети?",
+     "Колко билета общо са продадени през показаните месеци?",
+     "С колко билета повече са продадени през {a}, отколкото през {b}?",
+     "билета"),
+    ("Диаграмата показва броя на засадените дръвчета в един парк",
+     "През кой месец са засадени най-много дръвчета?",
+     "Колко дръвчета общо са засадени през показаните месеци?",
+     "С колко дръвчета повече са засадени през {a}, отколкото през {b}?",
+     "дръвчета"),
+]
+
+
 @template("chart_peak_and_total",
           topics=["data_chart"], kinds=["short"], weight=1.2, band="easy")
 def chart_peak_and_total(rng: random.Random, slot: Slot) -> GeneratedItem:
-    """Read the tallest bar, then total the series — the two easiest questions
-    you can ask of a bar chart, which is what the gentler levels need here."""
-    months = ["януари", "февруари", "март", "април", "май", "юни"]
-    labels = months[: rng.choice([5, 6])]
-    values = [rng.choice([5, 10, 15, 20, 25, 30, 35, 40]) for _ in labels]
+    """Read the tallest bar, then total the series or compare two bars — the
+    easiest questions you can ask of a bar chart, which is what the gentler
+    levels need here. The months are a sliding window, as in 2026 Q17
+    (април – август), rather than always starting in January."""
+    n = rng.choice([5, 6])
+    first = rng.randint(0, 12 - n)
+    labels = _MONTHS[first:first + n]
+    scale = rng.choice([1, 1, 2, 10])
+    values = [rng.choice([5, 10, 15, 20, 25, 30, 35, 40]) * scale for _ in labels]
     peak = max(values)
     if values.count(peak) != 1:
         raise Retry("the tallest bar must be unique")
-    total = sum(values)
     peak_month = labels[values.index(peak)]
+    intro, q_peak, q_total, q_diff, unit = rng.choice(_CHART_CONTEXTS)
 
-    what, unit = rng.choice([
-        ("продадени велосипеда", "броя"),
-        ("посетители на изложбата", "души"),
-        ("издадени читателски карти", "броя"),
-    ])
+    if rng.random() < 0.55:
+        q_b = q_total
+        ans_b = sum(values)
+        sol_b = f"${' + '.join(str(v) for v in values)} = {ans_b}$"
+        sig_b = "total"
+    else:
+        i, j = rng.sample(range(n), 2)
+        if values[i] <= values[j]:
+            i, j = j, i
+        if values[i] == values[j]:
+            raise Retry("the two compared bars must differ")
+        q_b = q_diff.format(a=labels[i], b=labels[j])
+        ans_b = values[i] - values[j]
+        sol_b = f"${values[i]} - {values[j]} = {ans_b}$"
+        sig_b = f"diff{i}{j}"
+
     scene = bar_chart(
-        categories=labels, values=values, y_label=unit, y_step=5,
-        aria=("Стълбовидна диаграма на " + what + " по месеци: " +
+        categories=labels, values=values, y_label="брой", y_step=5 * scale,
+        aria=(intro + " по месеци: " +
               ", ".join(f"{m} — {v}" for m, v in zip(labels, values))),
     )
     return GeneratedItem(
         topic=slot.topic, kind="short", points=slot.points,
-        stem=(f"Диаграмата показва броя на {what} през всеки от месеците."),
-        parts=[f"А) През кой месец броят на {what} е най-голям?",
-               f"Б) Колко общо са {what} за всички показани месеци?"],
-        correct_answer=[peak_month, f"{total} {unit}"],
+        stem=f"{intro} през месеците от {labels[0]} до {labels[-1]}.",
+        parts=[f"А) {q_peak}", f"Б) {q_b}"],
+        correct_answer=[peak_month, f"{ans_b} {unit}"],
         difficulty="easy", scene=scene,
         solution=(f"А) Най-високият стълб е за месец {peak_month} — ${peak}$. "
-                  f"Б) Сборът на всички стойности е "
-                  f"${' + '.join(str(v) for v in values)} = {total}$."),
-        signature=f"chart_peak:{'-'.join(map(str, values))}",
+                  f"Б) {sol_b}."),
+        signature=f"chart_peak:{first}:{'-'.join(map(str, values))}:{sig_b}",
     )
 
 

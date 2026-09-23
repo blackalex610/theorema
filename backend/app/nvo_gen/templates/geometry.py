@@ -273,68 +273,133 @@ def parallels_zigzag(rng: random.Random, slot: Slot) -> GeneratedItem:
     )
 
 
+#: (num, den) with 180·num/(num + den) whole and the angle comfortably drawable.
+_ADJ_FRACTIONS = [(1, 2), (2, 1), (1, 3), (3, 1), (1, 4), (4, 1), (1, 5), (5, 1),
+                  (2, 3), (3, 2), (4, 5), (5, 4), (2, 7), (7, 2), (5, 7), (7, 5),
+                  (3, 7), (7, 3), (7, 11), (11, 7), (5, 13), (13, 5)]
+#: p% with 180·p/(100 + p) whole.
+_ADJ_PERCENTS = [20, 25, 50, 80, 125, 150, 200, 300, 400]
+
+
+def _adjacent_figure(angle: int, rng: random.Random) -> dict:
+    """A line through O and a ray OR, both adjacent angles marked (no values)."""
+    f = Figure(width=250, height=150)
+    O = f.put("O", (125.0, 108.0))
+    f.put("L", polar(O, 105, 180), hidden=True)
+    f.put("Rt", polar(O, 105, 0), hidden=True)
+    drawn = min(max(angle, 28), 152)            # keep both arcs legible
+    f.put("R", polar(O, 92, drawn))
+    f.line("L", "Rt")
+    f.seg("O", "R")
+    f.angle("O", "Rt", "R", arcs=1, radius=24)
+    f.angle("O", "R", "L", arcs=2, radius=30)
+    return f.to_spec(aria="Права и лъч от точка O върху нея, образуващи два съседни ъгъла",
+                     rng=rng, upright=True)
+
+
 @template("adjacent_angle_ratio", topics=["geom_lines_angles"], kinds=["mc"], weight=1.2)
 def adjacent_angle_ratio(rng: random.Random, slot: Slot) -> GeneratedItem:
-    """One of two adjacent angles is a given fraction of the other.
+    """One of two adjacent angles is a given part of the other — 2022 Q11, 2023 Q11.
 
-    2022 Q11 (5/4 of its neighbour) and 2023 Q11 (80% of the other) are the
-    same item. No figure in 2023; 2022 prints none either — this is a pure
-    angle-relationship item, so the scene stays None.
+    2022 phrases it as a fraction („5/4 от съседния му”), 2023 as a percentage
+    („80% от другия”); both are kept. The papers print no figure, but every
+    geometry slot here carries one, and this template used to be rejected on
+    every draw for lacking it — registered, counted in coverage, never served.
     """
-    num, den = rng.choice([(5, 4), (4, 5), (2, 3), (3, 2), (5, 1), (1, 4), (7, 2)])
-    # x = (num/den)(180 − x)  →  x = 180·num/(num+den)
-    key_f = Fraction(180 * num, num + den)
+    if rng.random() < 0.6:
+        num, den = rng.choice(_ADJ_FRACTIONS)
+        part = rf"$\frac{{{num}}}{{{den}}}$"
+        key_f = Fraction(180 * num, num + den)
+        sig = f"{num}/{den}"
+    else:
+        pct = rng.choice(_ADJ_PERCENTS)
+        part = rf"${pct}\%$"
+        key_f = Fraction(180 * pct, 100 + pct)
+        sig = f"{pct}%"
     if key_f.denominator != 1:
         raise Retry("need a whole-number angle")
-    key = key_f.numerator
-    neighbour = 180 - key
-    if not (10 <= key <= 170):
+    angle = key_f.numerator
+    neighbour = 180 - angle
+    if not 15 <= angle <= 165:
         raise Retry("angle out of a drawable range")
 
-    options, letter = angle_options(neighbour, extras=[key, 180 - neighbour * 2], rng=rng)
+    ask_neighbour = rng.random() < 0.5
+    key = neighbour if ask_neighbour else angle
+    asked = "съседния му ъгъл" if ask_neighbour else "този ъгъл"
+    options, letter = angle_options(key, extras=[180 - key, abs(angle - neighbour), 90],
+                                    rng=rng)
     return GeneratedItem(
         topic=slot.topic, kind="mc", points=slot.points,
-        stem=(f"Един ъгъл е $\\frac{{{num}}}{{{den}}}$ от своя съседен ъгъл. "
-              f"Мярката на съседния му ъгъл е:"),
+        stem=(f"Мярката на един ъгъл е {part} от мярката на съседния му ъгъл. "
+              f"Мярката на {asked} е:"),
         options=options, correct_answer=letter, difficulty="medium",
-        solution=(rf"Ако ъгълът е $x$, то $x = \frac{{{num}}}{{{den}}}(180^\circ - x)$, "
-                  rf"откъдето $x = {key}^\circ$, а съседният е ${neighbour}^\circ$"),
-        signature=f"adj_ratio:{num}:{den}",
+        scene=_adjacent_figure(angle, rng),
+        solution=(rf"Съседните ъгли се допълват до $180^\circ$. Ако съседният е $y$, "
+                  rf"ъгълът е {part} от $y$, откъдето $y = {neighbour}^\circ$, а ъгълът е "
+                  rf"${angle}^\circ$"),
+        signature=f"adj_ratio:{sig}:{ask_neighbour}",
     )
+
+
+#: k → how the stem says "k times the sum of its two neighbours".
+_NEIGHBOUR_MULTIPLES = {
+    Fraction(1): "е равна на сбора от мерките на двата му съседни ъгъла",
+    Fraction(2): "е два пъти по-голяма от сбора от мерките на двата му съседни ъгъла",
+    Fraction(4): "е четири пъти по-голяма от сбора от мерките на двата му съседни ъгъла",
+    Fraction(3, 2): (r"е равна на $\frac{3}{2}$ от сбора от мерките на двата му "
+                     r"съседни ъгъла"),
+    Fraction(1, 3): "е три пъти по-малка от сбора от мерките на двата му съседни ъгъла",
+    Fraction(1, 4): "е четири пъти по-малка от сбора от мерките на двата му съседни ъгъла",
+}
 
 
 @template("angle_equals_neighbours", topics=["geom_lines_angles"], kinds=["mc"], weight=1.1)
 def angle_equals_neighbours(rng: random.Random, slot: Slot) -> GeneratedItem:
-    """One angle at a crossing equals the sum of its two neighbours — 2024 Q10.
+    """One angle at a crossing is k times the sum of its two neighbours — 2024 Q10.
 
-    Both neighbours are 180 − x, so x = 2(180 − x) and x = 120°, always. The
-    variation is which multiple is asked for, so the parameter is the phrasing,
-    not the number — exactly as in the real paper, which has one right answer
-    a student can reason to without measuring.
+    Both neighbours are 180 − x, so x = 2k(180 − x) and x = 360k / (1 + 2k).
+    The paper's k = 1 gives 120°, which is what this template used to print
+    every time; k ∈ {1/4, 1/3, 1, 3/2, 2, 4} gives 60°, 72°, 120°, 135°, 144°
+    and 160°, and the question asks for either the larger or the smaller angle.
     """
-    key = 120
+    k = rng.choice(list(_NEIGHBOUR_MULTIPLES))
+    x = Fraction(360) * k / (1 + 2 * k)
+    if x.denominator != 1:
+        raise Retry("need a whole angle")
+    x = int(x)
+    other = 180 - x
+    larger = rng.random() < 0.6
+    key = max(x, other) if larger else min(x, other)
+
     f = Figure(width=250, height=150)
     O = f.put("O", (128.0, 78.0))
-    f.put("P1", polar(O, 108, 168), hidden=True)
-    f.put("P2", polar(O, 108, -12), hidden=True)
-    f.put("Q1", polar(O, 104, 212), hidden=True)
-    f.put("Q2", polar(O, 104, 32), hidden=True)
+    tilt = rng.uniform(-14, 14)
+    f.put("P1", polar(O, 108, 180 + tilt), hidden=True)
+    f.put("P2", polar(O, 108, tilt), hidden=True)
+    f.put("Q1", polar(O, 104, 180 + tilt + x), hidden=True)
+    f.put("Q2", polar(O, 104, tilt + x), hidden=True)
     f.line("P1", "P2")
     f.line("Q1", "Q2")
     f.angle("O", "P2", "Q2", arcs=1, fill=True, radius=26)
 
-    options, letter = angle_options(key, extras=[60, 90, 150, 45], rng=rng)
+    options, letter = angle_options(key, extras=[180 - key, 120, 90, x // 2], rng=rng)
     return GeneratedItem(
         topic=slot.topic, kind="mc", points=slot.points,
-        stem=("При пресичането на две прави мярката на един от получените ъгли е "
-              "равна на сбора от мерките на двата му съседни ъгъла. Мярката на "
-              "по-големия от ъглите е:"),
+        stem=("При пресичането на две прави мярката на един от получените ъгли "
+              f"{_NEIGHBOUR_MULTIPLES[k]}. Мярката на "
+              f"{'по-големия' if larger else 'по-малкия'} от получените ъгли е:"),
         options=options, correct_answer=letter, difficulty="medium",
-        scene=f.to_spec(aria="Две пресичащи се прави с отбелязан един от получените ъгли", rng=rng),
-        solution=(r"Съседните ъгли са по $180^\circ - x$, значи "
-                  r"$x = 2(180^\circ - x)$, откъдето $3x = 360^\circ$ и $x = 120^\circ$"),
-        signature="angle_eq_neigh",
+        scene=f.to_spec(aria="Две пресичащи се прави с отбелязан един от получените ъгли",
+                        rng=rng),
+        solution=(rf"Съседните ъгли са по $180^\circ - x$. От условието "
+                  rf"$x = {bg_k(k)}\cdot 2(180^\circ - x)$, откъдето $x = {x}^\circ$; "
+                  rf"другите ъгли са ${other}^\circ$"),
+        signature=f"angle_eq_neigh:{k}:{larger}",
     )
+
+
+def bg_k(k: Fraction) -> str:
+    return str(k.numerator) if k.denominator == 1 else rf"\frac{{{k.numerator}}}{{{k.denominator}}}"
 
 
 @template("concurrent_lines_angle", topics=["geom_lines_angles"], kinds=["mc"], weight=1.1)

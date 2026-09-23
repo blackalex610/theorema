@@ -50,6 +50,10 @@ _MATH_SPAN = re.compile(r"\$([^$]*)\$")
 #: correct stem. Empty braces, on the other hand, are neither valid LaTeX nor
 #: anything a template means to emit.
 _PLACEHOLDER = re.compile(r"\{\s*\}|\bTODO\b|\bFIXME\b|\bNone\b|\bnan\b")
+# "лв." / "лева" / "стотинки" as words — not the "лв" inside "допълват"
+_LEVA = re.compile(r"(?<![А-Яа-я])(лв\.?|лева|стотинк\w*)(?![А-Яа-я])")
+# a digit, the decimal comma (plain or KaTeX's {,}), then three or more digits
+_LONG_DECIMAL = re.compile(r"\d(?:\{,\}|,)\d{3,}")
 _LATIN_OPTION = re.compile(r"^[ABCD]$")
 
 
@@ -109,6 +113,10 @@ def _check_text(text: str, label: str, r: Report) -> None:
         r.errors.append(f"{label} has an unbalanced math delimiter")
     if _PLACEHOLDER.search(text):
         r.errors.append(f"{label} still contains a placeholder: {_PLACEHOLDER.search(text).group()!r}")
+    if _LEVA.search(text):
+        r.errors.append(
+            f"{label} prices in leva — Bulgaria has used the euro since 1 Jan 2026 and "
+            f"the June 2026 paper prices in „евро”")
     for span in _MATH_SPAN.findall(text):
         if _CYRILLIC.search(span):
             r.errors.append(
@@ -123,6 +131,11 @@ def _check_multiple_choice(item: GeneratedItem, r: Report) -> None:
         return
     for i, opt in enumerate(options):
         _check_text(opt, f"option {OPTION_LETTERS[i] if i < 4 else i}", r)
+        if _LONG_DECIMAL.search(opt):
+            # 13 papers, 2015–2026: no option carries three decimals. One that
+            # does is almost always a repeating value printed rounded (1/48 as
+            # „0,021"), which is not an answer anyone can compute to.
+            r.errors.append(f"option {opt!r} has more than two decimal places")
     if len(set(options)) != len(options):
         dupes = [o for o, n in Counter(options).items() if n > 1]
         r.errors.append(f"duplicate options: {dupes}")

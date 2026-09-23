@@ -69,30 +69,38 @@ def arith_whole_minus_negative_product(rng: random.Random, slot: Slot) -> Genera
 @template("arith_unit_fraction_chain",
           topics=["arithmetic_expression"], kinds=["mc"], weight=1.2, band="easy")
 def arith_unit_fraction_chain(rng: random.Random, slot: Slot) -> GeneratedItem:
-    """1/k − 1/k·m  — the 2026 shape, answer is a negative decimal."""
-    k = rng.choice(slot.profile.tier([2, 4, 5], [4, 5, 10], [4, 5, 8, 10, 20],
-                                     [8, 20, 25, 40]))
+    """1/k − 1/k·m  — the 2026 shape, answer is a negative decimal.
+
+    k is kept to divisors of 100, so every option prints in at most two
+    decimals like the paper's −1,8 / −2,2 / −4,8. The old pool allowed k = 8
+    and a "divided instead of multiplied" distractor 1/k − 1/(km), which is a
+    repeating decimal and printed rounded — „0,229”, an option no key has.
+    """
+    k = rng.choice(slot.profile.tier([2, 4, 5], [4, 5, 10], [4, 5, 10, 20, 25],
+                                     [20, 25, 50]))
     m = rng.choice(slot.profile.tier([2, 3, 4], [4, 6, 8], [6, 8, 10, 12, 15],
                                      [12, 15, 18, 24]))
     key = Fraction(1, k) - Fraction(m, k)
-    if key == 0 or not is_clean_decimal(key, places=3):
+    if key == 0 or not is_clean_decimal(key, places=2):
         raise Retry("key must be a clean decimal")
 
     wrong = [
         sign_flip(key),
-        Fraction(1, k) * (1 - m) * -1,                 # sign slip inside the bracket
+        Fraction(1 + m, k),                             # sign slip: 1/k + m/k
         (Fraction(1, k) - Fraction(1, k)) * m,          # left to right → 0
+        -Fraction(m, k),                                # dropped the first term
         Fraction(1, k) - Fraction(1, k * m),            # divided instead of multiplied
     ]
+    wrong = [w for w in wrong if is_clean_decimal(Fraction(w), places=2)]
     options, letter = numeric_options(
-        key, wrong, rng=rng, fmt=lambda v: bg_decimal(v, places=3))
+        key, wrong, rng=rng, fmt=lambda v: bg_decimal(v, places=2))
     expr = rf"\frac{{1}}{{{k}}} - \frac{{1}}{{{k}}}\cdot {m}"
     return GeneratedItem(
         topic=slot.topic, kind="mc", points=slot.points,
         stem=f"Стойността на израза ${expr}$ е:",
         options=options, correct_answer=letter, difficulty="easy",
-        solution=f"${expr} = {bg_decimal(Fraction(1, k), places=3)} - "
-                 f"{bg_decimal(Fraction(m, k), places=3)} = {bg_decimal(key, places=3)}$",
+        solution=f"${expr} = {bg_decimal(Fraction(1, k), places=2)} - "
+                 f"{bg_decimal(Fraction(m, k), places=2)} = {bg_decimal(key, places=2)}$",
         signature=f"arith_ufc:{k}:{m}",
     )
 
@@ -399,23 +407,23 @@ def percent_two_stage_price(rng: random.Random, slot: Slot) -> GeneratedItem:
     raised = Fraction(base * (100 + p), 100)
     final = raised * Fraction(100 - q, 100)
     if final.denominator != 1 or raised.denominator != 1:
-        raise Retry("both stages must land on whole leva")
+        raise Retry("both stages must land on whole euros")
     key = final.numerator
 
     naive = base * (100 + p - q) // 100          # netted the percentages
     wrong = [naive, raised.numerator, base * (100 - q) // 100, base]
     options, letter = numeric_options(key, wrong, rng=rng, positive_only=True,
-                                      suffix="лв.")
+                                      suffix="евро")
     return GeneratedItem(
         topic=slot.topic, kind="mc", points=slot.points,
-        stem=(f"Цената на един артикул е ${base}$ лв. Първо тя се увеличава с "
+        stem=(f"Цената на един артикул е ${base}$ евро. Първо тя се увеличава с "
               f"${p}\\%$, а след това новата цена се намалява с ${q}\\%$. "
               f"Крайната цена на артикула е:"),
         options=options, correct_answer=letter, difficulty="hard",
-        solution=(rf"След увеличението цената е ${raised.numerator}$ лв., "
+        solution=(rf"След увеличението цената е ${raised.numerator}$ евро, "
                   rf"а след намалението ${raised.numerator}\cdot "
-                  rf"\frac{{{100 - q}}}{{100}} = {key}$ лв. "
-                  rf"(Не е ${naive}$ лв. — второто намаление е от новата цена.)"),
+                  rf"\frac{{{100 - q}}}{{100}} = {key}$ евро "
+                  rf"(не ${naive}$ евро — второто намаление е от новата цена)."),
         signature=f"pct_two_stage:{base}:{p}:{q}",
     )
 
