@@ -61,6 +61,36 @@ from app.nvo_gen.scene import (
 
 # ─── triangle with cevians: height + angle bisector ──────────────────────────
 
+
+#: p : q splitting a parallelogram's co-interior pair into whole degrees, the
+#: smaller angle at least 20°. Was six hand-picked ratios.
+_PARALLELOGRAM_RATIOS = [
+    (p, q) for q in range(2, 14) for p in range(1, q)
+    if math.gcd(p, q) == 1 and 180 % (p + q) == 0 and 180 * p // (p + q) >= 20
+]
+
+
+def angle_span(slot: Slot, lo: int, hi: int, *, step: int = 1) -> list[int]:
+    """Every whole value in [lo, hi] a level may draw, instead of a hand-picked list.
+
+    Real papers print angles such as 8°, 52° and 78° (2026 Q11, Q14), not only
+    multiples of five, and a list of seven values is seven items a student
+    starts recognising. The range is the template's own drawable range; the
+    level decides how round the numbers are — easy prints multiples of ten,
+    medium of five, actual any whole value, and extra hard only the awkward
+    ones. ``step`` keeps a parity the template needs (an angle that is halved).
+    """
+    every = [v for v in range(lo, hi + 1) if v % step == 0]
+    round10 = [v for v in every if v % 10 == 0]
+    round5 = [v for v in every if v % 5 == 0]
+    awkward = [v for v in every if v % 5]
+    return slot.profile.tier(round10 if len(round10) >= 2 else
+                             round5 if len(round5) >= 2 else every,
+                             round5 if len(round5) >= 3 else every,
+                             every,
+                             awkward if len(awkward) >= 3 else every)
+
+
 @template("tri_height_and_bisector",
           topics=["geom_triangle_cevians"], kinds=["mc"], weight=1.4, band="hard")
 def tri_height_and_bisector(rng: random.Random, slot: Slot) -> GeneratedItem:
@@ -69,12 +99,8 @@ def tri_height_and_bisector(rng: random.Random, slot: Slot) -> GeneratedItem:
     The 2026 Q11 item. Chase: ∠HBC = 90 − ∠HCB, so ∠LBC = ∠LBH + ∠HBC and
     ∠ABC = 2·∠LBC, leaving ∠BAC = 180 − ∠ABC − ∠HCB.
     """
-    gamma = rng.choice(slot.profile.tier(
-        [70, 75, 80], [70, 72, 75, 80],
-        [64, 68, 72, 74, 76, 78, 80],
-        [61, 63, 67, 69, 71, 73, 79]))                     # ∠HCB
-    lbh = rng.choice(slot.profile.tier([5, 10], [5, 8, 10], [4, 6, 8, 10, 12],
-                                       [3, 7, 9, 11, 13, 14]))   # ∠LBH
+    gamma = rng.choice(angle_span(slot, 61, 80, step=1))                     # ∠HCB
+    lbh = rng.choice(angle_span(slot, 3, 14, step=1))   # ∠LBH
     hbc = 90 - gamma
     lbc = lbh + hbc
     abc = 2 * lbc
@@ -117,7 +143,7 @@ def tri_height_and_bisector(rng: random.Random, slot: Slot) -> GeneratedItem:
           topics=["geom_triangle_cevians"], kinds=["mc"], weight=1.1, band="hard")
 def tri_bisector_isosceles(rng: random.Random, slot: Slot) -> GeneratedItem:
     """CN bisects ∠ACB with AN = CN; given ∠CNB, find ∠ABC — the 2021 Q14 shape."""
-    cnb = rng.choice([60, 66, 70, 74, 80, 84])
+    cnb = rng.choice(angle_span(slot, 54, 88, step=2))
     # ∠ANC = 180 − ∠CNB; AN = CN makes △ANC isosceles, so ∠NAC = ∠NCA.
     anc = 180 - cnb
     nac = (180 - anc) // 2
@@ -169,9 +195,7 @@ def incentre_angle(rng: random.Random, slot: Slot) -> GeneratedItem:
     vertex roles rotated and the given angle changed — which is the clearest
     evidence in the corpus that the ministry is already working this way.
     """
-    gamma = rng.choice(slot.profile.tier([40, 60, 80], [40, 50, 60, 80],
-                                         [30, 40, 50, 60, 70, 80],
-                                         [34, 38, 46, 54, 62, 74, 86]))
+    gamma = rng.choice(angle_span(slot, 30, 86, step=2))
     aob = 90 + gamma // 2
     if gamma % 2:
         raise Retry("γ must be even so ∠AOB is whole")
@@ -453,7 +477,8 @@ def perp_bisector_of_hypotenuse(rng: random.Random, slot: Slot) -> GeneratedItem
     surds, which no NVO key ever prints.
     """
     alpha = 30
-    ac = rng.choice([12, 15, 18, 21, 24, 27, 30])
+    ac = rng.choice(slot.profile.tier([12, 15, 18, 21], list(range(9, 34, 3)),
+                                      list(range(9, 49, 3)), list(range(21, 61, 3))))
     if ac % 3:
         raise Retry("AC must divide by 3 for a whole answer")
     key = ac // 3
@@ -599,7 +624,7 @@ def parallelogram_isosceles_cut(rng: random.Random, slot: Slot) -> GeneratedItem
     DC ∥ AB makes ∠MDC and ∠DMA alternate, so △ADM is isosceles with base
     angles ∠MDC, and ∠BCD = ∠DAB = 180° − 2·∠MDC.
     """
-    mdc = rng.choice([40, 44, 48, 52, 56, 62, 68])
+    mdc = rng.choice(angle_span(slot, 36, 70))
     key = 180 - 2 * mdc
     if key <= 20:
         raise Retry("the parallelogram angle must stay drawable")
@@ -636,7 +661,7 @@ def parallelogram_isosceles_cut(rng: random.Random, slot: Slot) -> GeneratedItem
           topics=["geom_quadrilateral"], kinds=["mc"], weight=1.2, band="hard")
 def rhombus_bisector_angle(rng: random.Random, slot: Slot) -> GeneratedItem:
     """In rhombus ABCD, AL bisects ∠BAC; find ∠ALB — the 2024 Q12 shape."""
-    bad = rng.choice([40, 48, 52, 60, 64, 72, 80])
+    bad = rng.choice(angle_span(slot, 36, 84, step=4))
     if bad % 4:
         raise Retry("∠BAD must divide by 4 so every step stays whole")
     bac = bad // 2                 # the diagonal bisects the rhombus angle
@@ -679,7 +704,7 @@ def rhombus_bisector_angle(rng: random.Random, slot: Slot) -> GeneratedItem:
           topics=["geom_quadrilateral"], kinds=["mc"], weight=1.0)
 def parallelogram_angle_ratio(rng: random.Random, slot: Slot) -> GeneratedItem:
     """Two angles of a parallelogram in ratio p:q; find their difference — 2025 Q15."""
-    p, q = rng.choice([(2, 7), (1, 3), (2, 3), (1, 5), (4, 5), (3, 7)])
+    p, q = rng.choice(_PARALLELOGRAM_RATIOS)
     total = p + q
     if 180 % total:
         raise Retry("the ratio must split 180° into whole parts")
@@ -765,7 +790,7 @@ def isosceles_from_equal_segments(rng: random.Random, slot: Slot) -> GeneratedIt
     AC = CF makes △ACF isosceles with ∠A = ∠AFC = 2x. Then in △ABC:
     2x + x + ∠ACB = 180.
     """
-    x = rng.choice([20, 22, 25, 28, 30, 32, 35])
+    x = rng.choice(angle_span(slot, 18, 40))
     key = 180 - 3 * x
     if key <= 20:
         raise Retry("∠ACB must stay positive and readable")
@@ -1010,10 +1035,7 @@ def parallels_transversal_cointerior(rng: random.Random, slot: Slot) -> Generate
     The gentlest item in this topic and the one the geometry block usually
     opens with: a single named property, one subtraction, no chase.
     """
-    alpha = rng.choice(slot.profile.tier(
-        [120, 130, 140], [115, 120, 125, 130, 140],
-        [110, 118, 125, 130, 138, 145, 150],
-        [106, 113, 119, 127, 134, 143, 151]))
+    alpha = rng.choice(angle_span(slot, 106, 151, step=1))
     key = 180 - alpha
 
     f = two_parallel_lines(rng=rng)
@@ -1248,7 +1270,8 @@ def median_hypotenuse_equilateral(rng: random.Random, slot: Slot) -> GeneratedIt
     at M then forces the third side equal too. This is the 30–60–90 fact that
     Part 2 geometry proofs lean on, asked directly.
     """
-    ab = rng.choice([12, 16, 20, 24, 28, 32, 36])
+    ab = rng.choice(slot.profile.tier([12, 16, 20], list(range(8, 41, 4)),
+                                      list(range(8, 61, 2)), list(range(22, 81, 2))))
     cmb = 60
     bc = ab // 2
     if ab % 2:
@@ -1551,14 +1574,8 @@ def tri_height_bisector_median(rng: random.Random, slot: Slot) -> GeneratedItem:
     — the angle between a vertex's height and its bisector is half the
     difference of the other two angles, and the median is along for the ride.
     """
-    alpha = rng.choice(slot.profile.tier(
-        [60, 64, 70], [58, 60, 64, 70, 72],
-        [54, 56, 58, 60, 62, 64, 68, 70, 72],
-        [53, 57, 59, 61, 63, 67, 69, 71, 73]))          # ∠BAC
-    beta = rng.choice(slot.profile.tier(
-        [40, 44], [38, 40, 44, 46],
-        [32, 34, 36, 38, 40, 42, 44, 46],
-        [31, 33, 35, 37, 39, 41, 43, 45, 47]))          # ∠ABC
+    alpha = rng.choice(angle_span(slot, 53, 73, step=1))          # ∠BAC
+    beta = rng.choice(angle_span(slot, 31, 47, step=1))          # ∠ABC
     if (alpha - beta) % 2 or alpha - beta < 8:
         raise Retry("∠PCL must be a whole number of degrees, and readable")
     gamma = 180 - alpha - beta
@@ -1625,14 +1642,8 @@ def tri_exterior_angle_at_base(rng: random.Random, slot: Slot) -> GeneratedItem:
     exterior angle equals the sum of the two remote interior ones, so the
     answer is a single subtraction — which is why this one is banded easy.
     """
-    ext = rng.choice(slot.profile.tier(
-        [100, 110, 120], [100, 105, 110, 120, 125],
-        [95, 100, 105, 110, 115, 120, 125, 130, 135],
-        [97, 101, 103, 107, 113, 117, 119, 127, 133]))
-    alpha = rng.choice(slot.profile.tier(
-        [40, 50], [35, 40, 45, 50],
-        [30, 35, 40, 45, 50, 55, 60],
-        [28, 32, 37, 43, 47, 53, 58, 62]))
+    ext = rng.choice(angle_span(slot, 95, 135, step=1))
+    alpha = rng.choice(angle_span(slot, 28, 62, step=1))
     key = ext - alpha                                   # ∠ACB
     beta = 180 - ext                                    # ∠ABC, supplementary
     if key <= 20 or beta <= 20 or alpha + beta + key != 180:
@@ -1674,14 +1685,8 @@ def tri_cevian_exterior_angle(rng: random.Random, slot: Slot) -> GeneratedItem:
     producing a side but by the cevian itself — ∠ADC and ∠CDB are the two
     angles on the straight line AB at D.
     """
-    alpha = rng.choice(slot.profile.tier(
-        [40, 50], [35, 40, 45, 50, 55],
-        [30, 35, 40, 45, 50, 55, 60, 65],
-        [28, 33, 37, 42, 47, 52, 58, 63, 67]))          # ∠BAC
-    delta = rng.choice(slot.profile.tier(
-        [20, 30], [20, 25, 30, 35],
-        [15, 20, 25, 30, 35, 40],
-        [13, 17, 22, 27, 32, 38, 43]))                  # ∠ACD
+    alpha = rng.choice(angle_span(slot, 28, 67, step=1))          # ∠BAC
+    delta = rng.choice(angle_span(slot, 13, 43, step=1))                  # ∠ACD
     key = alpha + delta                                 # ∠CDB
     if key >= 155 or key <= 40:
         raise Retry("∠CDB must be a readable angle strictly inside a straight one")
@@ -1722,10 +1727,7 @@ def rect_diagonals_angle(rng: random.Random, slot: Slot) -> GeneratedItem:
     half-diagonals are equal and every triangle at O is isosceles. ∠BOC is
     supplementary to ∠AOB, which hands back ∠OCB = ∠AOB/2.
     """
-    theta = rng.choice(slot.profile.tier(
-        [60, 80, 100], [60, 70, 80, 100, 110],
-        [50, 60, 70, 80, 90, 100, 110, 120, 130],
-        [54, 58, 66, 74, 86, 94, 106, 114, 126]))       # ∠AOB
+    theta = rng.choice(angle_span(slot, 50, 130, step=2))       # ∠AOB
     if theta % 2:
         raise Retry("∠ACB must be a whole number of degrees")
     key = theta // 2                                    # ∠ACB
@@ -1770,14 +1772,8 @@ def tri_perpendicular_from_side_point(rng: random.Random, slot: Slot) -> Generat
     The 2018 and 2025 shape. Two steps: the triangle's angle sum gives ∠ABC,
     then the right triangle BMN gives ∠MNB as its complement.
     """
-    alpha = rng.choice(slot.profile.tier(
-        [60, 70], [55, 60, 65, 70],
-        [50, 55, 60, 65, 70, 75],
-        [48, 53, 58, 63, 68, 73, 77]))                  # ∠BAC
-    gamma = rng.choice(slot.profile.tier(
-        [60, 70], [55, 60, 65, 70],
-        [50, 55, 60, 65, 70, 75],
-        [48, 53, 58, 63, 68, 73, 77]))                  # ∠ACB
+    alpha = rng.choice(angle_span(slot, 48, 77, step=1))                  # ∠BAC
+    gamma = rng.choice(angle_span(slot, 48, 77, step=1))                  # ∠ACB
     beta = 180 - alpha - gamma
     key = 90 - beta                                     # ∠MNB
     if beta <= 20 or key <= 20 or key >= 80:
@@ -1825,14 +1821,8 @@ def tri_circumcentre_central_angle(rng: random.Random, slot: Slot) -> GeneratedI
     inscribed ∠ACB — the one genuinely non-obvious fact in the geometry that
     the seventh-grade syllabus reaches.
     """
-    alpha = rng.choice(slot.profile.tier(
-        [50, 60], [50, 55, 60, 65],
-        [45, 50, 55, 60, 65, 70],
-        [47, 52, 58, 63, 68, 72]))                      # ∠BAC
-    beta = rng.choice(slot.profile.tier(
-        [50, 60], [50, 55, 60, 65],
-        [45, 50, 55, 60, 65, 70],
-        [47, 52, 58, 63, 68, 72]))                      # ∠ABC
+    alpha = rng.choice(angle_span(slot, 45, 72, step=1))                      # ∠BAC
+    beta = rng.choice(angle_span(slot, 45, 72, step=1))                      # ∠ABC
     gamma = 180 - alpha - beta
     key = 2 * gamma                                     # ∠AOB
     if gamma <= 30 or gamma >= 85 or key >= 175:
@@ -1896,14 +1886,8 @@ def line_through_vertex_angles(rng: random.Random, slot: Slot) -> GeneratedItem:
     The 2019 and 2025 shape. No parallelism is needed and none is claimed — the
     whole content is that ∠KCA, ∠ACB and ∠BCM sit on one straight line at C.
     """
-    alpha = rng.choice(slot.profile.tier(
-        [40, 50], [35, 40, 45, 50, 55],
-        [30, 35, 40, 45, 50, 55, 60],
-        [28, 33, 38, 43, 48, 53, 58, 62]))              # ∠KCA
-    gamma = rng.choice(slot.profile.tier(
-        [60, 70], [55, 60, 65, 70, 75],
-        [50, 55, 60, 65, 70, 75, 80],
-        [48, 52, 57, 63, 68, 72, 78, 82]))              # ∠ACB
+    alpha = rng.choice(angle_span(slot, 28, 62, step=1))              # ∠KCA
+    gamma = rng.choice(angle_span(slot, 48, 82, step=1))              # ∠ACB
     key = 180 - alpha - gamma                           # ∠BCM
     if key <= 20:
         raise Retry("∠BCM must remain a readable angle")
@@ -1957,8 +1941,9 @@ def symbolic_area_notched_rectangle(rng: random.Random, slot: Slot) -> Generated
     entirely: seven points round a notch is exactly where `MIN_LABEL_GAP`
     would start rejecting draws.
     """
-    a = rng.choice(slot.profile.tier([2, 3], [2, 3, 4], [2, 3, 4, 5], [2, 3, 4, 5, 6]))
-    b = rng.choice(slot.profile.tier([2, 3], [2, 3, 5], [2, 3, 4, 5], [2, 3, 4, 5, 7]))
+    # lengths, not angles: the level decides how big, not how round
+    a = rng.choice(slot.profile.tier([2, 3], [2, 3, 4], [2, 3, 4, 5, 6], [3, 4, 5, 6, 7, 8]))
+    b = rng.choice(slot.profile.tier([2, 3], [2, 3, 5], [2, 3, 4, 5, 6, 7], [3, 4, 5, 7, 8, 9]))
     cut = a * b
 
     f = Figure()
@@ -2037,11 +2022,11 @@ def parallelogram_height_area(rng: random.Random, slot: Slot) -> GeneratedItem:
     height comes out rational without a surd, which is exactly why the official
     figure uses it and why this template fixes it rather than sampling it.
     """
-    side = rng.choice(slot.profile.tier([6, 8], [6, 8, 10], [4, 6, 8, 10, 12],
-                                        [6, 8, 10, 12, 14, 16]))
-    base = rng.choice(slot.profile.tier([10, 12], [8, 10, 12, 14],
-                                        [7, 8, 9, 10, 12, 14, 15],
-                                        [9, 11, 13, 15, 17, 19]))
+    # lengths, not angles: the level decides how big, not how round
+    side = rng.choice(slot.profile.tier([6, 8], [6, 8, 10], list(range(4, 17, 2)),
+                                        list(range(6, 21, 2))))
+    base = rng.choice(slot.profile.tier([10, 12], [8, 10, 12, 14], list(range(7, 17)),
+                                        list(range(9, 24, 2))))
     if side % 2:
         raise Retry("the height side/2 must be a whole number of centimetres")
     height = side // 2
@@ -2081,9 +2066,7 @@ def parallelogram_height_area(rng: random.Random, slot: Slot) -> GeneratedItem:
           topics=["geom_quadrilateral"], kinds=["mc"], weight=1.0, band="easy")
 def square_diagonal_angle(rng: random.Random, slot: Slot) -> GeneratedItem:
     """A square's diagonal bisects its right angle, so ∠MAD = 45° − ∠MAC."""
-    t = rng.choice(slot.profile.tier([15, 20], [10, 15, 20, 25],
-                                     [5, 10, 15, 20, 25, 30, 35],
-                                     [7, 11, 13, 17, 23, 27, 31, 37]))
+    t = rng.choice(angle_span(slot, 5, 37, step=1))
     key = 45 - t
     if key <= 5:
         raise Retry("∠MAD must stay a readable angle")
@@ -2119,9 +2102,7 @@ def square_diagonal_angle(rng: random.Random, slot: Slot) -> GeneratedItem:
           topics=["geom_quadrilateral"], kinds=["mc"], weight=1.0, band="easy")
 def trapezoid_cointerior_angle(rng: random.Random, slot: Slot) -> GeneratedItem:
     """A right trapezoid: AB ∥ DC makes ∠ABC and ∠BCD co-interior."""
-    bcd = rng.choice(slot.profile.tier([120, 130], [110, 120, 130, 135],
-                                       [100, 110, 115, 120, 125, 130, 135, 140],
-                                       [103, 107, 112, 118, 127, 133, 137, 143]))
+    bcd = rng.choice(angle_span(slot, 100, 143, step=1))
     key = 180 - bcd
     if not 25 <= key <= 85:
         raise Retry("∠ABC must be a readable acute angle")
@@ -2199,9 +2180,7 @@ def triangle_midsegment_perimeter(rng: random.Random, slot: Slot) -> GeneratedIt
           topics=["geom_right_triangle"], kinds=["mc"], weight=1.0, band="easy")
 def isosceles_height_apex_angle(rng: random.Random, slot: Slot) -> GeneratedItem:
     """The height to the base of an isosceles triangle bisects the apex angle."""
-    apex = rng.choice(slot.profile.tier([40, 50, 60], [40, 50, 60, 70, 80],
-                                        [30, 40, 50, 60, 70, 80, 90, 100],
-                                        [34, 38, 44, 52, 64, 76, 86, 94, 104]))
+    apex = rng.choice(angle_span(slot, 30, 104, step=2))
     if apex % 2:
         raise Retry("half the apex angle must be whole")
     key = 90 - apex // 2                       # the base angle
@@ -2242,11 +2221,8 @@ def isosceles_height_apex_angle(rng: random.Random, slot: Slot) -> GeneratedItem
           topics=["symbolic_perimeter"], kinds=["short", "mc"], weight=1.0, band="easy")
 def segment_parts_algebraic(rng: random.Random, slot: Slot) -> GeneratedItem:
     """AB split into three parts given through x — the 2015 shape."""
-    extra = rng.choice(slot.profile.tier([10, 12], [8, 10, 12, 15],
-                                         [6, 8, 9, 10, 12, 15, 18],
-                                         [7, 11, 13, 14, 16, 17, 19]))
-    x = rng.choice(slot.profile.tier([4, 5], [3, 4, 5, 6], [2, 3, 4, 5, 6, 7, 8],
-                                     [3, 5, 6, 7, 8, 9, 11]))
+    extra = rng.choice(angle_span(slot, 6, 19, step=1))
+    x = rng.choice(angle_span(slot, 2, 11, step=1))
     total = 4 * x + extra                      # x + 2x + (x + extra)
 
     f = Figure()
