@@ -1,0 +1,1012 @@
+<title>NVO Exam Teardown</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;0,7..72,700;1,7..72,400&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+:root{
+  --paper:#F7F6F2;
+  --paper-2:#FFFFFF;
+  --paper-3:#EFEDE6;
+  --ink:#151B24;
+  --ink-soft:#3D4654;
+  --ink-faint:#6E7787;
+  --rule:#D8D5CB;
+  --rule-soft:#E6E3DA;
+  --pen:#24449C;
+  --pen-wash:#E7EBF6;
+  --mark:#A8392B;
+  --mark-wash:#F6E9E6;
+  --geom:#0F6B5C;
+  --geom-wash:#E2F0EC;
+
+  --f-display:"Literata",Georgia,"Times New Roman",serif;
+  --f-body:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+
+  --measure:68ch;
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px;
+  --s6:32px; --s7:48px; --s8:72px; --s9:104px;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#10141B;
+    --paper-2:#171C25;
+    --paper-3:#1E242F;
+    --ink:#E8E6E0;
+    --ink-soft:#B3B9C4;
+    --ink-faint:#7D8595;
+    --rule:#2B323E;
+    --rule-soft:#222834;
+    --pen:#93AEF0;
+    --pen-wash:#1B2540;
+    --mark:#E08878;
+    --mark-wash:#33211D;
+    --geom:#5FC9B4;
+    --geom-wash:#12302B;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#10141B;
+  --paper-2:#171C25;
+  --paper-3:#1E242F;
+  --ink:#E8E6E0;
+  --ink-soft:#B3B9C4;
+  --ink-faint:#7D8595;
+  --rule:#2B323E;
+  --rule-soft:#222834;
+  --pen:#93AEF0;
+  --pen-wash:#1B2540;
+  --mark:#E08878;
+  --mark-wash:#33211D;
+  --geom:#5FC9B4;
+  --geom-wash:#12302B;
+}
+
+*{box-sizing:border-box}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--f-body);
+  font-size:16px;
+  line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{
+  max-width:1180px;
+  margin:0 auto;
+  padding-inline:20px;
+  padding-block:0;
+}
+.col{max-width:var(--measure)}
+
+h1,h2,h3,h4{font-family:var(--f-display);text-wrap:balance;margin:0}
+h1{font-size:clamp(34px,6vw,58px);line-height:1.04;font-weight:700;letter-spacing:-.018em}
+h2{font-size:clamp(25px,3.6vw,34px);line-height:1.16;font-weight:700;letter-spacing:-.012em}
+h3{font-size:19px;line-height:1.3;font-weight:600}
+h4{font-size:16px;line-height:1.35;font-weight:600;font-family:var(--f-body)}
+p{margin:0}
+a{color:var(--pen)}
+
+.eyebrow{
+  font-family:var(--f-mono);
+  font-size:11px;
+  letter-spacing:.15em;
+  text-transform:uppercase;
+  color:var(--ink-faint);
+  font-weight:500;
+}
+
+/* ---------- masthead ---------- */
+.masthead{
+  border-bottom:2px solid var(--ink);
+  padding-block:var(--s7) var(--s6);
+  display:flex;flex-direction:column;gap:var(--s5);
+}
+.stamp{
+  display:flex;flex-wrap:wrap;gap:var(--s2) var(--s4);align-items:baseline;
+  font-family:var(--f-mono);font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--ink-faint);
+}
+.stamp b{color:var(--pen);font-weight:600}
+.lede{font-size:19px;line-height:1.55;color:var(--ink-soft);max-width:62ch}
+.lede strong{color:var(--ink);font-weight:600}
+
+.corpus{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));
+  gap:var(--s4);
+  border-top:1px solid var(--rule);
+  padding-top:var(--s5);
+}
+.corpus div{display:flex;flex-direction:column;gap:2px}
+.corpus dt{font-family:var(--f-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint)}
+.corpus dd{margin:0;font-family:var(--f-display);font-size:27px;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}
+.corpus small{color:var(--ink-faint);font-size:12.5px;line-height:1.35}
+
+/* ---------- sections ---------- */
+section{padding-block:var(--s8);border-top:1px solid var(--rule)}
+section:first-of-type{border-top:none}
+.shead{display:flex;flex-direction:column;gap:var(--s3);margin-bottom:var(--s6)}
+.shead p{color:var(--ink-soft);max-width:60ch}
+.stack{display:flex;flex-direction:column;gap:var(--s5)}
+.stack-s{display:flex;flex-direction:column;gap:var(--s3)}
+
+/* ---------- era timeline ---------- */
+.eras{display:grid;gap:var(--s4);grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+.era{
+  background:var(--paper-2);
+  border:1px solid var(--rule);
+  border-top:3px solid var(--ink-faint);
+  padding:var(--s5) var(--s4);
+  display:flex;flex-direction:column;gap:var(--s3);
+}
+.era.now{border-top-color:var(--pen);background:var(--pen-wash)}
+.era-yr{font-family:var(--f-mono);font-size:12.5px;font-weight:600;letter-spacing:.06em;color:var(--pen)}
+.era.now .era-yr{color:var(--pen)}
+.era h3{font-size:17px}
+.era ul{margin:0;padding-left:1.05em;color:var(--ink-soft);font-size:14.5px;line-height:1.5;display:flex;flex-direction:column;gap:5px}
+.era .shape{
+  font-family:var(--f-mono);font-size:12px;color:var(--ink);
+  background:var(--paper-3);border:1px solid var(--rule-soft);
+  padding:6px 8px;letter-spacing:.02em;
+}
+.era.now .shape{background:var(--paper-2)}
+
+/* ---------- invariant strip ---------- */
+.invariant{
+  border:1px solid var(--rule);background:var(--paper-2);
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
+}
+.invariant > div{padding:var(--s5) var(--s4);border-right:1px solid var(--rule-soft);display:flex;flex-direction:column;gap:var(--s1)}
+.invariant > div:last-child{border-right:none}
+.invariant .n{font-family:var(--f-display);font-size:30px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.invariant .k{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-faint)}
+.invariant .d{font-size:13.5px;color:var(--ink-soft);line-height:1.4}
+
+/* ---------- tables ---------- */
+.scroller{overflow-x:auto;border:1px solid var(--rule);background:var(--paper-2)}
+table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:640px}
+thead th{
+  background:var(--paper-3);text-align:left;padding:10px 12px;
+  font-family:var(--f-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--ink-faint);font-weight:600;border-bottom:1px solid var(--rule);
+  white-space:nowrap;vertical-align:bottom;
+}
+tbody td{padding:9px 12px;border-bottom:1px solid var(--rule-soft);vertical-align:top;line-height:1.4}
+tbody tr:last-child td{border-bottom:none}
+td.num{font-family:var(--f-mono);font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--ink-faint)}
+.matrix table{min-width:1020px;font-size:12.5px}
+.matrix tbody td{padding:7px 10px}
+.matrix td.g{color:var(--geom)}
+.matrix td.o{color:var(--mark)}
+tbody tr.band td{background:var(--paper-3);font-family:var(--f-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);font-weight:600}
+
+/* chips */
+.chip{
+  display:inline-flex;align-items:center;justify-content:center;
+  font-family:var(--f-mono);font-size:11px;font-weight:600;
+  min-width:20px;height:20px;padding:0 5px;
+  border:1px solid var(--rule);background:var(--paper-3);color:var(--ink-soft);
+}
+.chip.ans{border-color:var(--pen);background:var(--pen-wash);color:var(--pen)}
+.chip.pt{border-color:var(--rule);color:var(--ink-faint);background:transparent}
+.chip.dia{border-color:var(--geom);background:var(--geom-wash);color:var(--geom)}
+.tags{display:flex;gap:4px;flex-wrap:wrap}
+
+/* ---------- specimens ---------- */
+.specs{display:grid;gap:var(--s4);grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
+figure{margin:0;background:var(--paper-2);border:1px solid var(--rule);display:flex;flex-direction:column}
+figure .art{padding:var(--s4);display:flex;align-items:center;justify-content:center;min-height:150px}
+figure svg{max-width:100%;height:auto;color:var(--ink)}
+figcaption{
+  border-top:1px solid var(--rule-soft);padding:10px var(--s4) 12px;
+  font-size:12.5px;line-height:1.45;color:var(--ink-soft);
+  display:flex;flex-direction:column;gap:3px;
+}
+figcaption b{color:var(--ink);font-weight:600;font-size:13px}
+figcaption code{font-family:var(--f-mono);font-size:11.5px;color:var(--pen);word-break:break-word}
+
+.wide-fig{background:var(--paper-2);border:1px solid var(--rule)}
+.wide-fig .art{padding:var(--s5) var(--s4);overflow-x:auto}
+.wide-fig svg{display:block;margin:0 auto;min-width:480px}
+
+/* ---------- option cards ---------- */
+.opts{display:flex;flex-direction:column;gap:var(--s4)}
+.opt{
+  border:1px solid var(--rule);background:var(--paper-2);
+  display:grid;grid-template-columns:minmax(0,1fr);
+}
+.opt.pick{border-color:var(--pen);border-width:1px 1px 1px 3px}
+.opt-head{
+  padding:var(--s4) var(--s5);border-bottom:1px solid var(--rule-soft);
+  display:flex;flex-wrap:wrap;gap:var(--s3);align-items:baseline;justify-content:space-between;
+}
+.opt-head h3{display:flex;align-items:baseline;gap:var(--s3);flex-wrap:wrap}
+.opt-head .tag{
+  font-family:var(--f-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+  padding:3px 7px;border:1px solid var(--rule);color:var(--ink-faint);white-space:nowrap;
+}
+.opt.pick .opt-head .tag{border-color:var(--pen);color:var(--pen);background:var(--pen-wash)}
+.opt-body{padding:var(--s4) var(--s5) var(--s5);display:grid;gap:var(--s4);grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+.opt-body > div{display:flex;flex-direction:column;gap:6px}
+.opt-body h4{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);font-weight:600}
+.opt-body ul{margin:0;padding-left:1.05em;font-size:14px;line-height:1.5;color:var(--ink-soft);display:flex;flex-direction:column;gap:4px}
+.opt-body .verdict{font-size:14.5px;color:var(--ink);grid-column:1/-1;border-top:1px solid var(--rule-soft);padding-top:var(--s3)}
+
+/* ---------- code ---------- */
+pre{
+  margin:0;background:var(--paper-2);border:1px solid var(--rule);
+  padding:var(--s4);overflow-x:auto;
+  font-family:var(--f-mono);font-size:12.5px;line-height:1.62;color:var(--ink-soft);
+}
+pre b{color:var(--pen);font-weight:500}
+pre i{color:var(--ink-faint);font-style:normal}
+code{font-family:var(--f-mono);font-size:.9em}
+p code,li code{background:var(--paper-3);padding:1px 4px;border:1px solid var(--rule-soft)}
+
+/* ---------- callout ---------- */
+.callout{
+  border:1px solid var(--mark);background:var(--mark-wash);
+  padding:var(--s5);display:flex;flex-direction:column;gap:var(--s2);
+}
+.callout .eyebrow{color:var(--mark)}
+.callout p{color:var(--ink);max-width:64ch}
+.note{
+  border-left:2px solid var(--pen);padding:var(--s2) 0 var(--s2) var(--s4);
+  color:var(--ink-soft);font-size:14.5px;max-width:62ch;
+}
+
+/* ---------- evidence pairs ---------- */
+.pairs{display:flex;flex-direction:column;gap:var(--s3)}
+.pair{
+  border:1px solid var(--rule);background:var(--paper-2);
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+}
+.pair > div{padding:var(--s4);border-right:1px solid var(--rule-soft);display:flex;flex-direction:column;gap:6px}
+.pair > div:last-child{border-right:none}
+.pair .src{font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;color:var(--pen);font-weight:600}
+.pair .q{font-size:14px;line-height:1.45;color:var(--ink-soft)}
+.pair .verdict{grid-column:1/-1;border-top:1px solid var(--rule-soft);border-right:none;background:var(--paper-3);padding:10px var(--s4);font-size:13px;color:var(--ink)}
+
+/* ---------- decisions ---------- */
+.decisions{display:flex;flex-direction:column;gap:0;border-top:1px solid var(--rule)}
+.decision{
+  border-bottom:1px solid var(--rule);padding:var(--s5) 0;
+  display:grid;gap:var(--s3);grid-template-columns:minmax(0,1fr);
+}
+.decision .q{font-family:var(--f-display);font-size:18px;font-weight:600;line-height:1.3}
+.decision .a{color:var(--ink-soft);font-size:14.5px;max-width:64ch}
+.decision .rec{
+  font-size:14px;color:var(--ink);border-left:2px solid var(--pen);padding-left:var(--s3);
+}
+.decision .rec b{color:var(--pen);font-family:var(--f-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:2px;font-weight:600}
+
+footer{border-top:2px solid var(--ink);padding-block:var(--s6) var(--s8);color:var(--ink-faint);font-size:13px;display:flex;flex-direction:column;gap:6px}
+footer b{color:var(--ink-soft);font-weight:600}
+
+ul.plain{margin:0;padding-left:1.1em;color:var(--ink-soft);display:flex;flex-direction:column;gap:7px;max-width:64ch}
+ul.plain strong{color:var(--ink);font-weight:600}
+
+@media (max-width:560px){
+  .invariant > div{border-right:none;border-bottom:1px solid var(--rule-soft)}
+  .invariant > div:last-child{border-bottom:none}
+  .pair > div{border-right:none;border-bottom:1px solid var(--rule-soft)}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+:focus-visible{outline:2px solid var(--pen);outline-offset:2px}
+</style>
+
+<div class="wrap">
+
+<header class="masthead">
+  <div class="stamp">
+    <span>Национално външно оценяване · Математика · VII клас</span>
+    <span><b>13 papers</b> · 2015 – 2026</span>
+    <span>Corpus teardown</span>
+  </div>
+  <h1>NVO Exam Teardown</h1>
+  <p class="lede">Every official 7th-grade maths paper in <code>NVOS/</code>, read page by page — structure, point allocation, position-by-position topic map, and the full diagram inventory. The goal is a generator that emits <strong>unlimited new papers that a Bulgarian teacher would accept as real</strong>. This is the specification it has to hit.</p>
+  <dl class="corpus">
+    <div><dt>Papers read</dt><dd>13</dd><small>148 pages, all with a live text layer</small></div>
+    <div><dt>Format eras</dt><dd>3</dd><small>Module → Part → 2026 revision</small></div>
+    <div><dt>Points, always</dt><dd>100</dd><small>65 in Part 1, 35 in Part 2 — every single year</small></div>
+    <div><dt>Diagram classes</dt><dd>6</dd><small>~55% of geometry items carry one</small></div>
+  </dl>
+</header>
+
+<!-- ═══════════════ 1. ERAS ═══════════════ -->
+<section>
+  <div class="shead">
+    <span class="eyebrow">Anatomy · how the format moved</span>
+    <h2>Three eras, one skeleton</h2>
+    <p>The paper has been restructured twice in ten years. The wrapper changed — the load-bearing numbers did not.</p>
+  </div>
+
+  <div class="eras">
+    <div class="era">
+      <span class="era-yr">2015 – 2018</span>
+      <h3>Module era</h3>
+      <div class="shape">ПЪРВИ МОДУЛ 60′ · 20 tasks<br>ВТОРИ МОДУЛ 90′ · tasks 21–25</div>
+      <ul>
+        <li>Module 1 splits internally: <em>задачи с избираем отговор</em> (1–16) then <em>задачи със свободен отговор</em> (17–20)</li>
+        <li>Shared-stem clusters — one figure serving tasks 14, 15 <em>and</em> 16</li>
+        <li>Item types that later vanish: matching tables, ruler-and-grid construction, fill-the-transformation-steps</li>
+      </ul>
+    </div>
+    <div class="era">
+      <span class="era-yr">2019 – 2023</span>
+      <h3>Part era, 60-minute Part 1</h3>
+      <div class="shape">ПЪРВА ЧАСТ 60′ · 17–18 MC + 2–3 structured<br>ВТОРА ЧАСТ 90′ · 3 tasks (5 in 2019)</div>
+      <ul>
+        <li>Multiple choice compressed to 18, then two heavyweight structured items (7 and 8 points) close Part 1</li>
+        <li>The <em>“чертежите не са в мащаб”</em> notice moves inline and starts marking the algebra → geometry boundary</li>
+        <li>2020 drops time labels entirely (COVID sitting); 2019 still runs five Part 2 tasks</li>
+      </ul>
+    </div>
+    <div class="era now">
+      <span class="era-yr">2024 – 2026</span>
+      <h3>Current — and it just moved again</h3>
+      <div class="shape">2024–25 · ПЪРВА ЧАСТ 75′ · 20 MC, no structured<br>2026 · ПЪРВА ЧАСТ 90′ · 14 MC + 7 short answer</div>
+      <ul>
+        <li>2024–25 abolish the structured block: Part 1 is 20 pure multiple-choice items</li>
+        <li>2026 reverses that — multiple choice cut to 14, a <em>кратък свободен отговор</em> block (15–21) returns, Part 1 stretches to 90′</li>
+        <li>Part 2 renumbers to <strong>22–24</strong>; total sitting time hits 180 minutes</li>
+      </ul>
+    </div>
+  </div>
+
+  <div style="height:var(--s5)"></div>
+
+  <div class="callout">
+    <span class="eyebrow">Ship-blocker for the rewrite — now resolved</span>
+    <p><code>backend/nvo_question_catalog.json</code> defines <strong>23 slots</strong> with topics for positions 1–20 multiple-choice plus 21–23 open. That is exactly the 2024–2025 shape. The 2026 paper is <strong>24 slots</strong> — 14 MC, 7 short-answer, 3 open — so the catalog could not express the newest real format at all.</p>
+    <p style="margin-top:8px"><strong>Fixed:</strong> the blueprint is now data (<code>backend/app/nvo_gen/blueprints.py</code>), both shapes are offered side by side, and a third era costs one dict entry. See <code>docs/nvo-generation.md</code>.</p>
+  </div>
+</section>
+
+<!-- ═══════════════ 2. INVARIANTS ═══════════════ -->
+<section>
+  <div class="shead">
+    <span class="eyebrow">Anatomy · what never changes</span>
+    <h2>The invariants you can hard-code</h2>
+    <p>Checked against all thirteen papers. These held through both restructurings.</p>
+  </div>
+
+  <div class="invariant">
+    <div><span class="k">Part 1</span><span class="n">65</span><span class="d">points, every year, whatever the task count</span></div>
+    <div><span class="k">Part 2</span><span class="n">35</span><span class="d">across 3 extended items (11–12 pts each)</span></div>
+    <div><span class="k">Options</span><span class="n">А Б В Г</span><span class="d">Cyrillic, always four, exactly one correct</span></div>
+    <div><span class="k">Part 2 time</span><span class="n">90′</span><span class="d">unchanged since 2019</span></div>
+    <div><span class="k">Item weight</span><span class="n">2–4</span><span class="d">2 for openers, 3 mid, 4 for the hard tail</span></div>
+  </div>
+
+  <div style="height:var(--s5)"></div>
+
+  <ul class="plain">
+    <li><strong>Block order is fixed.</strong> Part 1 runs an algebra/number/data block, then a geometry block. The transition is physically marked by the notice <em>„Чертежите са само за илюстрация. Те не са начертани в мащаб…”</em> — printed inline, immediately before the first geometry item, in 2019, 2021, 2022, 2023, 2024 and 2025.</li>
+    <li><strong>The boundary drifts, the order doesn't.</strong> Geometry starts at position 9 (2019, 2025), 10 (2021, 2024, 2026), 11 (2023) or 12 (2022). Never scattered.</li>
+    <li><strong>Points ramp monotonically</strong> within Part 1. 2024 runs <code>2,2,2,3,3,3,3,3,3,3,4,3,3,4,4,4,4,4,4,4</code>. 2026 runs <code>2,2,2,3,2,3,2,3,3,2,2,3,3,3</code> for MC then <code>4,4,5,4,5,4,4</code> for short answer.</li>
+    <li><strong>Answer letters sit near-uniform.</strong> 2026 splits 3/4/4/3 across А/Б/В/Г; 2024 splits 4/5/6/5. 2022 is the outlier at 3/8/4/3. Target uniform, tolerate ±2.</li>
+    <li><strong>Part 2 is always the same three genres:</strong> one multi-part algebra item, one word problem (motion, work, mixture or percent), one geometry proof. In that order, in every paper from 2020 on.</li>
+  </ul>
+</section>
+
+<!-- ═══════════════ 3. 2026 ANATOMY ═══════════════ -->
+<section>
+  <div class="shead">
+    <span class="eyebrow">Position map · the current target</span>
+    <h2>2026 paper, position by position</h2>
+    <p>Вариант 1, 19 June 2026. This is the shape to generate against. <span class="chip dia">◈</span> marks an item that ships with a figure.</p>
+  </div>
+
+  <div class="scroller">
+    <table>
+      <thead><tr><th>№</th><th>Topic</th><th>The actual item</th><th>Pts</th><th>Key</th></tr></thead>
+      <tbody>
+        <tr class="band"><td colspan="5">Part 1 · 90 min · multiple choice, А Б В Г</td></tr>
+        <tr><td class="num">1</td><td>Arithmetic expression</td><td>Value of <code>1/5 − 1/5·10</code></td><td class="num">2</td><td><span class="chip ans">Б</span></td></tr>
+        <tr><td class="num">2</td><td>Linear equation</td><td>Root of <code>24x + 3 = 4</code></td><td class="num">2</td><td><span class="chip ans">Б</span></td></tr>
+        <tr><td class="num">3</td><td>Absolute-value equation</td><td>Roots of <code>|x − 5| − 8 = −1</code></td><td class="num">2</td><td><span class="chip ans">А</span></td></tr>
+        <tr><td class="num">4</td><td>Linear inequality → interval</td><td><code>8 − 2x ≤ 6 − x</code>; options are the four bracket variants</td><td class="num">3</td><td><span class="chip ans">А</span></td></tr>
+        <tr><td class="num">5</td><td>Powers</td><td><code>(2⁶ − 2⁵)/(2⁶ + 2⁵)</code></td><td class="num">2</td><td><span class="chip ans">В</span></td></tr>
+        <tr><td class="num">6</td><td>Probability</td><td>Single-digit non-negative number divisible by 3</td><td class="num">3</td><td><span class="chip ans">В</span></td></tr>
+        <tr><td class="num">7</td><td>Percent / interest</td><td>€15 000 → €15 600 after a year; find the rate</td><td class="num">2</td><td><span class="chip ans">Г</span></td></tr>
+        <tr><td class="num">8</td><td>Joint work rate</td><td>30 min and 45 min alone; together?</td><td class="num">3</td><td><span class="chip ans">Б</span></td></tr>
+        <tr><td class="num">9</td><td>Factoring</td><td><code>(a − 6)² − 2a(a − 6)</code></td><td class="num">3</td><td><span class="chip ans">А</span></td></tr>
+        <tr><td class="num">10</td><td>Coordinate geometry <span class="chip dia">◈</span></td><td>4th vertex of a parallelogram from A(1;2), B(4;2), C(3;5)</td><td class="num">2</td><td><span class="chip ans">Г</span></td></tr>
+        <tr><td class="num">11</td><td>Triangle: height + bisector <span class="chip dia">◈</span></td><td>∠LBH = 8°, ∠HCB = 78° → ∠BAC</td><td class="num">2</td><td><span class="chip ans">В</span></td></tr>
+        <tr><td class="num">12</td><td>Parallel lines + zigzag <span class="chip dia">◈</span></td><td>130° and 155° → ∠ACB</td><td class="num">3</td><td><span class="chip ans">В</span></td></tr>
+        <tr><td class="num">13</td><td>Perpendicular bisector of hypotenuse <span class="chip dia">◈</span></td><td>AC = 24, ∠BAC = 30° → CM</td><td class="num">3</td><td><span class="chip ans">Б</span></td></tr>
+        <tr><td class="num">14</td><td>Parallelogram <span class="chip dia">◈</span></td><td>AD = AM, ∠MDC = 52° → ∠BCD</td><td class="num">3</td><td><span class="chip ans">Г</span></td></tr>
+        <tr class="band"><td colspan="5">Part 1 continued · задачи с кратък свободен отговор — no options, written answer</td></tr>
+        <tr><td class="num">15</td><td>Quadratic by factoring</td><td><code>x² = 25x</code></td><td class="num">4</td><td>0 и 25</td></tr>
+        <tr><td class="num">16</td><td>Expression at a value</td><td><code>(x+1)² − x(x+1)</code> at x = 2025</td><td class="num">4</td><td>2026</td></tr>
+        <tr><td class="num">17</td><td>Bar chart, 2 sub-parts <span class="chip dia">◈</span></td><td>А) month sales doubled Б) monthly mean</td><td class="num">2+3</td><td>май; 15</td></tr>
+        <tr><td class="num">18</td><td>Percent word problem</td><td>80% of seats taken, 18 free → capacity</td><td class="num">4</td><td>90</td></tr>
+        <tr><td class="num">19</td><td>Median to hypotenuse, 2 parts <span class="chip dia">◈</span></td><td>AB = 24, ∠CAB = 20° → А) CM Б) ∠CMB</td><td class="num">2+3</td><td>12 cm; 40°</td></tr>
+        <tr><td class="num">20</td><td>Angle bisectors meet at O <span class="chip dia">◈</span></td><td>∠AOB = 105° → ∠ACB</td><td class="num">4</td><td>30°</td></tr>
+        <tr><td class="num">21</td><td>Symbolic perimeter</td><td>Isosceles, sides 1:2, smaller = x → perimeter</td><td class="num">4</td><td>5x</td></tr>
+        <tr class="band"><td colspan="5">Part 2 · 90 min · full worked solutions in the answer booklet</td></tr>
+        <tr><td class="num">22</td><td>Multi-part algebra</td><td>А) normal form of a cubic expansion Б) solve an inequality В) which roots of an equation satisfy it</td><td class="num">12</td><td>—</td></tr>
+        <tr><td class="num">23</td><td>Mixture word problem</td><td>Gold carats: purity fractions, alloy blending, add silver to hit 14 ct</td><td class="num">11</td><td>—</td></tr>
+        <tr><td class="num">24</td><td>Geometry proof <span class="chip dia">◈</span></td><td>Rectangle + bisectors: prove congruence, prove AC = AR, area sum, then a ratio</td><td class="num">12</td><td>—</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div style="height:var(--s4)"></div>
+  <p class="note">Note the sub-part convention: a short-answer item with parts is worth <strong>2 + 3</strong>, and the key explicitly awards partial credit (“2 т., при един верен отговор”; “2 т., ако е написано 4x”). A generator that only stores a single correct answer per item cannot reproduce this marking scheme.</p>
+</section>
+
+<!-- ═══════════════ 4. MATRIX ═══════════════ -->
+<section>
+  <div class="shead">
+    <span class="eyebrow">Position map · six years side by side</span>
+    <h2>What sits at each position</h2>
+    <p>Read a row to see what a given slot number has historically held. <span style="color:var(--geom)">Green</span> = geometry with a figure. <span style="color:var(--mark)">Red</span> = structured or extended item.</p>
+  </div>
+
+  <div class="scroller matrix">
+    <table>
+      <thead><tr><th>№</th><th>2026</th><th>2025</th><th>2024</th><th>2023</th><th>2022</th><th>2021</th></tr></thead>
+      <tbody>
+        <tr><td class="num">1</td><td>arithmetic expr.</td><td>arithmetic expr.</td><td>arithmetic expr.</td><td>arithmetic expr.</td><td>arithmetic expr.</td><td>arithmetic expr.</td></tr>
+        <tr><td class="num">2</td><td>linear equation</td><td>powers at a value</td><td>expr. at a value</td><td>count the primes</td><td>expr. at a value</td><td>a² − b² at a value</td></tr>
+        <tr><td class="num">3</td><td>abs-value equation</td><td>factor 49 − x²</td><td>expand (2 − 3x)²</td><td>0,99² − 0,01²</td><td>factor by grouping</td><td>nested abs. value</td></tr>
+        <tr><td class="num">4</td><td>linear inequality</td><td>abs eq., sum of roots</td><td>linear equation</td><td>which eq. has no root</td><td>linear equation</td><td>linear equation</td></tr>
+        <tr><td class="num">5</td><td>powers</td><td>largest integer sol.</td><td>smallest integer sol.</td><td>inequality → interval</td><td>inequality → interval</td><td>inequality → interval</td></tr>
+        <tr><td class="num">6</td><td>probability</td><td>factor: the odd one out</td><td>abs eq., sum of roots</td><td>map scale</td><td>percent of a class</td><td>factor (y − x)² − y + x</td></tr>
+        <tr><td class="num">7</td><td>percent / interest</td><td>probability</td><td>shortcut multiplication</td><td>speed conversion</td><td class="g">grouped bar chart</td><td>expression from words</td></tr>
+        <tr><td class="num">8</td><td>joint work rate</td><td>mean of five tests</td><td class="g">probability, spinner</td><td>factor x² − 6x − xy + 6y</td><td>abs-value equation</td><td>abs-value equation</td></tr>
+        <tr><td class="num">9</td><td>factoring</td><td class="g">parallel lines, ∠α</td><td>paint per m² word prob.</td><td>probability, letter cards</td><td>probability, balls</td><td>probability, pencils</td></tr>
+        <tr><td class="num">10</td><td class="g">coordinate parallelogram</td><td class="g">coordinate, area</td><td class="g">two crossing lines</td><td>mean of three friends</td><td>expression from words</td><td class="g">congruent triangles</td></tr>
+        <tr><td class="num">11</td><td class="g">height + bisector</td><td class="g">external bisector ∥ BC</td><td class="g">two triangles on a line</td><td>adjacent angles, 80%</td><td>adjacent angles, 5/4</td><td class="g">3D octagonal pyramid</td></tr>
+        <tr><td class="num">12</td><td class="g">parallel lines, zigzag</td><td class="g">circumcentre O</td><td class="g">rhombus + bisector</td><td class="g">parallel lines, zigzag</td><td class="g">ray bisecting ∠BOC</td><td class="g">three concurrent lines</td></tr>
+        <tr><td class="num">13</td><td class="g">perp. bisector of hyp.</td><td class="g">3D cube, volume</td><td class="g">isosceles + perp. bisector</td><td class="g">two exterior angles</td><td class="g">crossing lines, 2x+10</td><td class="g">parallels + bisector</td></tr>
+        <tr><td class="num">14</td><td class="g">parallelogram</td><td class="g">equilateral + perp.</td><td class="g">AC = CF = BF chain</td><td class="g">right-triangle perimeter</td><td class="g">exterior angle at B</td><td class="g">bisector + isosceles</td></tr>
+        <tr><td class="num">15</td><td class="o">x² = 25x</td><td>parallelogram angles 2:7</td><td class="g">order the sides</td><td class="g">perp. bisector, CM</td><td class="g">isosceles + height</td><td class="g">perp. bisector + median</td></tr>
+        <tr><td class="num">16</td><td class="o">expr. at x = 2025</td><td>ratio of men to women</td><td>expression from words</td><td class="g">congruent triangles</td><td class="g">perp. bisector, CM</td><td class="g">right tri. + bisector</td></tr>
+        <tr><td class="num">17</td><td class="o g">bar chart, 2 parts</td><td>taxi fare expression</td><td>milk fat mixture</td><td class="g">rhombus, ∠COM</td><td class="g">parallelogram + bisector</td><td class="g">rhombus on a grid</td></tr>
+        <tr><td class="num">18</td><td class="o">percent word problem</td><td>percent of a route</td><td>ratio 1 : 2 : 5</td><td>3D cone, lateral area</td><td class="g">3D box, volume</td><td>map scale</td></tr>
+        <tr><td class="num">19</td><td class="o g">median to hypotenuse</td><td>book-types table</td><td class="g">pie chart, 80°/150°</td><td class="o g">bar chart · 2 parts · 7 pts</td><td class="o g">seasons chart · 3 parts · 7 pts</td><td class="o">agencies table · 4 parts</td></tr>
+        <tr><td class="num">20</td><td class="o g">bisectors, ∠AOB</td><td class="g">pole and cable</td><td>probability expression</td><td class="o g">coordinate · 3 parts · 8 pts</td><td class="o g">two right triangles · 4 parts</td><td class="o g">coordinate · 5 parts</td></tr>
+        <tr><td class="num">21</td><td class="o">symbolic perimeter</td><td class="o">polynomial, 3 parts</td><td class="o">inequality + quadratic</td><td class="o">factor + abs + inequality</td><td class="o g">motion, road schematic</td><td class="o g">cakes bar chart</td></tr>
+        <tr><td class="num">22</td><td class="o">algebra, 3 parts</td><td class="o">motion + fuel use</td><td class="o">woodcutters, production</td><td class="o">two painting brigades</td><td class="o">inequality + abs + factor</td><td class="o">equation + inequality + powers</td></tr>
+        <tr><td class="num">23</td><td class="o">gold-carat mixture</td><td class="o g">geometry, angle ratios</td><td class="o g">parallelogram proof</td><td class="o g">rhombus proof</td><td class="o g">triangle with heights</td><td class="o g">triangle with heights</td></tr>
+        <tr><td class="num">24</td><td class="o g">rectangle proof</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div style="height:var(--s5)"></div>
+
+  <div class="stack-s col">
+    <h3>What the matrix tells the generator</h3>
+    <ul class="plain">
+      <li><strong>Position 1 is the same item every year.</strong> A short arithmetic expression with a sign trap — a negative multiplier, a mixed number, or an order-of-operations bait. Worth 2 points, always.</li>
+      <li><strong>Positions 2–8 are an algebra carousel</strong> drawing from nine reusable topics: expression at a value, expand/factor, linear equation, absolute value, inequality → interval, powers, shortcut multiplication, probability, mean.</li>
+      <li><strong>Probability appears exactly once</strong> in Part 1, somewhere between position 6 and 9, in all six years.</li>
+      <li><strong>Data reading appears exactly once or twice</strong> — a chart or a table — and never disappears. The 2015 ministry directive commits to this explicitly.</li>
+      <li><strong>The geometry block is 5–8 items</strong> and always closes with a quadrilateral or a composite figure, never with a plain angle-chase.</li>
+      <li><strong>3D solids appear at most once</strong> per paper (cube, box, pyramid, cone, cylinder), always as a non-metric illustration with dimension labels.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ═══════════════ 5. EVIDENCE ═══════════════ -->
+<section>
+  <div class="shead">
+    <span class="eyebrow">Evidence · why this is generatable</span>
+    <h2>The ministry is already templating</h2>
+    <p>Three cases found in the corpus. Same skeleton, new numbers, sometimes not even that.</p>
+  </div>
+
+  <div class="pairs">
+    <div class="pair">
+      <div>
+        <span class="src">2020 · Вариант 2 · task 14</span>
+        <span class="q">Дадени са △ABC и △NMP, за които AC = NP, BC = MP и ∠ACB = ∠NPM = 56°. Ако ∠CAB = 47°, то градусната мярка на ∠NMP е:</span>
+      </div>
+      <div>
+        <span class="src">2021 · Вариант 1 · task 10</span>
+        <span class="q">Дадени са △ABC и △MNP, за които AC = NP, BC = MP, ∠CAB = 47° и ∠ACB = ∠MPN = 56°. Мярката на ∠NMP е:</span>
+      </div>
+      <div class="verdict">Identical figure, identical numbers, identical answer (77°), one year apart. Only the option ordering and one vertex-label permutation differ.</div>
+    </div>
+
+    <div class="pair">
+      <div>
+        <span class="src">2020 · task 16</span>
+        <span class="q">Ъглополовящите на ∠BAC и ∠ACB се пресичат в точка O и ∠AOC = 110°. Мярката на ∠ABC е: → 40°</span>
+      </div>
+      <div>
+        <span class="src">2026 · task 20</span>
+        <span class="q">Ъглополовящите на ∠BAC и ∠ABC се пресичат в точка O, като ∠AOB = 105°. Намерете мярката на ∠ACB. → 30°</span>
+      </div>
+      <div class="verdict">One theorem — ∠AOB = 90° + ∠C⁄2 — instantiated twice, six years apart, with the vertex roles rotated and the given angle changed. This is literally a parameterised template.</div>
+    </div>
+
+    <div class="pair">
+      <div>
+        <span class="src">2023 · task 12</span>
+        <span class="q">Правите a и b са успоредни. По данните от чертежа градусната мярка на ъгъл x е: → 87° (from 114° and 21°)</span>
+      </div>
+      <div>
+        <span class="src">2026 · task 12</span>
+        <span class="q">На чертежа правите a и b са успоредни. По данните на чертежа мярката на ∠ACB е: → 75° (from 130° and 155°)</span>
+      </div>
+      <div class="verdict">Same figure class (two parallels, one zigzag vertex between them), same solution move (draw the third parallel through the vertex), two free parameters.</div>
+    </div>
+  </div>
+
+  <div style="height:var(--s5)"></div>
+
+  <div class="note"><strong>And the ministry published its own design brief.</strong> <code>tekst_nvo_bel_math.pdf</code> is the post-2015 MON optimisation memo. For maths it commits to: more routine items in Part 1 testing “устойчивост на знанията”; an algebra-to-geometry ratio of <em>approximately 1 : 1</em>; keeping the chart- and table-reading items; short-answer items built from <em>predominantly independent sub-tasks</em>; and issuing a formula sheet as part of the exam packet. That memo is the generator's requirements document — it should be encoded as validator rules, not prose.</div>
+</section>
+
+<!-- ═══════════════ 6. DIAGRAM TAXONOMY ═══════════════ -->
+<section>
+  <div class="shead">
+    <span class="eyebrow">Diagrams · the inventory</span>
+    <h2>Six classes cover every figure in ten years</h2>
+    <p>The specimens below are hand-drawn SVG at the size they'd render in the app — a proof that the ministry's look is reachable with plain primitives and no library.</p>
+  </div>
+
+  <div class="specs">
+
+    <figure>
+      <div class="art">
+        <svg viewBox="0 0 240 160" role="img" aria-label="Triangle A B C with the height B H and the angle bisector B L both falling on side A C, marked with an eight degree angle at B and seventy-eight degrees at C">
+          <g fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round">
+            <polyline points="22,132 202,132 180,26 22,132"/>
+            <line x1="202" y1="132" x2="146" y2="46"/>
+            <line x1="202" y1="132" x2="120" y2="64"/>
+          </g>
+          <path d="M 146 46 l 6.5 -4.2 l 4.2 6.5 l -6.5 4.2 z" fill="none" stroke="currentColor" stroke-width="1"/>
+          <circle cx="150.5" cy="46.5" r="1.3" fill="currentColor"/>
+          <path d="M 174 55 A 24 24 0 0 1 165 43" fill="none" stroke="currentColor" stroke-width="1.1"/>
+          <path d="M 174 104 A 36 36 0 0 0 168 96" fill="none" stroke="currentColor" stroke-width="1.1"/>
+          <path d="M 46 132 A 24 24 0 0 0 42 118" fill="none" stroke="currentColor" stroke-width="1.1"/>
+          <g font-family="Georgia,serif" font-style="italic" font-size="12" fill="currentColor">
+            <text x="14" y="146">A</text><text x="204" y="146">B</text><text x="182" y="22">C</text>
+            <text x="139" y="38">H</text><text x="108" y="62">L</text>
+          </g>
+          <g font-family="Georgia,serif" font-size="10.5" fill="currentColor">
+            <text x="178" y="46">78°</text><text x="180" y="100">8°</text>
+          </g>
+        </svg>
+      </div>
+      <figcaption><b>A · Triangle with cevians</b>The workhorse. Height, median, bisector or perpendicular bisector dropped onto a side, with angle arcs, tick marks and a right-angle dot.<code>~40% of all figures</code></figcaption>
+    </figure>
+
+    <figure>
+      <div class="art">
+        <svg viewBox="0 0 240 160" role="img" aria-label="Two horizontal parallel lines a and b joined by a zigzag through point C, with one hundred thirty degrees marked at B on the upper line and one hundred fifty-five degrees at A on the lower line">
+          <g fill="none" stroke="currentColor" stroke-width="1.3">
+            <line x1="18" y1="34" x2="222" y2="34"/>
+            <line x1="18" y1="130" x2="222" y2="130"/>
+            <polyline points="96,34 162,82 78,130"/>
+          </g>
+          <path d="M 76 34 A 20 20 0 0 0 82 48" fill="none" stroke="currentColor" stroke-width="1.1"/>
+          <path d="M 98 130 A 20 20 0 0 0 92 116" fill="none" stroke="currentColor" stroke-width="1.1"/>
+          <path d="M 148 76 A 18 18 0 0 0 149 92" fill="none" stroke="currentColor" stroke-width="1.4"/>
+          <g font-family="Georgia,serif" font-style="italic" font-size="12" fill="currentColor">
+            <text x="94" y="28">B</text><text x="70" y="145">A</text><text x="166" y="80">C</text>
+            <text x="210" y="28">b</text><text x="210" y="145">a</text>
+          </g>
+          <g font-family="Georgia,serif" font-size="10.5" font-weight="600" fill="currentColor">
+            <text x="40" y="52">130°</text><text x="40" y="118">155°</text>
+          </g>
+        </svg>
+      </div>
+      <figcaption><b>B · Line and angle configurations</b>Parallels with a transversal or zigzag, crossing lines, concurrent pencils, a ray bisecting an angle on a line.<code>2019 Q10 · 2021 Q12 · 2023 Q12 · 2026 Q12</code></figcaption>
+    </figure>
+
+    <figure>
+      <div class="art">
+        <svg viewBox="0 0 240 160" role="img" aria-label="Coordinate grid with axes and three plotted labelled points A at one two, B at four two and C at three five">
+          <g stroke="currentColor" stroke-width=".6" opacity=".32">
+            <line x1="26" y1="16" x2="26" y2="146"/><line x1="52" y1="16" x2="52" y2="146"/>
+            <line x1="78" y1="16" x2="78" y2="146"/><line x1="104" y1="16" x2="104" y2="146"/>
+            <line x1="130" y1="16" x2="130" y2="146"/><line x1="156" y1="16" x2="156" y2="146"/>
+            <line x1="182" y1="16" x2="182" y2="146"/><line x1="208" y1="16" x2="208" y2="146"/>
+            <line x1="20" y1="22" x2="214" y2="22"/><line x1="20" y1="42" x2="214" y2="42"/>
+            <line x1="20" y1="62" x2="214" y2="62"/><line x1="20" y1="82" x2="214" y2="82"/>
+            <line x1="20" y1="102" x2="214" y2="102"/><line x1="20" y1="122" x2="214" y2="122"/>
+            <line x1="20" y1="142" x2="214" y2="142"/>
+          </g>
+          <g stroke="currentColor" stroke-width="1.3" fill="none">
+            <line x1="52" y1="150" x2="52" y2="14"/>
+            <line x1="18" y1="122" x2="216" y2="122"/>
+            <polyline points="48,20 52,12 56,20"/>
+            <polyline points="210,118 218,122 210,126"/>
+          </g>
+          <g fill="currentColor">
+            <circle cx="78" cy="82" r="2.6"/><circle cx="156" cy="82" r="2.6"/><circle cx="130" cy="22" r="2.6"/>
+          </g>
+          <g font-family="Georgia,serif" font-style="italic" font-size="11.5" fill="currentColor">
+            <text x="70" y="96">A</text><text x="150" y="96">B</text><text x="136" y="20">C</text>
+            <text x="40" y="20">y</text><text x="212" y="136">x</text><text x="40" y="136">O</text>
+          </g>
+        </svg>
+      </div>
+      <figcaption><b>C · Coordinate grid</b>Square mesh, arrowed axes, a unit marker, labelled points, sometimes a polygon. Asks for a missing vertex, a reflection, or an area.<code>2019 Q21 · 2021 Q20 · 2023 Q20 · 2025 Q10 · 2026 Q10</code></figcaption>
+    </figure>
+
+    <figure>
+      <div class="art">
+        <svg viewBox="0 0 240 160" role="img" aria-label="Bar chart of apartments sold across five months: ten, twenty, twenty-five, fifteen and five">
+          <g stroke="currentColor" stroke-width=".7" opacity=".45">
+            <line x1="40" y1="130" x2="222" y2="130"/><line x1="40" y1="106" x2="222" y2="106"/>
+            <line x1="40" y1="82" x2="222" y2="82"/><line x1="40" y1="58" x2="222" y2="58"/>
+            <line x1="40" y1="34" x2="222" y2="34"/><line x1="40" y1="22" x2="222" y2="22"/>
+          </g>
+          <g fill="currentColor" opacity=".62">
+            <rect x="50" y="82" width="20" height="48"/>
+            <rect x="86" y="34" width="20" height="96"/>
+            <rect x="122" y="22" width="20" height="108"/>
+            <rect x="158" y="58" width="20" height="72"/>
+            <rect x="194" y="106" width="20" height="24"/>
+          </g>
+          <line x1="40" y1="130" x2="222" y2="130" stroke="currentColor" stroke-width="1.3"/>
+          <g font-family="IBM Plex Mono,monospace" font-size="8.5" fill="currentColor" text-anchor="end">
+            <text x="35" y="133">0</text><text x="35" y="109">5</text><text x="35" y="85">10</text>
+            <text x="35" y="61">15</text><text x="35" y="37">20</text><text x="35" y="25">25</text>
+          </g>
+          <g font-family="IBM Plex Sans,sans-serif" font-size="8" fill="currentColor" text-anchor="middle">
+            <text x="60" y="144">април</text><text x="96" y="144">май</text><text x="132" y="144">юни</text>
+            <text x="168" y="144">юли</text><text x="204" y="144">август</text>
+          </g>
+        </svg>
+      </div>
+      <figcaption><b>D · Statistical charts</b>Single or grouped bars, pie sectors with degree labels, data tables. Purely data-driven — the easiest class to generate.<code>2026 Q17 · 2024 Q19 · 2022 Q7, Q19 · 2019 Q20</code></figcaption>
+    </figure>
+
+    <figure>
+      <div class="art">
+        <svg viewBox="0 0 240 160" role="img" aria-label="Wireframe rectangular box with hidden edges dashed and its three dimensions labelled twenty centimetres, three hundred millimetres and five decimetres">
+          <g fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round">
+            <polyline points="50,50 50,126 140,126 140,50 50,50"/>
+            <polyline points="50,50 86,24 176,24 140,50"/>
+            <polyline points="140,126 176,100 176,24"/>
+          </g>
+          <g fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="4 3.5" opacity=".75">
+            <polyline points="50,126 86,100 86,24"/>
+            <line x1="86" y1="100" x2="176" y2="100"/>
+          </g>
+          <g font-family="IBM Plex Sans,sans-serif" font-size="9.5" fill="currentColor">
+            <text x="72" y="142">20 cm</text><text x="150" y="122">300 mm</text><text x="186" y="68">5 dm</text>
+          </g>
+        </svg>
+      </div>
+      <figcaption><b>E · 3D solids</b>Cube, box, pyramid, cone, cylinder. Never metric — a fixed illustration with swappable dimension labels is enough.<code>2020 Q9 · 2021 Q11 · 2022 Q18 · 2023 Q18 · 2025 Q13</code></figcaption>
+    </figure>
+
+    <figure>
+      <div class="art">
+        <svg viewBox="0 0 240 160" role="img" aria-label="Schematic of a vertical pole three metres high braced by a five metre cable running to the ground, forming a right triangle">
+          <line x1="40" y1="128" x2="212" y2="128" stroke="currentColor" stroke-width="1.3"/>
+          <rect x="170" y="42" width="5.5" height="86" fill="currentColor" opacity=".72"/>
+          <line x1="62" y1="128" x2="170" y2="42" stroke="currentColor" stroke-width="1.6" stroke-dasharray="9 5"/>
+          <path d="M 158 128 l 0 -12 l 12 0" fill="none" stroke="currentColor" stroke-width="1" opacity=".7"/>
+          <g font-family="IBM Plex Sans,sans-serif" font-size="11" fill="currentColor">
+            <text x="86" y="80">5 m</text><text x="182" y="88">3 m</text>
+          </g>
+        </svg>
+      </div>
+      <figcaption><b>F · Real-world schematic</b>A pole and a cable, a road with vehicles, a spinner, occasionally a photograph. Decorative framing on a plain figure underneath.<code>2025 Q20 · 2024 Q8 · 2022 Q21</code></figcaption>
+    </figure>
+
+  </div>
+
+  <div style="height:var(--s5)"></div>
+  <div class="note"><strong>The licence that makes this tractable:</strong> every paper from 2018 on prints <em>„Те не са начертани в мащаб и не са предназначени за директно измерване на дължини и на ъгли.”</em> The figure does not have to be metrically faithful to the numbers in the stem. It has to be <em>topologically</em> right — the correct point between the correct two points, the label on the correct side, the marked angle visibly obtuse if it's obtuse. That collapses the hard problem (constraint-solve an exact diagram) into an easy one (place a canonical shape, put points at parameter <em>t</em> along segments).</div>
+</section>
+
+<!-- ═══════════════ 7. DIAGRAM OPTIONS ═══════════════ -->
+<section>
+  <div class="shead">
+    <span class="eyebrow">Diagrams · the decision</span>
+    <h2>Four ways to handle figures</h2>
+    <p>Today the repo has <code>NvoDiagrams.tsx</code>: twelve hand-written React SVG components, each bound to one specific exam question. It works and it looks right — it just doesn't scale past twelve shapes.</p>
+  </div>
+
+  <div class="wide-fig">
+    <div class="art">
+      <figure>
+        <svg viewBox="0 0 620 230" role="img" aria-label="Comparison of two pipelines. Today: one bespoke React component per question, twelve components for twelve questions. Proposed: one item parameter object feeds both the question text and a declarative scene which a single renderer draws.">
+          <defs>
+            <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+            </marker>
+            <marker id="arp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#24449C"/>
+            </marker>
+          </defs>
+
+          <text x="0" y="12" font-family="IBM Plex Mono,monospace" font-size="10" letter-spacing="1.4" fill="currentColor" opacity=".6">TODAY — ONE COMPONENT PER QUESTION</text>
+          <g fill="none" stroke="currentColor" stroke-width="1.2">
+            <rect x="0" y="26" width="104" height="30"/>
+            <rect x="0" y="62" width="104" height="30"/>
+            <rect x="0" y="98" width="104" height="30"/>
+            <rect x="196" y="26" width="96" height="30"/>
+            <rect x="196" y="62" width="96" height="30"/>
+            <rect x="196" y="98" width="96" height="30"/>
+          </g>
+          <g font-family="IBM Plex Sans,sans-serif" font-size="10" fill="currentColor">
+            <text x="10" y="45">Question 12</text><text x="10" y="81">Question 13</text><text x="10" y="117">Question 17</text>
+            <text x="206" y="45">RhombusCOM</text><text x="206" y="81">PerpBisecBC</text><text x="206" y="117">ParallelDL</text>
+          </g>
+          <g stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)">
+            <line x1="106" y1="41" x2="192" y2="41"/><line x1="106" y1="77" x2="192" y2="77"/><line x1="106" y1="113" x2="192" y2="113"/>
+          </g>
+          <text x="118" y="36" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="currentColor" opacity=".7">hard-wired</text>
+          <text x="0" y="150" font-family="IBM Plex Sans,sans-serif" font-size="10" fill="currentColor" opacity=".7">New shape ⇒ new component ⇒ a developer</text>
+
+          <line x1="320" y1="0" x2="320" y2="230" stroke="currentColor" stroke-width="1" opacity=".25"/>
+
+          <text x="344" y="12" font-family="IBM Plex Mono,monospace" font-size="10" letter-spacing="1.4" fill="#24449C">PROPOSED — ONE RENDERER, MANY SCENES</text>
+          <rect x="344" y="26" width="120" height="34" fill="none" stroke="#24449C" stroke-width="1.6"/>
+          <text x="354" y="47" font-family="IBM Plex Sans,sans-serif" font-size="10" fill="#24449C">item params</text>
+          <g fill="none" stroke="currentColor" stroke-width="1.2">
+            <rect x="344" y="86" width="120" height="30"/>
+            <rect x="344" y="126" width="120" height="30"/>
+            <rect x="500" y="106" width="112" height="30"/>
+          </g>
+          <g font-family="IBM Plex Sans,sans-serif" font-size="10" fill="currentColor">
+            <text x="354" y="105">stem + answer</text>
+            <text x="354" y="145">scene spec</text>
+            <text x="510" y="125">SceneRenderer</text>
+          </g>
+          <g stroke="#24449C" stroke-width="1.4" marker-end="url(#arp)">
+            <line x1="392" y1="62" x2="392" y2="82"/>
+            <line x1="430" y1="62" x2="430" y2="122"/>
+          </g>
+          <line x1="466" y1="141" x2="496" y2="128" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
+          <text x="344" y="180" font-family="IBM Plex Sans,sans-serif" font-size="10" fill="currentColor" opacity=".8">One source of truth ⇒ figure and answer</text>
+          <text x="344" y="196" font-family="IBM Plex Sans,sans-serif" font-size="10" fill="currentColor" opacity=".8">can never disagree</text>
+          <text x="344" y="216" font-family="IBM Plex Sans,sans-serif" font-size="10" fill="#24449C">New shape ⇒ new JSON ⇒ a maths teacher</text>
+        </svg>
+        <figcaption style="border:none;padding:var(--s3) 0 0">The structural change: stop binding a component to a question, and start deriving both the question and its figure from one parameter object.</figcaption>
+      </figure>
+    </div>
+  </div>
+
+  <div style="height:var(--s5)"></div>
+
+  <div class="opts">
+
+    <div class="opt">
+      <div class="opt-head"><h3>Option 1 — Extend the bespoke-component library</h3><span class="tag">Status quo, scaled</span></div>
+      <div class="opt-body">
+        <div><h4>What it is</h4><ul><li>Keep writing one React SVG component per figure shape, growing from 12 to ~50</li><li>Each takes a typed config; the generator picks the component and fills numbers</li></ul></div>
+        <div><h4>For</h4><ul><li>Zero new architecture; the existing twelve keep working</li><li>Every figure is guaranteed to look right because a human drew it</li></ul></div>
+        <div><h4>Against</h4><ul><li>Each new shape costs a developer a day; the content team is blocked on engineering forever</li><li>Fifty components is thousands of lines of near-duplicate trigonometry</li><li>Figure and stem live in different files — they can silently drift apart</li></ul></div>
+        <div class="verdict"><strong>Use as the fallback, not the plan.</strong> It's where you are; it's not where 40+ shapes can live.</div>
+      </div>
+    </div>
+
+    <div class="opt pick">
+      <div class="opt-head"><h3>Option 2 — Declarative scene spec + one renderer</h3><span class="tag">Recommended</span></div>
+      <div class="opt-body">
+        <div><h4>What it is</h4><ul><li>A JSON scene: named points, segments, angle arcs, tick marks, right-angle marks, dashed lines, labels with a side hint</li><li>One <code>SceneRenderer</code> draws any of it; the item's parameters produce the scene</li><li>Point positions come from a canonical layout plus a parameter <em>t</em> along a segment — no constraint solver, because the figure needn't be to scale</li></ul></div>
+        <div><h4>For</h4><ul><li>A new figure is data, authorable by a maths teacher, reviewable in a diff</li><li>Deterministic, crisp at any zoom, themeable via <code>currentColor</code>, tiny payload, no runtime dependency</li><li>One parameter object drives stem, figure and answer — they cannot disagree</li><li>An <code>aria-label</code> can be generated from the same spec, so the figure is accessible</li></ul></div>
+        <div><h4>Against</h4><ul><li>Label collision needs a placement heuristic (8 compass slots, pick the one furthest from any drawn edge)</li><li>Roughly a week of renderer work before the first figure appears</li></ul></div>
+        <div class="verdict"><strong>This is the one to build.</strong> It covers classes A, B and C — about 80% of all figures — and the remaining classes fall out of it or out of Option 4.</div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <div class="opt-head"><h3>Option 3 — Construction script + geometry kernel</h3><span class="tag">Powerful, later</span></div>
+      <div class="opt-body">
+        <div><h4>What it is</h4><ul><li>Describe the figure the way the stem does: “triangle ABC with ∠A = α; drop the height from B to H on AC; bisect ∠B meeting AC at L”</li><li>A small 2D kernel executes it and returns real coordinates; the same kernel can derive the answer</li></ul></div>
+        <div><h4>For</h4><ul><li>Maximum generality — new figures without touching the renderer</li><li>The figure is provably consistent with the stated numbers, so it <em>can</em> be drawn to scale</li><li>Answer derivation comes free, which kills a whole class of wrong-key bugs</li></ul></div>
+        <div><h4>Against</h4><ul><li>Meaningfully more engineering: degenerate cases, intersection failures, orientation choices</li><li>Solves a problem the exam explicitly says you don't have — figures needn't be to scale</li></ul></div>
+        <div class="verdict"><strong>Phase 2.</strong> Build it behind the same scene-spec output, so it becomes an alternative <em>producer</em> of scenes rather than a second renderer.</div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <div class="opt-head"><h3>Option 4 — Static asset library with label slots</h3><span class="tag">For classes E and F</span></div>
+      <div class="opt-body">
+        <div><h4>What it is</h4><ul><li>~30 fixed SVG illustrations: solids, spinners, road schematics, a pole and cable</li><li>Each exposes named text slots; the item supplies the dimension strings</li></ul></div>
+        <div><h4>For</h4><ul><li>These figures carry no varying mathematical structure — only the labels change</li><li>Cheap, immediate, and visually identical to the real papers</li></ul></div>
+        <div><h4>Against</h4><ul><li>Repetition becomes visible if a student sits many papers; mitigate by holding several drawings per solid</li></ul></div>
+        <div class="verdict"><strong>Do this first — it's a day of work</strong> and unblocks the one 3D item every paper needs.</div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <div class="opt-head"><h3>Rejected — an LLM emitting SVG at request time</h3><span class="tag">Don't</span></div>
+      <div class="opt-body">
+        <div><h4>Why not</h4><ul><li>Non-deterministic output for an artefact that must be identical for every student sitting the same paper</li><li>No way to validate that the drawn figure matches the stem, which is exactly the failure that makes an exam worthless</li><li>Visual inconsistency paper to paper; latency and cost on every render</li></ul></div>
+        <div><h4>Where a model does belong</h4><ul><li>Authoring time: propose a <em>scene spec</em> for a new template, which a human reviews once and commits</li><li>QA: read a rendered figure back and check it against the stem, as a gate — never as the producer</li></ul></div>
+        <div class="verdict">The existing <code>nvo-math-verifier</code> and <code>nvo-format-guard</code> agents are the right shape for this — verification, not generation.</div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════ 8. ARCHITECTURE ═══════════════ -->
+<section>
+  <div class="shead">
+    <span class="eyebrow">Architecture · the rebuild</span>
+    <h2>From 23 frozen slots to unlimited papers</h2>
+    <p>The unit to author stops being a <em>question</em> and becomes an <em>item template</em>: a parameter space plus the functions that turn a sample of it into a stem, a key, distractors and a figure.</p>
+  </div>
+
+  <div class="wide-fig">
+    <div class="art">
+      <figure>
+        <svg viewBox="0 0 660 190" role="img" aria-label="Generation pipeline: a blueprint selects a slot, a template bank supplies a matching item template, the sampler draws parameters, then in parallel a stem builder, an answer function, a distractor grammar and a scene builder produce the item, which passes through a verifier before assembly into a paper">
+          <defs>
+            <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+            </marker>
+            <marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#A8392B"/>
+            </marker>
+          </defs>
+
+          <g fill="none" stroke="currentColor" stroke-width="1.3">
+            <rect x="0" y="70" width="96" height="40"/>
+            <rect x="136" y="70" width="96" height="40"/>
+            <rect x="418" y="12" width="112" height="26"/>
+            <rect x="418" y="46" width="112" height="26"/>
+            <rect x="418" y="80" width="112" height="26"/>
+            <rect x="418" y="114" width="112" height="26"/>
+          </g>
+          <rect x="272" y="70" width="104" height="40" fill="none" stroke="#24449C" stroke-width="1.7"/>
+          <rect x="566" y="56" width="90" height="68" fill="none" stroke="#A8392B" stroke-width="1.7"/>
+
+          <g font-family="IBM Plex Sans,sans-serif" font-size="10.5" fill="currentColor">
+            <text x="14" y="88">Blueprint</text><text x="14" y="102" font-size="9" opacity=".65">slot → topic, pts</text>
+            <text x="150" y="88">Template bank</text><text x="150" y="102" font-size="9" opacity=".65">eligible for slot</text>
+            <text x="428" y="29">stem (BG text)</text>
+            <text x="428" y="63">answer fn</text>
+            <text x="428" y="97">distractor grammar</text>
+            <text x="428" y="131">scene spec</text>
+          </g>
+          <text x="286" y="88" font-family="IBM Plex Sans,sans-serif" font-size="10.5" fill="#24449C">Param sampler</text>
+          <text x="286" y="102" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#24449C" opacity=".8">+ constraints</text>
+          <text x="580" y="80" font-family="IBM Plex Sans,sans-serif" font-size="10.5" fill="#A8392B">Verifier</text>
+          <text x="580" y="95" font-family="IBM Plex Sans,sans-serif" font-size="9" fill="#A8392B" opacity=".85">gate</text>
+          <text x="580" y="110" font-family="IBM Plex Sans,sans-serif" font-size="9" fill="#A8392B" opacity=".85">reject → resample</text>
+
+          <g stroke="currentColor" stroke-width="1.3" marker-end="url(#a2)">
+            <line x1="98" y1="90" x2="132" y2="90"/>
+            <line x1="234" y1="90" x2="268" y2="90"/>
+            <path d="M 378 86 L 398 25 L 414 25"/>
+            <path d="M 378 88 L 398 59 L 414 59"/>
+            <path d="M 378 92 L 398 93 L 414 93"/>
+            <path d="M 378 94 L 398 127 L 414 127"/>
+            <path d="M 532 25 L 552 25 L 552 76 L 562 76"/>
+            <path d="M 532 59 L 548 59 L 548 84 L 562 84"/>
+            <path d="M 532 93 L 548 93 L 548 92 L 562 92"/>
+            <path d="M 532 127 L 552 127 L 552 100 L 562 100"/>
+          </g>
+          <path d="M 611 126 L 611 168 L 46 168 L 46 114" fill="none" stroke="#A8392B" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#a3)"/>
+          <text x="250" y="182" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#A8392B">on reject: resample, or fall back to another template</text>
+        </svg>
+        <figcaption style="border:none;padding:var(--s3) 0 0">Every slot in the blueprint runs this loop once. Nothing reaches a student that hasn't cleared the verifier.</figcaption>
+      </figure>
+    </div>
+  </div>
+
+  <div style="height:var(--s6)"></div>
+
+  <div class="stack col">
+    <h3>The item template</h3>
+    <p style="color:var(--ink-soft)">One file per template, roughly forty to sixty of them to cover every position in the matrix. This is the 2026 Q20 bisector item as a template:</p>
+  </div>
+
+  <div style="height:var(--s3)"></div>
+
+<pre><i># templates/geometry/incentre_angle.py</i>
+<b>slot_topics</b>   = ["geometry_triangle_bisector_diagram"]
+<b>positions</b>     = {"mc": [11,12,13,14], "short": [19,20]}
+<b>points</b>        = {"mc": 3, "short": 4}
+
+<b>def sample</b>(rng):
+    gamma = rng.choice([30, 40, 50, 60, 70, 80])   <i># the angle to be found</i>
+    return {"gamma": gamma, "aob": 90 + gamma // 2}
+
+<b>def constraints</b>(p):
+    <b>return</b> p["aob"] % 1 == 0 <b>and</b> 100 &lt;= p["aob"] &lt;= 140   <i># plausible on paper</i>
+
+<b>def stem</b>(p):
+    <b>return</b> f"Ъглополовящите на ∡BAC и ∡ABC се пресичат в точка O, "
+           f"като ∡AOB = {p['aob']}°. Намерете мярката на ∡ACB."
+
+<b>def answer</b>(p):        <b>return</b> f"{p['gamma']}°"
+
+<b>def distractors</b>(p):   <i># see the grammar below</i>
+    <b>return</b> [supplement(p["gamma"]), half(p["gamma"]), p["aob"] - 90]
+
+<b>def scene</b>(p):
+    <b>return</b> triangle_with_cevians(
+        apex_angle = p["gamma"],
+        cevians    = [bisector("A", to="BC"), bisector("B", to="AC")],
+        mark       = angle_at("O", between=("A","B"), label=f"{p['aob']}°"),
+        arcs       = [double_arc_at("A"), double_arc_at("B")],
+    )</pre>
+
+  <div style="height:var(--s6)"></div>
+
+  <div class="stack col">
+    <h3>The distractor grammar</h3>
+    <p style="color:var(--ink-soft)">The wrong options in these papers are not random — they are the specific mistakes a 7th-grader makes. Every distractor in the corpus falls into one of eight families. Encoding them is what makes a generated paper feel authentic rather than synthetic.</p>
+  </div>
+
+  <div style="height:var(--s4)"></div>
+
+  <div class="scroller">
+    <table>
+      <thead><tr><th>Family</th><th>The mistake it catches</th><th>Seen in</th></tr></thead>
+      <tbody>
+        <tr><td>Sign flip</td><td>Dropped a minus somewhere in the chain</td><td>2026 Q1 (−1,8 vs the positive), 2021 Q3</td></tr>
+        <tr><td>Arrested computation</td><td>Stopped one step early — the intermediate value is an option</td><td>2026 Q7 (0,4% before the ×10), 2024 Q17</td></tr>
+        <tr><td>Bracket permutation</td><td>Wrong strictness or wrong direction on an interval</td><td>2026 Q4, 2023 Q5, 2022 Q5, 2021 Q5 — all four options are the four variants</td></tr>
+        <tr><td>Supplement / complement</td><td>Gave 180° − x or 90° − x instead of x</td><td>2023 Q11, 2022 Q11, 2024 Q10</td></tr>
+        <tr><td>Wrong angle in the figure</td><td>Read a different marked angle off the drawing</td><td>2026 Q11 (82° is ∠ABС + 42), 2021 Q10</td></tr>
+        <tr><td>Reciprocal or inverted fraction</td><td>Flipped a ratio or a probability</td><td>2024 Q20 (n/(n−10) vs (n−10)/n), 2026 Q6</td></tr>
+        <tr><td>Factor-sign permutation</td><td>Right factors, wrong signs inside the brackets</td><td>2025 Q3, 2024 Q3, 2022 Q3, 2019 Q4</td></tr>
+        <tr><td>Off-by-a-factor</td><td>Doubled, halved, or forgot a unit conversion</td><td>2022 Q18 (30 vs 300 vs 3000), 2021 Q18</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div style="height:var(--s6)"></div>
+
+  <div class="stack col">
+    <h3>The verifier gate</h3>
+    <ul class="plain">
+      <li><strong>Uniqueness.</strong> Re-solve the item independently — symbolically with sympy where possible — and confirm the key matches and no distractor also satisfies the stem.</li>
+      <li><strong>Distractor plausibility.</strong> Reject any option that is negative where a length is asked, non-integer where the others are integers, or an obvious outlier in magnitude — these give the answer away.</li>
+      <li><strong>Figure agreement.</strong> Every named point in the stem exists in the scene; every value labelled on the figure appears in the parameter object.</li>
+      <li><strong>Paper-level balance.</strong> Answer letters within ±2 of uniform; the points vector sums to exactly 65; algebra-to-geometry near 1 : 1 by the ministry's own memo; no topic repeated within a paper; no two items sharing a parameter sample.</li>
+      <li><strong>Language.</strong> Cyrillic А/Б/В/Г not Latin A/B/C/D, correct mathematical notation (∡, △, cm, лв., °), no leftover template placeholders.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ═══════════════ 9. DECISIONS ═══════════════ -->
+<section>
+  <div class="shead">
+    <span class="eyebrow">Decisions · taken and built</span>
+    <h2>How each question was resolved</h2>
+    <p>The generator described above now exists in the repo. These were the four judgement calls and what each became.</p>
+  </div>
+
+  <div class="decisions">
+    <div class="decision">
+      <div class="q">Which format does the product target?</div>
+      <div class="a">2026 is the newest real paper and differs structurally from the 23-slot catalog in the repo. But students sitting the exam this year have been drilling on 2024–25 past papers.</div>
+      <div class="rec"><b>Built</b>Both. The blueprint is a data file with one entry per era; <code>GET /nvo/blueprints</code> feeds a picker offering <em>НВО 2026</em> (24 slots, 90 + 90 min) and <em>Класически НВО</em> (23 slots, 75 + 90 min). Item templates are shared — only the assembly differs. A third era costs one dict entry.</div>
+    </div>
+    <div class="decision">
+      <div class="q">Do we generate Part 2, or curate it?</div>
+      <div class="a">Part 2 items are 11–12 point multi-part proofs with a human-graded marking scheme. Generating them is a much harder problem than Part 1, and grading them automatically is harder still.</div>
+      <div class="rec"><b>Built</b>Part 1 is generated from 60 item templates; Part 2 is a curated bank of hand-authored items, each carrying its own marking scheme. Nine to start, extensible by adding a function. A student gets an unlimited supply of Part 1 and a deep but finite Part 2.</div>
+    </div>
+    <div class="decision">
+      <div class="q">Is the formula sheet in scope?</div>
+      <div class="a">The MON memo commits to issuing a <em>свитък с формули</em> as part of the exam packet, and it is not among the PDFs in <code>NVOS/</code>.</div>
+      <div class="rec"><b>Deferred</b>Left out — the official sheet is not in the corpus, so there is nothing faithful to render. Still worth sourcing: a practice paper without it feels wrong, and it is a side panel, not a rebuild.</div>
+    </div>
+    <div class="decision">
+      <div class="q">How much partial credit do we model?</div>
+      <div class="a">The real keys award fractional credit in detail — “2 т., при един верен отговор”, “3 т., ако е написано 4x и 5x”. Multiple choice is all-or-nothing; short answer is not.</div>
+      <div class="rec"><b>Built</b><code>Slot.points</code> is a tuple from day one, not an int, and reaches the client as <code>NVOQuestion.points</code>. A two-part short-answer item is <code>(2, 3)</code>, and the verifier checks the sum against the blueprint.</div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div><b>Corpus</b> — 13 PDFs in <code>NVOS/</code>, 148 pages, rendered at 130 dpi and read individually. Years covered: 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026, plus the MON format-change memo.</div>
+  <div><b>Variants</b> — the corpus mixes Вариант 1, 2 and 3. Structure and point totals are identical across variants of the same year; only the numbers move.</div>
+  <div><b>Not yet covered</b> — the official answer-sheet layout (лист за отговори), the formula sheet, and the Part 2 marking schemes beyond point totals.</div>
+</footer>
+
+</div>
