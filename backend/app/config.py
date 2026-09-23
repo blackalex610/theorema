@@ -47,10 +47,18 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_ID: str = "845529160700-gp4b283t7n83s7kj147el2qq72quu3ie.apps.googleusercontent.com"
     GOOGLE_CLIENT_SECRET: str = ""
     
-    # OpenAI (for future implementation)
+    # OpenAI — used only for embeddings today (app/services/nvo_content_embeddings.py).
+    # Chat, NVO generation, and vision/OCR moved to OpenRouter below.
     OPENAI_API_KEY: str = ""
-    OPENAI_MODEL: str = "gpt-4o-mini"
-    OPENAI_NVO_MODEL: str = "gpt-4.1"
+    OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
+
+    # OpenRouter — single key/base_url for chat, NVO exam generation, and
+    # vision/OCR, routed to whichever provider is cheapest per use case.
+    OPENROUTER_API_KEY: str = ""
+    OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
+    OPENAI_MODEL: str = "deepseek/deepseek-v4-flash"
+    OPENAI_NVO_MODEL: str = "openai/gpt-5.6-luna"
+    OPENROUTER_VISION_MODEL: str = "qwen/qwen3-vl-32b-instruct"
 
     # How long an uploaded homework photo is kept before the retention sweep
     # deletes it (app/services/media_retention.py). Only has to outlive the
@@ -71,7 +79,6 @@ class Settings(BaseSettings):
     # opts in deliberately after running the backfill.
     NVO_USE_DB_RETRIEVAL: bool = False
     NVO_USE_EMBEDDING_RETRIEVAL: bool = False
-    OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
 
     class Config:
         env_file = ".env"

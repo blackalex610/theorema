@@ -652,8 +652,8 @@ def _generate_via_openai(
     progress_callback: Callable[[int, str], None] | None = None
 ) -> NVOExam:
     """Generate a fresh NVO-style test from reference pool using a stronger model."""
-    if not settings.OPENAI_API_KEY:
-        raise ValueError("OPENAI_API_KEY is not configured")
+    if not settings.OPENROUTER_API_KEY:
+        raise ValueError("OPENROUTER_API_KEY is not configured")
 
     if progress_callback:
         progress_callback(10, "Зареждане на референтен набор")
@@ -689,7 +689,7 @@ def _generate_via_openai(
     # Diagram slots are Q10-Q15 plus the final open question, whatever the length.
     diagram_slots = f"Q10-Q15 and Q{total_count}"
 
-    client = OpenAI(api_key=settings.OPENAI_API_KEY, timeout=75.0)
+    client = OpenAI(api_key=settings.OPENROUTER_API_KEY, base_url=settings.OPENROUTER_BASE_URL, timeout=75.0)
     difficulty_instructions = _get_difficulty_instructions(difficulty)
 
     system_prompt = (
@@ -775,7 +775,7 @@ Per-slot topic guide and style examples:
     )
     if settings.NVO_USE_DB_RETRIEVAL:
         _record_generation_run(
-            profile={"format": format, "difficulty": difficulty, "path": "openai"},
+            profile={"format": format, "difficulty": difficulty, "path": "openrouter"},
             source=_source,
             exam=exam,
             model=settings.OPENAI_NVO_MODEL,

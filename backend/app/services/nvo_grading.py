@@ -383,23 +383,24 @@ def ai_mark(*, statement: str, marking: str | None, kind: str, parts: Sequence[d
 
     from app.config import settings
 
-    if not settings.OPENAI_API_KEY:
-        raise RuntimeError("OPENAI_API_KEY is not configured")
+    if not settings.OPENROUTER_API_KEY:
+        raise RuntimeError("OPENROUTER_API_KEY is not configured")
     system, user_text = build_examiner_request(statement=statement, marking=marking,
                                                kind=kind, parts=parts)
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    client = OpenAI(api_key=settings.OPENROUTER_API_KEY, base_url=settings.OPENROUTER_BASE_URL)
     if image_data_url:
         # vision requests take a content list and do not accept response_format
         resp = client.chat.completions.create(
-            model=settings.OPENAI_MODEL, temperature=0,
+            model=settings.OPENROUTER_VISION_MODEL, temperature=0,
             messages=[{"role": "system", "content": system},
                       {"role": "user", "content": [
                           {"type": "text", "text": user_text},
                           {"type": "image_url", "image_url": {"url": image_data_url}}]}],
         )
     else:
+        # marking a proof by a scheme is judgement work: the NVO model, not the chat one
         resp = client.chat.completions.create(
-            model=settings.OPENAI_MODEL, temperature=0,
+            model=settings.OPENAI_NVO_MODEL, temperature=0,
             response_format={"type": "json_object"},
             messages=[{"role": "system", "content": system},
                       {"role": "user", "content": user_text}],

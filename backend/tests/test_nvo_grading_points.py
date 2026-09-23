@@ -21,7 +21,7 @@ from app.services.nvo_grading import grade_written, match_answer
 def _no_ai(monkeypatch):
     """The deployment has no OpenAI key: the grader raises, as the real one does."""
     def refuse(**_kwargs):
-        raise HTTPException(status_code=503, detail="OPENAI_API_KEY is not configured")
+        raise HTTPException(status_code=503, detail="OPENROUTER_API_KEY is not configured")
     monkeypatch.setattr(nvo_module, "_ai_mark", refuse)
 
 

@@ -147,8 +147,8 @@ def _ai_grade(
     """Call OpenAI to grade the student's work.
     Returns (is_correct, extracted_answer, feedback_in_bulgarian).
     """
-    if not settings.OPENAI_API_KEY:
-        raise HTTPException(status_code=503, detail="OPENAI_API_KEY is not configured")
+    if not settings.OPENROUTER_API_KEY:
+        raise HTTPException(status_code=503, detail="OPENROUTER_API_KEY is not configured")
 
     system_prompt = system_prompt_override or (
         "Ти си учител по математика, който проверява ученическо решение. "
@@ -172,7 +172,7 @@ def _ai_grade(
         f"Ученическо решение/отговор: {student_work}"
     )
 
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    client = OpenAI(api_key=settings.OPENROUTER_API_KEY, base_url=settings.OPENROUTER_BASE_URL)
 
     if image_data_url:
         # Vision requests: content must be a list; response_format not supported with images
@@ -225,7 +225,7 @@ def _build_task_grade(
     if not submitted_answer:
         raise HTTPException(status_code=400, detail="student_answer is required")
 
-    if statement and settings.OPENAI_API_KEY:
+    if statement and settings.OPENROUTER_API_KEY:
         is_correct, extracted, feedback = _ai_grade(
             statement=statement,
             correct_xy=correct_xy,
@@ -474,8 +474,8 @@ async def analyze_math_image(
     _user=Depends(require_image_scan),
 ):
     """Extract all mathematical content from an image using OpenAI vision."""
-    if not settings.OPENAI_API_KEY:
-        raise HTTPException(status_code=503, detail="OPENAI_API_KEY is not configured")
+    if not settings.OPENROUTER_API_KEY:
+        raise HTTPException(status_code=503, detail="OPENROUTER_API_KEY is not configured")
 
     if not payload.image_data_url.startswith("data:image/"):
         raise HTTPException(status_code=400, detail="Invalid image data URL")
@@ -494,9 +494,9 @@ async def analyze_math_image(
         '{\"extracted_text\": \"<пълно извлечено съдържание>\", \"confidence\": \"high|medium|low\"}'
     )
 
-    client = OpenAI(api_key=settings.OPENAI_API_KEY, timeout=30.0)
+    client = OpenAI(api_key=settings.OPENROUTER_API_KEY, base_url=settings.OPENROUTER_BASE_URL, timeout=30.0)
     resp = client.chat.completions.create(
-        model="gpt-4o",
+        model=settings.OPENROUTER_VISION_MODEL,
         temperature=0,
         messages=[
             {"role": "system", "content": system_prompt},

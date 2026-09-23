@@ -21,17 +21,23 @@ def _raise_ai_error(exc: Exception) -> None:
     message = str(exc).lower()
     if isinstance(exc, RateLimitError) and "insufficient_quota" in message:
         raise AIQuotaExceededError(
-            "OpenAI quota exceeded. Update billing or replace OPENAI_API_KEY in backend/.env."
+            "OpenRouter quota exceeded. Update billing or replace OPENROUTER_API_KEY in backend/.env."
         ) from exc
     if isinstance(exc, AuthenticationError):
         raise AIConfigurationError(
-            "Invalid OpenAI API key. Check OPENAI_API_KEY in backend/.env."
+            "Invalid OpenRouter API key. Check OPENROUTER_API_KEY in backend/.env."
         ) from exc
     if "insufficient_quota" in message:
         raise AIQuotaExceededError(
-            "OpenAI quota exceeded. Update billing or replace OPENAI_API_KEY in backend/.env."
+            "OpenRouter quota exceeded. Update billing or replace OPENROUTER_API_KEY in backend/.env."
         ) from exc
-    raise AIServiceError("OpenAI request failed. Please try again.") from exc
+    raise AIServiceError("AI request failed. Please try again.") from exc
+
+
+def _get_client() -> OpenAI:
+    if not settings.OPENROUTER_API_KEY:
+        raise ValueError("OPENROUTER_API_KEY is not configured")
+    return OpenAI(api_key=settings.OPENROUTER_API_KEY, base_url=settings.OPENROUTER_BASE_URL)
 
 
 def _parse_json_object(raw: str) -> dict[str, Any] | None:
@@ -159,10 +165,7 @@ def generate_theory_content(
 
     detail_level: "concise" | "standard" | "detailed"
     """
-    if not settings.OPENAI_API_KEY:
-        raise ValueError("OPENAI_API_KEY is not configured")
-
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    client = _get_client()
 
     system_prompt = (
         "You are a Bulgarian math teacher for 5th-7th grade students. "
@@ -241,10 +244,7 @@ def generate_theory_from_standard(
     detail_level: str,
 ) -> str:
     """Generate a concise or detailed variation of an existing standard explanation."""
-    if not settings.OPENAI_API_KEY:
-        raise ValueError("OPENAI_API_KEY is not configured")
-
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    client = _get_client()
 
     if detail_level == "concise":
         instruction = (
@@ -287,10 +287,7 @@ Here is the standard explanation for "{lesson_title}":
 
 def generate_video_search_queries(*, lesson_title: str, topic_title: str, grade_number: int) -> list[str]:
     """Generate Bulgarian YouTube-friendly search phrases for a lesson."""
-    if not settings.OPENAI_API_KEY:
-        raise ValueError("OPENAI_API_KEY is not configured")
-
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    client = _get_client()
 
     system_prompt = (
         "You create short Bulgarian YouTube search phrases for school math topics. "
@@ -336,10 +333,7 @@ Rules:
 
 def generate_example_problems(*, lesson_title: str, topic_title: str, grade_number: int) -> list[dict[str, str]]:
     """Generate short example problems with solutions in Bulgarian."""
-    if not settings.OPENAI_API_KEY:
-        raise ValueError("OPENAI_API_KEY is not configured")
-
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    client = _get_client()
 
     system_prompt = (
         "You are a Bulgarian math teacher for 5th-7th grade students. "
@@ -402,10 +396,7 @@ Rules:
 
 def generate_exercises(*, lesson_title: str, topic_title: str, grade_number: int) -> list[dict]:
     """Generate practice exercises with answers for a lesson using OpenAI."""
-    if not settings.OPENAI_API_KEY:
-        raise ValueError("OPENAI_API_KEY is not configured")
-
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    client = _get_client()
 
     system_prompt = (
         "You are a Bulgarian math teacher for 5th-7th grade students. "
@@ -482,10 +473,7 @@ Rules:
 
 def generate_chat_reply(*, messages: list[dict], lesson_title: str | None = None) -> str:
     """Generate a conversational math tutoring reply using OpenAI."""
-    if not settings.OPENAI_API_KEY:
-        raise ValueError("OPENAI_API_KEY is not configured")
-
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    client = _get_client()
 
     context = f" The student is currently studying: {lesson_title}." if lesson_title else ""
 
@@ -522,10 +510,7 @@ def generate_chat_reply(*, messages: list[dict], lesson_title: str | None = None
 
 def generate_diagram_json(*, problem_text: str) -> dict[str, Any]:
     """Generate structured diagram JSON for a Bulgarian math problem."""
-    if not settings.OPENAI_API_KEY:
-        raise ValueError("OPENAI_API_KEY is not configured")
-
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    client = _get_client()
 
     system_prompt = """
 You are an AI that generates structured diagram data for math problems.
