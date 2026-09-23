@@ -410,30 +410,30 @@ def quadratic_by_factoring(rng: random.Random, slot: Slot) -> GeneratedItem:
 @template("isosceles_symbolic_perimeter",
           topics=["symbolic_perimeter"], kinds=["short"], weight=1.4, band="hard")
 def isosceles_symbolic_perimeter(rng: random.Random, slot: Slot) -> GeneratedItem:
-    """Isosceles triangle, sides in ratio 1:2, perimeter in terms of x.
+    """Isosceles triangle, two sides in ratio p : q, perimeter in terms of x.
 
-    The 2026 Q21 item, and a genuinely sharp one: taking the legs as x forces
-    x + x = 2x, a degenerate triangle, so the legs must be 2x and the base x —
-    perimeter 5x. The official key gives partial credit for 4x, which is the
-    answer you get if you miss the degenerate case, so that is recorded here.
+    The 2026 Q21 item (1 : 2 → 5x), and a genuinely sharp one: with the legs
+    as the shorter side the triangle is degenerate, so the legs must be the
+    longer one. Only ratios where that is the *only* possibility are drawn
+    (q ≥ 2p), and only where the answer is a whole multiple of x, as the key
+    prints it. The official key gives partial credit for the degenerate
+    reading, which is recorded in the solution.
     """
-    k = rng.choice([2, 3, 4])
-    # Legs x with base kx gives x + x ≤ kx for every k ≥ 2 — degenerate. So the
-    # legs must be the longer side: perimeter = 2·kx + x.
-    key = 2 * k + 1
-    wrong_but_credited = k + 2          # what you get if you miss the degeneracy
+    p, q = rng.choice([(1, k) for k in range(2, 8)] + [(2, k) for k in (5, 7, 9, 11)])
+    key = 1 + 2 * q // p                       # legs (q/p)x, base x
+    degenerate = 2 + q // p if p == 1 else None
     return GeneratedItem(
         topic=slot.topic, kind="short", points=slot.points,
         stem=(f"Две от страните на равнобедрен триъгълник се отнасят както "
-              f"$1:{k}$. Ако по-малката му страна е $x$ cm, "
+              f"${p}:{q}$. Ако по-малката му страна е $x$ cm, "
               f"изразете и запишете чрез $x$ периметъра на триъгълника."),
         correct_answer=f"{key}x", difficulty="hard",
-        solution=(f"Ако бедрата са $x$, то основата е ${k}x$ и "
-                  f"$x + x \\le {k}x$ — неравенството на триъгълника не е "
-                  f"изпълнено. Следователно бедрата са ${k}x$, основата е $x$ "
-                  f"и периметърът е ${key}x$. "
-                  f"(Частични точки за ${wrong_but_credited}x$.)"),
-        signature=f"iso_perimeter:1:{k}",
+        solution=(f"Ако бедрата са по-късите страни, неравенството на триъгълника не е "
+                  f"изпълнено. Следователно бедрата са "
+                  f"${'' if q == p else bg_number(Fraction(q, p))}x$, основата е $x$ "
+                  f"и периметърът е ${key}x$."
+                  + (f" (Частични точки за ${degenerate}x$.)" if degenerate else "")),
+        signature=f"iso_perimeter:{p}:{q}",
     )
 
 
@@ -441,31 +441,49 @@ def isosceles_symbolic_perimeter(rng: random.Random, slot: Slot) -> GeneratedIte
           topics=["symbolic_perimeter", "expression_from_words"],
           kinds=["short", "mc"], weight=1.0)
 def rectangle_symbolic_perimeter(rng: random.Random, slot: Slot) -> GeneratedItem:
-    """Perimeter of a rectangle whose length is stated relative to its width."""
-    a = rng.choice([2, 3, 4, 5, 6, 8])
-    key = f"4x + {2 * a}"
-    stem = (f"Ширината на правоъгълник е $x$ cm, а дължината му е с ${a}$ cm "
-            f"по-голяма от ширината. Изразете и запишете чрез $x$ периметъра "
-            f"на правоъгълника.")
-    solution = (rf"Дължината е $x + {a}$, а периметърът е "
-                rf"$2\left(x + x + {a}\right) = 4x + {2 * a}$")
+    """Perimeter of a rectangle whose length is stated relative to its width:
+    „с a cm по-голяма”, „k пъти по-голяма”, „с a cm по-малка от удвоената”."""
+    form = rng.choice(["more", "times", "less_double"])
+    a = rng.randint(1, 15)
+    k = rng.randint(2, 5)
+    if form == "more":
+        length_txt = f"с ${a}$ cm по-голяма от ширината"
+        length = f"x + {a}"
+        c1, c0 = 4, 2 * a
+    elif form == "times":
+        length_txt = f"${k}$ пъти по-голяма от ширината"
+        length = f"{k}x"
+        c1, c0 = 2 + 2 * k, 0
+    else:
+        length_txt = f"с ${a}$ cm по-малка от удвоената ширина"
+        length = f"2x - {a}"
+        c1, c0 = 6, -2 * a
+    key = f"{c1}x" + (f" + {c0}" if c0 > 0 else f" - {-c0}" if c0 < 0 else "")
+    stem = (f"Ширината на правоъгълник е $x$ cm, а дължината му е {length_txt}. "
+            f"Изразете и запишете чрез $x$ периметъра на правоъгълника.")
+    solution = (rf"Дължината е ${length}$, а периметърът е "
+                rf"$2\left(x + {length}\right) = {key}$")
+    sig = f"rect_perimeter:{form}:{a if form != 'times' else k}"
 
     if slot.kind == "short":
         return GeneratedItem(
             topic=slot.topic, kind="short", points=slot.points,
             stem=stem, correct_answer=key, difficulty="medium",
-            solution=solution, signature=f"rect_perimeter:{a}",
+            solution=solution, signature=sig,
         )
 
-    correct = rf"4x + {2 * a}"
-    wrongs = [rf"2x + {a}", rf"4x + {a}", rf"2x + {2 * a}"]
-    options, letter = shuffle_options(f"${correct}$", [f"${w}$" for w in wrongs], rng=rng)
+    half = f"{c1 // 2}x" + (f" + {c0 // 2}" if c0 > 0 else f" - {-c0 // 2}" if c0 < 0 else "")
+    wrongs = {half, f"{c1}x" + (f" + {c0 // 2}" if c0 > 0 else f" - {-c0 // 2}" if c0 < 0 else f" + {k}"),
+              f"{c1 - 2}x" + (f" + {c0}" if c0 > 0 else f" - {-c0}" if c0 < 0 else ""),
+              f"{c1 + 2}x" + (f" + {c0}" if c0 > 0 else f" - {-c0}" if c0 < 0 else "")}
+    wrongs.discard(key)
+    options, letter = shuffle_options(f"${key}$", [f"${w}$" for w in list(wrongs)[:3]], rng=rng)
     return GeneratedItem(
         topic=slot.topic, kind="mc", points=slot.points,
         stem=stem.replace("Изразете и запишете чрез $x$ периметъра на правоъгълника.",
                           "Периметърът на правоъгълника, изразен чрез $x$, е:"),
         options=options, correct_answer=letter, difficulty="medium",
-        solution=solution, signature=f"rect_perimeter:{a}",
+        solution=solution, signature=sig,
     )
 
 

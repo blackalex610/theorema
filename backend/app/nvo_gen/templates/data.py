@@ -158,26 +158,31 @@ def _partition(total: int, buckets: int, rng: random.Random) -> list[int]:
 
 @template("prob_as_expression", topics=["probability_expression"], kinds=["mc"], weight=1.4)
 def prob_as_expression(rng: random.Random, slot: Slot) -> GeneratedItem:
-    """Probability given symbolically — the 2024 Q20 shape.
-
-    All four options are the same two symbols arranged four ways, so the
-    reciprocal family supplies the distractors on its own.
-    """
-    k = rng.choice([8, 10, 12, 15])
-    colour_a, colour_b = rng.choice([("червени", "черни"), ("сини", "жълти"),
-                                     ("зелени", "бели")])
-    correct = rf"\frac{{n - {k}}}{{n}}"
-    wrongs = [rf"\frac{{n}}{{{k}}}", rf"\frac{{{k}}}{{n}}", rf"\frac{{n}}{{n - {k}}}"]
+    """Probability given symbolically — the 2024 Q20 shape: n things, k of one
+    kind; the chance of the *other* kind (or of this one) as an expression."""
+    k = rng.randint(3, 30)
+    things, one, colour_a, colour_b, sg_a, sg_b = rng.choice([
+        ("молива", "молив", "червени", "черни", "червен", "черен"),
+        ("книги", "книга", "романи", "стихосбирки", "роман", "стихосбирка"),
+        ("картички", "картичка", "цветни", "черно-бели", "цветна", "черно-бяла"),
+        ("бонбона", "бонбон", "шоколадови", "карамелени", "шоколадов", "карамелен"),
+    ])
+    ask_rest = rng.random() < 0.7
+    correct = rf"\frac{{n - {k}}}{{n}}" if ask_rest else rf"\frac{{{k}}}{{n}}"
+    wrongs = ([rf"\frac{{n}}{{{k}}}", rf"\frac{{{k}}}{{n}}", rf"\frac{{n}}{{n - {k}}}"] if ask_rest
+              else [rf"\frac{{n - {k}}}{{n}}", rf"\frac{{n}}{{{k}}}", rf"\frac{{{k}}}{{n - {k}}}"])
     options, letter = shuffle_options(f"${correct}$", [f"${w}$" for w in wrongs], rng=rng)
+    target = sg_b if ask_rest else sg_a
+    fem = one in ("книга", "картичка")
     return GeneratedItem(
         topic=slot.topic, kind="mc", points=slot.points,
-        stem=(f"В кутия има $n$ молива, от които ${k}$ са {colour_a}, а останалите "
-              f"са {colour_b}. Вероятността случайно изваден молив да е "
-              f"{colour_b[:-1]} се пресмята с израза:"),
+        stem=(f"В кутия има $n$ {things}, от които ${k}$ са {colour_a}, а останалите "
+              f"са {colour_b}. Вероятността случайно изва{'дена' if fem else 'ден'} {one} "
+              f"да е {target} се пресмята с израза:"),
         options=options, correct_answer=letter, difficulty="medium",
-        solution=(rf"Моливите {colour_b} са $n - {k}$, а всички са $n$, "
+        solution=(rf"Благоприятните са ${'n - ' + str(k) if ask_rest else k}$, а всички са $n$, "
                   rf"значи вероятността е ${correct}$"),
-        signature=f"prob_expr:{k}:{colour_a}",
+        signature=f"prob_expr:{k}:{things}:{ask_rest}",
     )
 
 
@@ -265,43 +270,65 @@ def chart_doubling_and_mean(rng: random.Random, slot: Slot) -> GeneratedItem:
     )
 
 
+#: (what the whole is, its unit and count word, title, four sector labels,
+#:  the question with {label})
+_PIES = [
+    ("Училищно тържество е с продължителност {t} минути.", "минути", "Видове изпълнения",
+     ["театрални", "музикални", "танцови", "спортни"],
+     "По данните от диаграмата продължителността на {label} изпълнения в минути е:"),
+    ("Семейство разпределя месечния си бюджет от {t} евро.", "евро", "Разходи",
+     ["храна", "сметки", "транспорт", "развлечения"],
+     "По данните от диаграмата сумата за {label} в евро е:"),
+    ("В анкета участвали {t} ученици, всеки от които посочил любимия си спорт.", "ученици",
+     "Любим спорт", ["футбол", "волейбол", "баскетбол", "плуване"],
+     "По данните от диаграмата броят на учениците, посочили {label}, е:"),
+    ("Земеделски производител засял {t} декара.", "декара", "Засети култури",
+     ["пшеница", "царевица", "слънчоглед", "ечемик"],
+     "По данните от диаграмата площта, засята с {label}, в декари е:"),
+]
+
+
 @template("chart_pie_sector", topics=["data_chart"], kinds=["mc"], weight=1.3)
 def chart_pie_sector(rng: random.Random, slot: Slot) -> GeneratedItem:
-    """Read a duration off a pie chart — the 2024 Q19 shape."""
-    total_minutes = rng.choice([90, 120, 180, 60])
-    a, b = rng.choice([(80, 150), (120, 90), (100, 140), (60, 180)])
-    c = 90
-    d = 360 - a - b - c
-    if d <= 20:
-        raise Retry("the remaining sector must be visible")
-    key = Fraction(total_minutes * d, 360)
+    """Read a share off a pie chart — the 2024 Q19 shape, in four settings.
+
+    Sectors are multiples of 10°, the whole is chosen so the asked sector is a
+    whole number, and the question may name any sector — the right angle one
+    included, since reading 90° as a quarter is the step being tested.
+    """
+    while True:
+        angles = [rng.choice(range(30, 181, 10)) for _ in range(3)]
+        last = 360 - sum(angles)
+        if 30 <= last <= 180:
+            break
+    angles.append(last)
+    rng.shuffle(angles)
+    opening, unit, title, labels, question = rng.choice(_PIES)
+    ask = rng.randrange(4)
+    total = rng.choice([60, 90, 120, 180, 240, 360, 720, 1080, 1200, 1800, 2400, 3600])
+    key = Fraction(total * angles[ask], 360)
     if key.denominator != 1:
-        raise Retry("the answer must be a whole number of minutes")
+        raise Retry("the answer must be whole")
     key = key.numerator
 
-    labels = ["театрални", "музикални", "танцови", "спортни"]
-    wrong = [
-        total_minutes * a // 360,
-        total_minutes * c // 360,
-        key * 2,
-        d,
-    ]
-    options, letter = numeric_options(key, wrong, rng=rng, positive_only=True)
+    wrong = [Fraction(total * a, 360) for i, a in enumerate(angles) if i != ask]
+    wrong += [angles[ask], key * 2]
+    wrong = [int(w) for w in wrong if Fraction(w).denominator == 1]
+    options, letter = numeric_options(key, [w for w in wrong if w != key], rng=rng,
+                                      positive_only=True)
+    label_q = {"спортни": "спортните", "театрални": "театралните", "музикални": "музикалните",
+               "танцови": "танцовите"}.get(labels[ask], labels[ask])
     return GeneratedItem(
         topic=slot.topic, kind="mc", points=slot.points,
-        stem=(f"Училищно тържество е с продължителност {total_minutes} минути. "
-              f"По данните от диаграмата продължителността на спортните изпълнения "
-              f"в минути е:"),
+        stem=opening.format(t=total) + " " + question.format(label=label_q),
         options=options, correct_answer=letter, difficulty="medium",
         scene=pie_chart(
-            sectors=[(labels[0], a), (labels[1], b), (labels[2], c), (labels[3], d)],
-            title="Видове изпълнения",
-            aria=(f"Кръгова диаграма с четири сектора: {labels[0]} {a} градуса, "
-                  f"{labels[1]} {b} градуса, {labels[2]} {c} градуса, "
-                  f"{labels[3]} {d} градуса")),
-        solution=(rf"Спортните са ${d}^\circ$ от ${360}^\circ$, значи "
-                  rf"$\frac{{{d}}}{{360}} \cdot {total_minutes} = {key}$ минути"),
-        signature=f"chart_pie:{total_minutes}:{a}:{b}:{c}",
+            sectors=list(zip(labels, angles)), title=title,
+            aria=("Кръгова диаграма: " +
+                  ", ".join(f"{l} {a} градуса" for l, a in zip(labels, angles)))),
+        solution=(rf"Секторът е ${angles[ask]}^\circ$ от ${360}^\circ$, значи "
+                  rf"$\frac{{{angles[ask]}}}{{360}} \cdot {total} = {key}$"),
+        signature=f"chart_pie:{title}:{total}:{angles}:{ask}",
     )
 
 
@@ -340,35 +367,66 @@ def chart_grouped_ratio(rng: random.Random, slot: Slot) -> GeneratedItem:
     )
 
 
+#: shares a table can print, as (TeX, value)
+_SHARES = [(r"$\frac{n}{2}$", Fraction(1, 2)), (r"$\frac{n}{4}$", Fraction(1, 4)),
+           (r"$75\%$ от $n$", Fraction(3, 4)), (r"$\frac{n}{3}$", Fraction(1, 3)),
+           (r"$\frac{2n}{3}$", Fraction(2, 3)), (r"$2n$", Fraction(2)),
+           (r"$50\%$ от $n$", Fraction(1, 2)), (r"$\frac{3n}{2}$", Fraction(3, 2)),
+           (r"$25\%$ от $n$", Fraction(1, 4))]
+_TABLES = [
+    ("В книжарница за един месец са продадени общо {t} книги от видовете: {kinds}. В "
+     "таблицата е представено разпределението на броя продадени книги по видове. Колко "
+     "броя книги {ask} са продадени за този месец?",
+     ["фантастика", "детска литература", "техническа литература", "художествена литература"]),
+    ("Плодов магазин продал за седмица общо {t} kg плодове: {kinds}. В таблицата е "
+     "представено разпределението на продадените килограми по видове. Колко килограма "
+     "{ask} са продадени?",
+     ["ябълки", "круши", "портокали", "банани"]),
+    ("В училищни клубове участват общо {t} ученици: {kinds}. В таблицата е представено "
+     "разпределението на учениците по клубове. Колко ученици са в клуба по {ask}?",
+     ["шах", "роботика", "театър", "журналистика"]),
+]
+
+
 @template("table_share_of_total", topics=["data_chart"], kinds=["mc"], weight=1.0, band="hard")
 def table_share_of_total(rng: random.Random, slot: Slot) -> GeneratedItem:
-    """A table of shares expressed in terms of n — the 2025 Q19 shape."""
-    total = rng.choice([1200, 1600, 2000, 2400])
-    # 0,75n + n/2 + n/4 + n = total  →  n = total / 2.5
-    n = Fraction(total * 2, 5)
-    if n.denominator != 1:
-        raise Retry("n must come out whole")
-    n = n.numerator
+    """A table of shares expressed in terms of n — the 2025 Q19 shape.
 
-    key = n
-    wrong = [n // 2, n // 4, n * 3 // 4, total - n]
-    options, letter = numeric_options(key, wrong, rng=rng, positive_only=True)
-    headers = ["фантастика", "детска литература", "техническа литература",
-               "художествена литература"]
-    rows = [["$75\\%$ от $n$", "$\\frac{n}{2}$", "$\\frac{n}{4}$", "$n$"]]
+    One column is n itself and the others are fractions or percentages of it;
+    the total fixes n. Any mix of shares the papers use, any column asked.
+    """
+    others = rng.sample(_SHARES, 3)
+    if len({v for _, v in others}) < 3:
+        raise Retry("three different shares")
+    coeff = 1 + sum(v for _, v in others)
+    n = rng.randint(3, 20) * 12              # totals near the paper's 1200, not 5000
+    total = coeff * n
+    if total.denominator != 1:
+        raise Retry("the total must be whole")
+    cells = [t for t, _ in others] + ["$n$"]
+    values = [v * n for _, v in others] + [Fraction(n)]
+    template_text, kinds = rng.choice(_TABLES)
+    order = list(range(4))
+    rng.shuffle(order)
+    headers = [kinds[i] for i in order]
+    row = [cells[i] for i in order]
+    ask = rng.randrange(4)
+    key = values[order[ask]]
+    if key.denominator != 1:
+        raise Retry("the asked amount must be whole")
+    key = int(key)
+    wrong = [int(v) for v in values if v != key and v.denominator == 1] + [int(total) - key, n // 2]
+    options, letter = numeric_options(key, [w for w in wrong if w != key], rng=rng,
+                                      positive_only=True)
     return GeneratedItem(
         topic=slot.topic, kind="mc", points=slot.points,
-        stem=(f"В книжарница за един месец са продадени общо {total} книги от видовете: "
-              f"художествена литература, детска литература, техническа литература и "
-              f"фантастика. В таблицата е представено разпределението на броя продадени "
-              f"книги по видове. Колко броя книги художествена литература са продадени "
-              f"за този месец?"),
+        stem=template_text.format(t=int(total), kinds=", ".join(kinds), ask=headers[ask]),
         options=options, correct_answer=letter, difficulty="hard",
-        scene=data_table(headers=headers, rows=rows,
-                         aria="Таблица с четири вида книги, изразени чрез n"),
-        solution=(rf"$0{{,}}75n + \frac{{n}}{{2}} + \frac{{n}}{{4}} + n = {total}$, "
-                  rf"откъдето $2{{,}}5n = {total}$ и $n = {n}$"),
-        signature=f"table_share:{total}",
+        scene=data_table(headers=headers, rows=[row],
+                         aria="Таблица с четири вида, изразени чрез n"),
+        solution=(rf"Сборът е ${bg_number(coeff)}n = {int(total)}$, откъдето $n = {n}$, а "
+                  rf"търсеното количество е ${key}$"),
+        signature=f"table_share:{template_text[:6]}:{[str(v) for _, v in others]}:{n}:{order}:{ask}",
     )
 
 

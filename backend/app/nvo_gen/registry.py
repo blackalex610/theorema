@@ -155,6 +155,7 @@ def _ensure_loaded() -> None:
     _loaded = True
     from app.nvo_gen.templates import (  # noqa: F401  (import for side effects)
         algebra,
+        corpus,
         data,
         geometry,
         numbers,

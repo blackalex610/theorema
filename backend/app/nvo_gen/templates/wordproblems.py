@@ -656,67 +656,83 @@ def mixture_alloy_addition(rng: random.Random, slot: Slot) -> GeneratedItem:
 
 # ─── probability written as an expression ────────────────────────────────────
 
+#: (plural, plural, singular of the first, object plural, object is feminine)
+_TWO_KINDS = [
+    ("червени", "сини", "червена", "синя", "топки"),
+    ("бели", "черни", "бяла", "черна", "топки"),
+    ("зелени", "жълти", "зелена", "жълта", "топки"),
+    ("шоколадови", "плодови", "шоколадов", "плодов", "бонбона"),
+    ("сини", "червени", "синя", "червена", "химикалки"),
+    ("ябълкови", "портокалови", "ябълков", "портокалов", "сока"),
+]
+
+
 @template("prob_expression_two_colours",
           topics=["probability_expression"], kinds=["mc"], weight=1.1, band="easy")
 def prob_expression_two_colours(rng: random.Random, slot: Slot) -> GeneratedItem:
-    """x of one colour and k of another — the probability as an expression in x."""
-    k = rng.choice([4, 5, 6, 7, 8, 9, 10])
-    # The singular feminine is not a suffix rule in Bulgarian — бели → бяла,
-    # not бела — so both forms are stored rather than derived.
-    first, second, singular = rng.choice([
-        ("червени", "сини", "червена"),
-        ("бели", "черни", "бяла"),
-        ("зелени", "жълти", "зелена"),
-        ("сини", "червени", "синя"),
-    ])
-    correct = rf"$\frac{{x}}{{x + {k}}}$"
-    wrongs = [
-        rf"$\frac{{{k}}}{{x + {k}}}$",
-        rf"$\frac{{x}}{{{k}}}$",
-        rf"$\frac{{x + {k}}}{{x}}$",
-    ]
+    """x of one kind and k of another — the probability as an expression in x,
+    asked of either kind. The singular is stored, not derived (бели → бяла)."""
+    k = rng.randint(2, 30)
+    first, second, one_first, one_second, things = rng.choice(_TWO_KINDS)
+    ask_first = rng.random() < 0.6
+    num = "x" if ask_first else str(k)
+    correct = rf"$\frac{{{num}}}{{x + {k}}}$"
+    other = str(k) if ask_first else "x"
+    wrongs = [rf"$\frac{{{other}}}{{x + {k}}}$", rf"$\frac{{x}}{{{k}}}$" if ask_first else rf"$\frac{{{k}}}{{x}}$",
+              rf"$\frac{{x + {k}}}{{{num}}}$"]
     options, letter = shuffle_options(correct, wrongs, rng=rng)
+    what = one_first if ask_first else one_second
     return GeneratedItem(
         topic=slot.topic, kind="mc", points=slot.points,
-        stem=(f"В една кутия има $x$ на брой {first} топки и ${k}$ {second} "
-              f"топки. Вероятността случайно извадена топка да е {singular} е:"),
+        stem=(f"В една кутия има $x$ на брой {first} {things} и ${k}$ {second} "
+              f"{things}. Вероятността случайно изваден{'а' if things in ('топки', 'химикалки') else ''} "
+              f"{'топка' if things == 'топки' else 'химикалка' if things == 'химикалки' else 'бонбон' if things == 'бонбона' else 'сок'} "
+              f"да е {what} е:"),
         options=options, correct_answer=letter, difficulty="easy",
-        solution=(rf"Благоприятните случаи са $x$, а всички възможни — "
-                  rf"$x + {k}$, откъдето вероятността е $\frac{{x}}{{x + {k}}}$"),
-        signature=f"prob_expr_two:{k}:{first}",
+        solution=(rf"Благоприятните случаи са ${num}$, а всички възможни — "
+                  rf"$x + {k}$, откъдето вероятността е ${correct[1:-1]}$"),
+        signature=f"prob_expr_two:{k}:{first}:{things}:{ask_first}",
     )
 
 
 @template("prob_expression_after_removal",
           topics=["probability_expression"], kinds=["mc"], weight=1.0, band="hard")
 def prob_expression_after_removal(rng: random.Random, slot: Slot) -> GeneratedItem:
-    """n balls, w white, m non-white removed — the 2024 Q20 shape.
+    """n balls, w white, m removed — the 2024 Q20 shape.
 
-    Only the denominator moves: removing non-white balls leaves the count of
-    white ones alone. The distractor that subtracts m from the numerator as
-    well is the mistake the real item is built around.
+    If none of the removed balls is white, only the denominator moves; if all of
+    them are, both do. Each form's distractor is the other form's answer, which
+    is exactly the misreading the real item is built around.
     """
-    white = rng.choice([5, 6, 8, 10, 12])
-    removed = rng.choice([3, 4, 5, 10])
-    if removed >= white:
-        raise Retry("keep the removed count clearly smaller than the white count")
-
-    correct = rf"$\frac{{{white}}}{{n - {removed}}}$"
+    white = rng.randint(4, 20)
+    removed = rng.randint(2, 12)
+    removed_white = rng.random() < 0.35
+    if removed_white and removed >= white:
+        raise Retry("cannot remove more white balls than there are")
+    colour, colour_sg, colour_pl = rng.choice([("бели", "бяла", "бели"), ("червени", "червена", "червени"),
+                                               ("зелени", "зелена", "зелени")])
+    # numerators printed computed, as a student would write them
+    num_ok = f"{white - removed}" if removed_white else f"{white}"
+    correct = rf"$\frac{{{num_ok}}}{{n - {removed}}}$"
+    if not removed_white and removed >= white:
+        raise Retry("the „w − m” distractor would be zero or negative")
+    other_num = f"{white}" if removed_white else f"{white - removed}"
     wrongs = [
-        rf"$\frac{{{white} - {removed}}}{{n - {removed}}}$",
+        rf"$\frac{{{other_num}}}{{n - {removed}}}$",
         rf"$\frac{{{white}}}{{n}}$",
         rf"$\frac{{n - {removed}}}{{{white}}}$",
     ]
     options, letter = shuffle_options(correct, wrongs, rng=rng)
+    which = f"всичките са {colour_pl}" if removed_white else f"нито една от които не е {colour_sg}"
     return GeneratedItem(
         topic=slot.topic, kind="mc", points=slot.points,
-        stem=(f"В една урна има $n$ топки, ${white}$ от които са бели. "
-              f"От урната са извадени ${removed}$ топки, нито една от които "
-              f"не е бяла. Вероятността следващата случайно извадена топка "
-              f"да е бяла е:"),
+        stem=(f"В една урна има $n$ топки, ${white}$ от които са {colour}. "
+              f"От урната са извадени ${removed}$ топки, {which}. Вероятността "
+              f"следващата случайно извадена топка да е {colour_sg} е:"),
         options=options, correct_answer=letter, difficulty="hard",
-        solution=(rf"Белите топки остават ${white}$, а всички топки стават "
-                  rf"$n - {removed}$, откъдето вероятността е "
-                  rf"$\frac{{{white}}}{{n - {removed}}}$"),
-        signature=f"prob_expr_removed:{white}:{removed}",
+        solution=(rf"Топките, които са {colour}, стават ${num_ok}$, а всички топки — "
+                  rf"$n - {removed}$, откъдето вероятността е ${correct[1:-1]}$"),
+        signature=f"prob_expr_removed:{white}:{removed}:{removed_white}:{colour}",
     )
+
+

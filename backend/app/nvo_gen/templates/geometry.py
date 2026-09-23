@@ -1123,11 +1123,11 @@ def order_angles_by_sides(rng: random.Random, slot: Slot) -> GeneratedItem:
     """Given three side lengths, order the angles — the converse of 2024 Q15.
 
     One named theorem, applied once: the larger angle lies opposite the larger
-    side. No angle arithmetic at all, which is what makes it the easy member of
-    this topic.
+    side. Any scalene triangle with whole sides up to 20 cm, not eight fixed ones.
     """
-    a, b, c = rng.choice([(5, 6, 7), (4, 6, 7), (6, 8, 9), (7, 9, 12),
-                          (5, 7, 8), (8, 10, 13), (9, 11, 14), (6, 7, 10)])
+    a, b, c = rng.sample(range(3, slot.profile.tier(12, 15, 20, 30)), 3)
+    if not (a + b > c and a + c > b and b + c > a):
+        raise Retry("the three lengths must form a triangle")
     # a = BC (opposite ∠BAC), b = AC (opposite ∠ABC), c = AB (opposite ∠ACB)
     by_side = sorted([(a, "BAC"), (b, "ABC"), (c, "ACB")])
     names = [n for _, n in by_side]
@@ -1166,14 +1166,18 @@ def order_angles_by_sides(rng: random.Random, slot: Slot) -> GeneratedItem:
 @template("order_sides_two_given_angles",
           topics=["geom_side_ordering"], kinds=["mc"], weight=1.1, band="medium")
 def order_sides_two_given_angles(rng: random.Random, slot: Slot) -> GeneratedItem:
-    """Two angles given outright, order the sides — 2024 Q15 without the ratio step."""
-    alpha = rng.choice([40, 45, 50, 55, 62, 70, 75])
-    beta = rng.choice([35, 48, 58, 64, 72, 80])
-    gamma = 180 - alpha - beta
-    if gamma < 20 or len({alpha, beta, gamma}) != 3:
+    """Two angles given outright, order the sides — 2024 Q15 without the ratio
+    step. Any two of the three angles may be the given ones."""
+    angles = {"BAC": 0, "ABC": 0, "ACB": 0}
+    x, y = rng.randint(20, 110), rng.randint(20, 110)
+    z = 180 - x - y
+    if z < 20 or len({x, y, z}) != 3:
         raise Retry("all three angles must differ and stay drawable")
-
-    by_angle = sorted([(alpha, "BC"), (beta, "AC"), (gamma, "AB")])
+    given = rng.choice([("BAC", "ABC"), ("ABC", "ACB"), ("BAC", "ACB")])
+    missing = next(k for k in angles if k not in given)
+    angles[given[0]], angles[given[1]], angles[missing] = x, y, z
+    opposite = {"BAC": "BC", "ABC": "AC", "ACB": "AB"}
+    by_angle = sorted((v, opposite[k]) for k, v in angles.items())
     names = [n for _, n in by_angle]
 
     def chain(order):
@@ -1187,23 +1191,25 @@ def order_sides_two_given_angles(rng: random.Random, slot: Slot) -> GeneratedIte
     ]
     options, letter = shuffle_options(f"${correct}$", [f"${o}$" for o in others], rng=rng)
 
+    vertex = {"BAC": ("A", "B", "C"), "ABC": ("B", "A", "C"), "ACB": ("C", "A", "B")}
     f = scalene_triangle(rng=rng)
     f.path(["A", "B", "C"], close=True)
-    f.angle("A", "B", "C", label=deg(alpha), radius=24)
-    f.angle("B", "A", "C", label=deg(beta), radius=24)
+    for k in given:
+        v, p1, p2 = vertex[k]
+        f.angle(v, p1, p2, label=deg(angles[k]), radius=24)
 
     return GeneratedItem(
         topic=slot.topic, kind="mc", points=slot.points,
-        stem=(f"В $\\triangle ABC$ $\\sphericalangle BAC = {alpha}^\\circ$ и "
-              f"$\\sphericalangle ABC = {beta}^\\circ$. Вярното неравенство за "
-              f"страните на триъгълника е:"),
+        stem=(f"В $\\triangle ABC$ $\\sphericalangle {given[0]} = {angles[given[0]]}^\\circ$ и "
+              f"$\\sphericalangle {given[1]} = {angles[given[1]]}^\\circ$. Вярното неравенство "
+              f"за страните на триъгълника е:"),
         options=options, correct_answer=letter, difficulty="medium",
-        scene=f.to_spec(aria=(f"Триъгълник ABC с ъгъл {alpha} градуса при A и "
-                              f"{beta} градуса при B"), rng=rng),
-        solution=(rf"$\sphericalangle ACB = 180^\circ - {alpha}^\circ - {beta}^\circ "
-                  rf"= {gamma}^\circ$. Срещу по-малък ъгъл лежи по-малка страна, "
+        scene=f.to_spec(aria=(f"Триъгълник ABC с ъгли {angles[given[0]]} и "
+                              f"{angles[given[1]]} градуса"), rng=rng),
+        solution=(rf"$\sphericalangle {missing} = 180^\circ - {x}^\circ - {y}^\circ "
+                  rf"= {z}^\circ$. Срещу по-малък ъгъл лежи по-малка страна, "
                   rf"откъдето ${correct}$"),
-        signature=f"order_sides2:{alpha}:{beta}",
+        signature=f"order_sides2:{given}:{x}:{y}",
     )
 
 
