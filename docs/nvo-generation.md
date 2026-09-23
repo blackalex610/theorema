@@ -302,10 +302,13 @@ cd ../frontend && SCENES_JSON=/tmp/scenes.json SCENES_HTML=/tmp/scenes.html \
 
 ---
 
-## Part 2 is curated, not generated
+## Part 2: parameterised transcriptions
 
-`part2_bank.py` holds hand-authored extended items with their own marking
-schemes. The reasoning:
+Every Part 2 item is a real paper's item, transcribed with its marking scheme
+and then generalised exactly as far as its reasoning allows. Algebra and word
+problems are generated inside that shape (`part2_algebra.py`, `part2_word.py`);
+geometry proofs stay closer to the page (`part2_bank.py`, `part2_geometry.py`).
+The reasoning for keeping them transcribed rather than invented:
 
 * An 11–12 point proof is marked on *intermediate* results — "1 т. за съставяне
   и опростяване на уравнението". Generating a stem is the easy half.
@@ -314,10 +317,24 @@ schemes. The reasoning:
 * The cost of being wrong is asymmetric: a flawed Part 1 item wastes two
   minutes, a flawed proof wastes twenty and teaches a false method.
 
-A student therefore gets an unlimited supply of Part 1 and a deep but finite
-Part 2, which is the right trade — nobody sits enough papers to exhaust a few
-dozen proofs. Items carry light parameterisation where the numbers genuinely do
-not change the reasoning.
+**The algebra and word problems used to be wrong.** Before the corpus study,
+four of the six were: the 2021 Q22 equation transcribed with `x(x − 4)/9` for
+`x(0,5x − 4)/9` (x² no longer cancels, every variant had irrational roots), an
+inequality solving to x > 125/59 keyed as „Линейно неравенство…”, a bus/car
+meeting whose three stated facts contradict each other, and a brigade problem
+with fractional days in 8 draws of 9. The rebuild rests on two rules:
+
+* **One tree for stem and key.** `poly.Expr` renders the LaTeX and evaluates to
+  an exact `Poly` from the same object, so the printed expression and the
+  computed answer cannot drift apart.
+* **Draw the free quantities, solve for the rest.** A word problem states
+  several facts that fix each other; drawing them independently is how the
+  meeting problem went wrong. Each builder draws what is free, solves for what
+  is determined, and rejects a draw whose derived numbers a key would not print.
+
+`test_nvo_part2_keys.py` re-derives every key from the printed stem — the
+LaTeX parsed by a reader independent of `poly.Expr`, the story's numbers pulled
+out of the text — and fails on each of the four bugs above.
 
 ### Adding one: transcribe, do not invent
 
@@ -343,10 +360,15 @@ parts В and Г quietly false, which is precisely the failure this file's
 opening paragraphs are about.
 
 **State a real answer.** `correct_answer` is what a human marker and the vision
-grader compare against; `"Доказателство"` gives them nothing. Two older entries
-still carry placeholders — `geo_par_height` and `geo_iso_rhombus` — and
-`test_every_curated_proof_states_a_real_answer` holds the line so the list
-shrinks rather than growing.
+grader compare against; `"Доказателство"` gives them nothing. No placeholder
+remains, and `test_every_part2_item_verifies_and_carries_a_real_key` fails on
+one. The grader also receives the item's marking scheme now (see below).
+
+**Solve the figure.** A proof figure is the one a student stares at for twenty
+minutes. Three older ones placed L, P, Q and K at random along a side, so the
+bisector did not bisect and the perpendicular was not one; every proof figure
+is now built from its construction and `test_nvo_part2_figures.py` asserts each
+claim the item makes on the posed figure.
 
 Each entry declares its own sub-part points; the sum must equal the blueprint
 slot total (12 / 11 / 12), which the verifier enforces.
@@ -360,6 +382,19 @@ per sub-part — "2 т., при един верен отговор" on the 2026 
 е написано 4x" on the perimeter item — and retrofitting a points structure onto
 items already in the database costs far more than carrying it from the start.
 It reaches the client as `NVOQuestion.points`.
+
+**Grading uses it.** `/nvo/submit` scores in NVO points — a full paper is out of
+100, reported as Part 1 / 65 and Part 2 / 35 — and each written sub-part earns
+its own points (`app/services/nvo_grading.py`). Before, every question counted
+one point, so the three Part 2 items were 12,5% of the score instead of 35%.
+
+Short answers are checked **exactly, in code** where the key allows it —
+numbers and root sets („0 и 25”), relations and intervals, clock times, months
+(the 2026 key's „или V, или 05”), and plain polynomials such as „3x + 10” —
+lenient on form, strict on value. Only proofs and worded verdicts go to the
+language model, now with the item's marking scheme. A sub-part the model cannot
+grade (no API key) is marked with the key instead of failing the submission,
+which is what used to happen to every paper with a short answer on it.
 
 ---
 
@@ -404,44 +439,25 @@ number below is a **lower bound**.
 
 | | `classic` | `nvo2026` |
 |---|---|---|
-| Part 1 combinations | 9.6 × 10⁴⁴ | 6.7 × 10⁴⁷ |
-| Part 2 combinations | 63,812 | 63,812 |
-| whole paper | 6.1 × 10⁴⁹ | 4.2 × 10⁵² |
+| Part 1 combinations | 1.6 × 10⁶³ | 2.9 × 10⁶¹ |
+| Part 2 combinations | 5.0 × 10⁹ | 5.0 × 10⁹ |
 
-Part 1 is effectively inexhaustible. **Part 2 is the ceiling**, and there are
-two ways to count it, both of which matter:
+The product is not the number that matters. A student meets each position once
+per paper, so what they notice is the **thinnest position**, and in Part 2 the
+number of *shapes* — a proof seen once is recognised with new numbers.
 
-| open slot | builders (*shapes*) | distinct items |
+| | before the corpus study | now |
 |---|---|---|
-| `open_algebra` | 3 | 28 |
-| `open_word_problem` | 3 | 53 |
-| `open_geometry_proof` | 5 | 43 |
+| thinnest Part 1 position | 21 items (`shortcut_multiplication`) | 203 (`work_rate`) |
+| `open_algebra` | 3 shapes, 28 items (2 of them wrong) | 5 shapes, 7 468 items |
+| `open_word_problem` | 3 shapes, 53 items (2 wrong) | 6 shapes, 6 899 items |
+| `open_geometry_proof` | 5 shapes, 43 items | 8 shapes, 98 items |
 
-**Count the shapes, not the items.** A Part 2 builder carries its parameters in
-its `code`, so one builder reaches dozens of items — but a student who has seen
-the rectangle-with-bisectors proof recognises it again with different numbers.
-Eleven shapes is the honest figure for "how much Part 2 is there", and it is
-what to raise.
-
-Note that `signature` for a Part 2 item is just `p2:{code}` — deliberately, so
-that two items on one paper cannot be the same *draw*. It is not a content
-hash, so counting signatures across papers under-reports the bank badly. The
-capacity script counts codes for exactly this reason.
-
-The number to watch is not the product but the **thinnest slot**, because that
-is where a student notices repetition first:
-
-| slot | distinct items |
-|---|---|
-| `shortcut_multiplication` | 21 |
-| `work_rate` | 24 |
-| `expression_at_value` | 36 |
-| `expand_or_factor` | 39 |
-| `expression_from_words` | 42 |
-
-All algebra and word problems — the geometry slots were the thin ones before
-the figure audit and are no longer. Raising any of these is the same shape of
-work the audit did: more templates, or wider parameter tiers on the ones there.
+Geometry proofs remain the ceiling, deliberately: each generalises only as far
+as its argument, which the module notes in `part2_geometry.py` spell out.
+`test_every_position_has_room_for_many_papers` holds every Part 1 position of
+both blueprints at 80+ distinct items. See `docs/nvo-realism-study.md` for how
+these numbers were reached.
 
 ## Where things live
 
@@ -452,8 +468,11 @@ backend/app/nvo_gen/
   scene.py        figure specs and the builders that emit them
   distractors.py  the eight wrong-answer families, Bulgarian number formatting
   registry.py     GeneratedItem, the @template decorator, slot eligibility
-  templates/      numbers · algebra · wordproblems · data · geometry
-  part2_bank.py   curated extended items
+  poly.py         exact polynomials and Expr trees that render their own LaTeX
+  templates/      numbers · algebra · wordproblems · data · geometry · corpus
+                  (corpus: the shapes the study found in 2023–2026 and lacked)
+  part2_bank.py   Part 2 registry and the older geometry proofs
+  part2_algebra.py / part2_word.py / part2_geometry.py   the generalised transcriptions
   verify.py       the gate — item-level and paper-level
   assemble.py     the generation loop
   api.py          translation to the client's existing NVOQuestion shape
