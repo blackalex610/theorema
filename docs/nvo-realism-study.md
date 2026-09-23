@@ -97,7 +97,7 @@ is still open is listed at the end.
 | Part 1 combinations (2026 format) | 6,7 · 10⁴⁷ | 2,9 · 10⁶¹ |
 | Part 2 algebra | 3 shapes / 28 items | 5 shapes / 7 468 items |
 | Part 2 word problems | 3 shapes / 53 items | 6 shapes / 6 899 items |
-| Part 2 geometry | 5 shapes / 43 items | 8 shapes / 98 items |
+| Part 2 geometry | 5 shapes / 43 items | 12 figures, 98 question sets / ~2 000 items |
 | templates | 112 | 127 |
 
 ## How correctness is now defended
@@ -106,23 +106,28 @@ is still open is listed at the end.
   with a LaTeX reader independent of the code that built it; fails on each of
   the four Part 2 bugs above.
 - `test_nvo_part1_keys.py` — the same for every new or rewritten Part 1 template.
-- `test_nvo_part2_figures.py` — every proof figure asserts what its stem claims.
+- `test_nvo_part2_figures.py` — every claim of every proof pool is measured on
+  its own drawn figure; marking steps add up; dependencies point backwards.
+- `test_nvo_partial_marks.py` — the examiner awards part marks per sub-part.
 - `test_nvo_realism.py` — no leva, no 3-decimal options, every template passes
   the verifier in every slot it claims, every position ≥ 80 distinct items.
 - `test_nvo_grading_points.py` — a perfect Part 1 scores 65/100 with no AI
   available; partial credit follows the sub-part points; the marking scheme
   never reaches the client.
 
-Full backend suite: 1838 passed. Frontend: 46 passed.
+Full backend suite: 1853 passed. Frontend: 46 passed.
 
 ---
 
 ## Still open — decide before calling it finished
 
-1. **Part 2 geometry is the ceiling: 8 shapes.** A student who sits more than
-   ~8 full papers will meet a proof again. More can be transcribed from the
-   2015–2018 papers; each must be re-derived first (see the module notes in
-   `part2_geometry.py` for why most generalise only over a length).
+1. **Part 2 geometry — closed as far as the corpus allows.** All twelve real
+   proofs (2015–2026) are transcribed, and each is a *pool of claims*: a paper
+   asks 3–4 of 6–10 verified claims totalling 12 points, easy to hard. 12 figures,
+   98 distinct question sets, ~2 000 distinct items (`part2_proofs.py`). A student
+   who sits many papers will recognise a figure, but will be asked something new
+   about it — as the real exam reuses its standard configurations. Beyond this
+   needs generated constructions (proposed, not built).
 2. **Proof grading still depends on the model** — but it now marks like an
    examiner: each sub-part gets any whole number of points from 0 to its
    maximum by the scheme, typed or photographed (`ai_mark` in

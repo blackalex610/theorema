@@ -451,10 +451,15 @@ number of *shapes* — a proof seen once is recognised with new numbers.
 | thinnest Part 1 position | 21 items (`shortcut_multiplication`) | 203 (`work_rate`) |
 | `open_algebra` | 3 shapes, 28 items (2 of them wrong) | 5 shapes, 7 468 items |
 | `open_word_problem` | 3 shapes, 53 items (2 wrong) | 6 shapes, 6 899 items |
-| `open_geometry_proof` | 5 shapes, 43 items | 8 shapes, 98 items |
+| `open_geometry_proof` | 5 shapes, 43 items | 12 figures × claim pools: 98 question sets, ~2 000 items |
 
-Geometry proofs remain the ceiling, deliberately: each generalises only as far
-as its argument, which the module notes in `part2_geometry.py` spell out.
+Geometry proofs: every paper since 2015 has exactly one, so the corpus holds
+twelve, and all twelve are in `part2_proofs.py`. Each figure carries a **pool
+of claims** (6–10: prompt, key, marking steps, a check measured on the drawn
+figure, dependencies); a paper asks 3–4 of them summing to 12 points, easy to
+hard. Each configuration's docstring records how far its numbers may vary and
+why — most proofs hold only at one angle, so only a length or an area moves.
+`test_nvo_part2_figures.py` measures every claim of every pool on its figure.
 `test_every_position_has_room_for_many_papers` holds every Part 1 position of
 both blueprints at 80+ distinct items. See `docs/nvo-realism-study.md` for how
 these numbers were reached.
@@ -472,7 +477,8 @@ backend/app/nvo_gen/
   templates/      numbers · algebra · wordproblems · data · geometry · corpus
                   (corpus: the shapes the study found in 2023–2026 and lacked)
   part2_bank.py   Part 2 registry and the older geometry proofs
-  part2_algebra.py / part2_word.py / part2_geometry.py   the generalised transcriptions
+  part2_algebra.py / part2_word.py   the generalised algebra and word transcriptions
+  part2_proofs.py   the twelve geometry proofs, each a pool of claims
   verify.py       the gate — item-level and paper-level
   assemble.py     the generation loop
   api.py          translation to the client's existing NVOQuestion shape

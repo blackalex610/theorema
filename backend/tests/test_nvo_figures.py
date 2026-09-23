@@ -629,58 +629,9 @@ def test_a_curated_proof_verifies_and_its_points_add_up(build):
         assert not report.errors, f"{item.code}: {report.errors}"
 
 
-def test_the_two_isosceles_proof_matches_its_own_figure():
-    """∠BCP = ∠BAM = ∠MDP = 2β − 180, and the equal sides really are equal.
-
-    The 2025 paper states this for β = 135° only. Generalising it is the whole
-    reason the item has 30 variants instead of one, so the generalisation is
-    asserted rather than assumed — on the posed figure, where a similarity
-    transform has already been applied.
-    """
-    import re
-
-    seen: dict[str, object] = {}
-    for seed in range(400):
-        item = _p2.two_isosceles_and_parallelogram(_random.Random(seed))
-        if item.code in seen:
-            continue
-        seen[item.code] = item
-        p = {k: tuple(v) for k, v in item.scene["points"].items()}
-        alpha, beta, gamma = (int(x) for x in re.findall(r"\d+", item.answers[0])[:3])
-        assert alpha + beta + gamma == 180
-        apex, base = 2 * beta - 180, 180 - beta
-
-        assert angle_deg(p["B"], p["A"], p["C"]) == pytest.approx(beta, abs=0.3)
-        assert _dist(p["C"], p["B"]) == pytest.approx(_dist(p["C"], p["P"]), abs=0.5)
-        assert _dist(p["A"], p["B"]) == pytest.approx(_dist(p["A"], p["M"]), abs=0.5)
-        for vertex, u, w in (("C", "B", "P"), ("A", "M", "B"), ("D", "M", "P")):
-            assert angle_deg(p[vertex], p[u], p[w]) == pytest.approx(apex, abs=0.3), (
-                f"{item.code}: apex angle at {vertex}")
-        for vertex, u, w in (("M", "D", "P"), ("P", "D", "M")):
-            assert angle_deg(p[vertex], p[u], p[w]) == pytest.approx(base, abs=0.3)
-    assert len(seen) >= 20, f"only {len(seen)} variants reachable"
-
-
-def test_the_right_triangle_proof_matches_its_own_figure():
-    """NA = NL, LM = BN/2, and △NML equilateral — the last only at ∠CAB = 60°.
-
-    That specificity is the point: the item deliberately does *not* vary the
-    2 : 1 ratio, because △AML ≅ △BNL and the equilateral △NML both fail away
-    from 60°. Checking it here is what stops someone widening the pool later
-    and quietly breaking parts В and Г.
-    """
-    for seed in range(200):
-        item = _p2.right_triangle_bisector_midpoint(_random.Random(seed))
-        p = {k: tuple(v) for k, v in item.scene["points"].items()}
-        assert angle_deg(p["A"], p["C"], p["B"]) == pytest.approx(60.0, abs=0.3)
-        assert angle_deg(p["C"], p["A"], p["B"]) == pytest.approx(90.0, abs=0.3)
-        assert _dist(p["N"], p["A"]) == pytest.approx(_dist(p["N"], p["L"]), abs=0.5)
-        assert _dist(p["L"], p["M"]) == pytest.approx(_dist(p["B"], p["N"]) / 2, abs=0.5)
-        sides = [_dist(p["N"], p["L"]), _dist(p["N"], p["M"]), _dist(p["M"], p["L"])]
-        assert max(sides) - min(sides) < 0.8, f"{item.code}: △NML is not equilateral"
-        # △AML ≅ △BNL, which part В asks the student to prove
-        assert _dist(p["A"], p["M"]) == pytest.approx(_dist(p["B"], p["N"]), abs=0.5)
-        assert _dist(p["A"], p["L"]) == pytest.approx(_dist(p["B"], p["L"]), abs=0.5)
+# The per-proof figure checks that lived here (two isosceles, right triangle)
+# are now claim checks in test_nvo_part2_figures.py, which measures every
+# claim of every proof pool on its own figure.
 
 
 def test_every_curated_proof_states_a_real_answer():
