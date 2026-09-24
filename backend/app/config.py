@@ -73,6 +73,21 @@ class Settings(BaseSettings):
     # matches the generated-exam store's own 24h window.
     MEDIA_RETENTION_HOURS: int = 24
 
+    # Where those photos are stored (app/services/media_storage.py).
+    # "local" writes to MEDIA_LOCAL_DIR (default backend/app/uploads) and is
+    # for development or a single server with a persistent disk. "supabase"
+    # uses a private Supabase Storage bucket — required on Vercel, whose
+    # disk is read-only and not shared between instances. Left empty, the
+    # backend is "supabase" when SUPABASE_URL and the key are set, else
+    # "local".
+    MEDIA_STORAGE_BACKEND: str = ""
+    MEDIA_LOCAL_DIR: str = ""
+    SUPABASE_URL: str = ""
+    # Server-side only: this key bypasses row-level security. Never ship it
+    # to the frontend.
+    SUPABASE_SERVICE_ROLE_KEY: str = ""
+    SUPABASE_STORAGE_BUCKET: str = "homework-photos"
+
     # Error monitoring (Sentry). Empty by default: analytics/bug-report/
     # feedback/error-log storage works independently via event_logs (see
     # app/services/event_log_store.py) — Sentry adds real-time alerting and

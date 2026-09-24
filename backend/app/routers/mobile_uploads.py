@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import json
+import logging
 import re
 from datetime import datetime, timezone
 from collections import defaultdict
@@ -9,6 +10,7 @@ from typing import Any
 from uuid import uuid4
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, Request, UploadFile, Depends
+from fastapi.concurrency import run_in_threadpool
 from openai import OpenAI
 from pydantic import BaseModel
 from starlette.responses import StreamingResponse
@@ -16,17 +18,50 @@ from app.config import settings
 from app.auth.dependencies import get_current_user, require_admin, require_image_scan
 from app.services.media_tokens import build_media_url
 from app.services.media_retention import purge_expired_uploads
+from app.services.media_storage import (
+    MediaStorageError,
+    MediaStorageUnavailable,
+    get_media_storage,
+)
 from app.services import channel_state_store
 from app.database import get_db
 from sqlalchemy.orm import Session
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/mobile", tags=["Mobile Uploads"])
 
-UPLOAD_DIR = Path(__file__).resolve().parent.parent / "uploads"
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-
 MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
-# Simplified: all uploads are treated as JPG since frontend converts everything
+# Vercel rejects any request body over 4.5 MB before it reaches the app; the
+# frontend downscales photos to well under that (utils/imageCapture.ts).
+
+# Magic bytes -> (extension, MIME). Detected from content rather than trusted
+# from the filename or Content-Type: iOS sends HEIC labelled as anything, and
+# a stored file is later served back with the type chosen here.
+_IMAGE_SIGNATURES = (
+    (b"\xff\xd8\xff", ".jpg", "image/jpeg"),
+    (b"\x89PNG\r\n\x1a\n", ".png", "image/png"),
+)
+
+UNSUPPORTED_IMAGE_MESSAGE = "Снимката трябва да е JPG, PNG или WEBP."
+STORAGE_UNAVAILABLE_MESSAGE = "Качването на снимки временно не е налично."
+
+
+def _detect_image_type(data: bytes) -> tuple[str, str] | None:
+    for signature, ext, mime in _IMAGE_SIGNATURES:
+        if data.startswith(signature):
+            return ext, mime
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return ".webp", "image/webp"
+    return None
+
+
+def _media_storage_or_503():
+    try:
+        return get_media_storage()
+    except MediaStorageUnavailable:
+        logger.error("Photo upload attempted with no usable media storage", exc_info=True)
+        raise HTTPException(status_code=503, detail=STORAGE_UNAVAILABLE_MESSAGE)
 
 
 class MobileUploadResponse(BaseModel):
@@ -249,20 +284,13 @@ def _build_task_grade(
 
 
 def _grade_photo_with_ai(
-    file_path: Path,
+    image_bytes: bytes,
     correct_xy: str,
     statement: str | None = None,
 ) -> tuple[bool, str, str]:
     """Grade a photo submission using AI. Returns (is_correct, extracted_answer, feedback)."""
-    if not file_path.exists():
-        raise HTTPException(status_code=404, detail="Photo file not found")
-
-    image_bytes = file_path.read_bytes()
-    mime = "image/jpeg"
-    if file_path.suffix.lower() == ".png":
-        mime = "image/png"
-    elif file_path.suffix.lower() == ".webp":
-        mime = "image/webp"
+    detected = _detect_image_type(image_bytes)
+    mime = detected[1] if detected else "image/jpeg"
     data_url = f"data:{mime};base64,{base64.b64encode(image_bytes).decode('ascii')}"
 
     problem_text = statement if statement else f"Намери отговора. Очакван правилен отговор: {correct_xy}."
@@ -302,30 +330,30 @@ async def upload_mobile_photo(
 ):
     channel_id = _validate_channel_id(channel_id)
 
-    # Ignore MIME type completely - just check file extension
-    # Since frontend converts everything to JPG, we treat all as JPG
-    original_filename = file.filename or "unknown"
-    if not original_filename:
-        raise HTTPException(status_code=400, detail="No filename provided")
-
-    # All uploaded files are now JPG (converted by frontend)
-    ext = ".jpg"
-    print(f"Upload: original_filename={original_filename}, forced_ext={ext}, content_type={file.content_type}")
-
     data = await file.read()
     if not data:
         raise HTTPException(status_code=400, detail="Uploaded file is empty")
     if len(data) > MAX_FILE_SIZE_BYTES:
         raise HTTPException(status_code=413, detail="File too large (max 10 MB)")
 
+    detected = _detect_image_type(data)
+    if detected is None:
+        raise HTTPException(status_code=415, detail=UNSUPPORTED_IMAGE_MESSAGE)
+    ext, content_type = detected
+
+    storage = _media_storage_or_503()
+
     # Retention sweep runs here rather than on a schedule: there is no
     # scheduler in this deployment, and a photo of a child's handwriting
-    # sitting on disk forever is the thing being prevented. Never raises.
-    purge_expired_uploads()
+    # kept forever is the thing being prevented. Never raises.
+    await run_in_threadpool(purge_expired_uploads, force=False)
 
     filename = f"{uuid4().hex}{ext}"
-    target_path = UPLOAD_DIR / filename
-    target_path.write_bytes(data)
+    try:
+        await run_in_threadpool(storage.save, filename, data, content_type)
+    except MediaStorageError:
+        logger.exception("Storing an uploaded photo failed")
+        raise HTTPException(status_code=503, detail=STORAGE_UNAVAILABLE_MESSAGE)
 
     base_url = str(request.base_url).rstrip("/")
     # Signed + expiring: /media refuses unsigned reads (see media_tokens.py).
@@ -335,19 +363,10 @@ async def upload_mobile_photo(
         channel_id=channel_id,
         file_name=filename,
         file_url=file_url,
-        content_type="image/jpeg",  # Force content type to JPEG
+        content_type=content_type,
         size_bytes=len(data),
         uploaded_at=datetime.now(timezone.utc).isoformat(),
         problem_number=problem_number,
-    )
-    _record_upload_event(event, channel_id)
-
-    return MobileUploadResponse(
-        file_name=event.file_name,
-        file_url=event.file_url,
-        content_type=event.content_type,
-        size_bytes=event.size_bytes,
-        uploaded_at=event.uploaded_at,
     )
     _record_upload_event(event, channel_id)
 
@@ -440,9 +459,29 @@ async def grade_task_from_photo(payload: TaskPhotoGradeRequest, _user=Depends(ge
     if not context:
         raise HTTPException(status_code=404, detail="Task context not found for this problem and channel")
 
+    # Only a photo uploaded to this channel can be graded on it. Any
+    # authenticated user used to be able to name any stored file and have it
+    # sent to OpenAI (and get a fresh signed URL for it back).
     file_name = Path(payload.file_name).name
-    file_path = UPLOAD_DIR / file_name
-    is_correct, extracted_answer, feedback = _grade_photo_with_ai(file_path, context.correct_xy, context.statement)
+    channel_files = {
+        event.get("file_name")
+        for event in channel_state_store.load_uploads(channel_id, UPLOAD_HISTORY_LIMIT)
+    }
+    if file_name not in channel_files:
+        raise HTTPException(status_code=404, detail="Photo file not found")
+
+    storage = _media_storage_or_503()
+    try:
+        image_bytes = await run_in_threadpool(storage.read, file_name)
+    except MediaStorageError:
+        logger.exception("Reading an uploaded photo for grading failed")
+        raise HTTPException(status_code=503, detail=STORAGE_UNAVAILABLE_MESSAGE)
+    if image_bytes is None:
+        raise HTTPException(status_code=404, detail="Photo file not found")
+
+    is_correct, extracted_answer, feedback = await run_in_threadpool(
+        _grade_photo_with_ai, image_bytes, context.correct_xy, context.statement
+    )
 
     response = TaskGradeResponse(
         channel_id=channel_id,

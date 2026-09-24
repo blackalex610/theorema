@@ -16,7 +16,8 @@ for _stream in (sys.stdout, sys.stderr):
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import RedirectResponse, Response
 from pathlib import Path
 from app.config import (
     LOCAL_NETWORK_ORIGIN_REGEX,
@@ -32,6 +33,7 @@ from app.routers.companion_pairing import router as companion_pairing_router
 from app.routers.analytics import router as analytics_router
 from app.routers.classrooms import router as classrooms_router
 from app.middleware.ip_rate_limiter import IPRateLimiterMiddleware
+from app.services.media_storage import MediaStorageError, get_media_storage
 from app.services.media_tokens import verify_media_token
 import app.models.curriculum  # noqa: ensure models are registered
 import app.models.progress    # noqa: ensure models are registered
@@ -135,8 +137,12 @@ app.include_router(companion_pairing_router)
 app.include_router(analytics_router)
 app.include_router(classrooms_router)
 
-MEDIA_DIR = Path(__file__).resolve().parent / "uploads"
-MEDIA_DIR.mkdir(parents=True, exist_ok=True)
+# How long the storage redirect behind /media stays valid. Short: the /media
+# link itself is the long-lived (24h) credential, and the browser follows the
+# redirect immediately.
+MEDIA_REDIRECT_TTL_SECONDS = 600
+
+_MEDIA_TYPES = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
 
 
 @app.get("/media/{filename}")
@@ -146,8 +152,13 @@ async def get_media(filename: str, token: str | None = None):
     SECURITY: this used to be an unauthenticated StaticFiles mount, so every
     homework photo was world-readable forever to anyone holding (or guessing)
     a uuid4 filename. Tokens are HMAC-bound to the filename and expire.
+
+    With remote storage this redirects to a short-lived signed URL on the
+    bucket instead of streaming the image through the function — Vercel caps
+    a function response at 4.5 MB, and there is no reason to pay for the
+    bytes twice.
     """
-    # Reject traversal before touching the filesystem.
+    # Reject traversal before touching storage.
     safe_name = Path(filename).name
     if safe_name != filename or not safe_name:
         raise HTTPException(status_code=404, detail="Not found")
@@ -155,11 +166,21 @@ async def get_media(filename: str, token: str | None = None):
     if not verify_media_token(safe_name, token):
         raise HTTPException(status_code=403, detail="Invalid or expired media link")
 
-    file_path = MEDIA_DIR / safe_name
-    if not file_path.is_file():
-        raise HTTPException(status_code=404, detail="Not found")
+    try:
+        storage = get_media_storage()
+        redirect_url = await run_in_threadpool(storage.signed_url, safe_name, MEDIA_REDIRECT_TTL_SECONDS)
+        data = None if redirect_url else await run_in_threadpool(storage.read, safe_name)
+    except MediaStorageError:
+        logger.exception("Serving media %s failed", safe_name)
+        raise HTTPException(status_code=503, detail="Media temporarily unavailable")
 
-    return FileResponse(file_path)
+    headers = {"Cache-Control": "private, max-age=300", "X-Content-Type-Options": "nosniff"}
+    if redirect_url:
+        return RedirectResponse(redirect_url, status_code=307, headers=headers)
+    if data is None:
+        raise HTTPException(status_code=404, detail="Not found")
+    media_type = _MEDIA_TYPES.get(Path(safe_name).suffix.lower(), "application/octet-stream")
+    return Response(content=data, media_type=media_type, headers=headers)
 
 @app.on_event("startup")
 async def startup_event():
