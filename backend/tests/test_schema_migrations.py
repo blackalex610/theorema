@@ -208,6 +208,7 @@ def test_the_app_does_not_migrate_when_auto_migrate_is_off(monkeypatch):
 
     calls = []
     monkeypatch.setattr(main, "_schema_ready", False)
+    monkeypatch.setattr(main, "_last_migration_failure", None)
     monkeypatch.setattr(main, "run_migrations", lambda: calls.append(1) or "rev")
     monkeypatch.setattr(main.settings, "DB_AUTO_MIGRATE", False)
     main._ensure_schema()
@@ -219,7 +220,7 @@ def test_the_app_does_not_migrate_when_auto_migrate_is_off(monkeypatch):
     assert calls == [1], "migrates once per process, not per request"
 
 
-def test_a_failed_migration_is_retried_on_the_next_request(monkeypatch):
+def test_a_failed_migration_is_retried_after_a_backoff(monkeypatch):
     import app.main as main
 
     attempts = []
@@ -230,10 +231,18 @@ def test_a_failed_migration_is_retried_on_the_next_request(monkeypatch):
             raise RuntimeError("database unreachable")
         return "rev"
 
+    clock = [1000.0]
+    monkeypatch.setattr(main.time, "monotonic", lambda: clock[0])
     monkeypatch.setattr(main, "_schema_ready", False)
+    monkeypatch.setattr(main, "_last_migration_failure", None)
     monkeypatch.setattr(main, "run_migrations", flaky)
     monkeypatch.setattr(main.settings, "DB_AUTO_MIGRATE", True)
+
     main._ensure_schema()
+    main._ensure_schema()
+    assert len(attempts) == 1, "requests inside the backoff window do not each retry"
+
+    clock[0] += main.MIGRATION_RETRY_SECONDS
     main._ensure_schema()
     assert len(attempts) == 2
     assert main._schema_ready is True

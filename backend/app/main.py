@@ -1,6 +1,7 @@
 import logging
 import sys
 import threading
+import time
 from contextlib import asynccontextmanager
 
 # Several modules print emoji/Cyrillic status lines (this file included). On
@@ -84,6 +85,20 @@ app = FastAPI(
 
 _schema_ready = False
 _schema_lock = threading.Lock()
+_last_migration_failure: float | None = None
+# After a failed attempt, requests go straight through for this long instead
+# of each retrying. With the database down, every retry waits out the connect
+# timeout, and they queue behind one lock — an outage became a pile-up.
+MIGRATION_RETRY_SECONDS = 10.0
+
+
+def _schema_pending() -> bool:
+    if _schema_ready or not settings.DB_AUTO_MIGRATE:
+        return False
+    return (
+        _last_migration_failure is None
+        or time.monotonic() - _last_migration_failure >= MIGRATION_RETRY_SECONDS
+    )
 
 
 def _ensure_schema() -> None:
@@ -92,20 +107,24 @@ def _ensure_schema() -> None:
     Runs from the first request as well as from startup: a serverless runtime
     is not guaranteed to deliver ASGI startup events, and this used to call
     create_all() here — see schema_migrations.py for why that stopped being
-    good enough. On failure the next request tries again, same as before.
+    good enough. After a failure, a later request tries again.
     """
-    global _schema_ready
-    if _schema_ready or not settings.DB_AUTO_MIGRATE:
+    global _schema_ready, _last_migration_failure
+    if not _schema_pending():
         return
     with _schema_lock:
-        if _schema_ready:
+        if not _schema_pending():
             return
         try:
             revision = run_migrations()
             _schema_ready = True
+            _last_migration_failure = None
             logger.info("Database schema at revision %s", revision)
         except Exception:
-            logger.exception("Database migration failed; retrying on the next request")
+            _last_migration_failure = time.monotonic()
+            logger.exception(
+                "Database migration failed; retrying in %.0fs", MIGRATION_RETRY_SECONDS
+            )
 
 # Unconditionally inject CORS headers on every response (including 500 errors).
 # SECURITY: previously stamped "*" on every response. Now we reflect only the
@@ -113,7 +132,8 @@ def _ensure_schema() -> None:
 # so untrusted sites cannot call the API with a victim's credentials.
 @app.middleware("http")
 async def add_cors_headers(request: Request, call_next):
-    _ensure_schema()
+    if _schema_pending():
+        await run_in_threadpool(_ensure_schema)
     response = await call_next(request)
     origin = request.headers.get("origin")
     if origin and is_allowed_origin(origin):
