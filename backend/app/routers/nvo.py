@@ -335,7 +335,7 @@ def _inject_playground_problems(questions: list, format: str | None = None) -> l
 
 
 def _normalize_math_delimiters(text: str) -> str:
-    """
+    r"""
     Normalize math delimiters and fix common KaTeX noglyph issues.
     
     Fixes:

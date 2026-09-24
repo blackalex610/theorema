@@ -1,6 +1,7 @@
 import logging
 import sys
 import threading
+from contextlib import asynccontextmanager
 
 # Several modules print emoji/Cyrillic status lines (this file included). On
 # Windows, stdout defaults to the system codepage (cp1252) rather than UTF-8,
@@ -62,10 +63,23 @@ if settings.SENTRY_DSN:
 
 logger = logging.getLogger(__name__)
 
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    print("🚀 Starting Math Learning Platform API...")
+    print(f"📝 Environment: {settings.ENVIRONMENT}")
+    # Off the event loop: a migration can take a while, and nothing else may
+    # be served until it finishes anyway.
+    await run_in_threadpool(_ensure_schema)
+    print(f"🔗 Database: {settings.DATABASE_URL.split('@')[-1] if '@' in settings.DATABASE_URL else settings.DATABASE_URL}")
+    yield
+    print("👋 Shutting down Math Learning Platform API...")
+
+
 app = FastAPI(
     title="Math Learning Platform API",
     description="AI-powered math learning platform for Bulgarian 5th-7th grade students",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 _schema_ready = False
@@ -181,16 +195,3 @@ async def get_media(filename: str, token: str | None = None):
         raise HTTPException(status_code=404, detail="Not found")
     media_type = _MEDIA_TYPES.get(Path(safe_name).suffix.lower(), "application/octet-stream")
     return Response(content=data, media_type=media_type, headers=headers)
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize services on startup"""
-    print("🚀 Starting Math Learning Platform API...")
-    print(f"📝 Environment: {settings.ENVIRONMENT}")
-    _ensure_schema()
-    print(f"🔗 Database: {settings.DATABASE_URL.split('@')[-1] if '@' in settings.DATABASE_URL else settings.DATABASE_URL}")
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Clean up on shutdown"""
-    print("👋 Shutting down Math Learning Platform API...")

@@ -306,7 +306,7 @@ def _lift(v: "Expr | Num") -> Expr:
 
 
 def interval_tex_named(rel: str, bound: Fraction, name: str) -> str:
-    return interval_tex(rel, bound).replace("x \in", f"{name} \in", 1)
+    return interval_tex(rel, bound).replace("x \\in", f"{name} \\in", 1)
 
 
 def var(name: str = "x") -> Expr:
