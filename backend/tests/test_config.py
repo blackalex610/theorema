@@ -60,3 +60,70 @@ def test_production_still_refuses_a_placeholder_secret():
     cfg = _settings(ENVIRONMENT="production", SECRET_KEY="")
     with pytest.raises(RuntimeError, match="SECRET_KEY"):
         _resolve_secret_key(cfg)
+
+
+# ─── CORS_ORIGINS ────────────────────────────────────────────────────────────
+#
+# Typed as a bare List[str], pydantic-settings only accepted a JSON list from
+# the environment, so `CORS_ORIGINS=https://app.example` — exactly what
+# DEPLOYMENT.md tells an operator to set — raised a SettingsError at import
+# and the backend never booted. These go through the real env source rather
+# than Settings(**kwargs), because the crash lived in env parsing.
+
+def _settings_from_env(monkeypatch, value: str) -> Settings:
+    monkeypatch.setenv("CORS_ORIGINS", value)
+    return Settings(_env_file=None)
+
+
+def test_cors_origins_accepts_a_single_origin(monkeypatch):
+    cfg = _settings_from_env(monkeypatch, "https://smartnvo.vercel.app")
+    assert cfg.CORS_ORIGINS == ["https://smartnvo.vercel.app"]
+
+
+def test_cors_origins_accepts_a_comma_separated_list(monkeypatch):
+    cfg = _settings_from_env(monkeypatch, "https://a.example, https://b.example")
+    assert cfg.CORS_ORIGINS == ["https://a.example", "https://b.example"]
+
+
+def test_cors_origins_still_accepts_a_json_list(monkeypatch):
+    cfg = _settings_from_env(monkeypatch, '["https://a.example", "https://b.example"]')
+    assert cfg.CORS_ORIGINS == ["https://a.example", "https://b.example"]
+
+
+def test_cors_origins_drops_trailing_slashes_and_empty_entries(monkeypatch):
+    """Browsers send Origin with no trailing slash and the match is exact."""
+    cfg = _settings_from_env(monkeypatch, "https://a.example/,, ")
+    assert cfg.CORS_ORIGINS == ["https://a.example"]
+
+
+def test_cors_origins_default_is_localhost_only(monkeypatch):
+    monkeypatch.delenv("CORS_ORIGINS", raising=False)
+    cfg = Settings(_env_file=None)
+    assert cfg.CORS_ORIGINS
+    assert all("localhost" in o or "127.0.0.1" in o for o in cfg.CORS_ORIGINS)
+
+
+def test_local_network_origins_are_allowed_in_development_only(monkeypatch):
+    from app import config
+
+    monkeypatch.setattr(config.settings, "CORS_ORIGINS", ["https://app.example"])
+    monkeypatch.setattr(config.settings, "CORS_ALLOW_LOCAL_NETWORK", True)
+
+    monkeypatch.setattr(config.settings, "ENVIRONMENT", "development")
+    assert config.is_allowed_origin("http://192.168.1.20:5173")
+    assert config.is_allowed_origin("https://app.example")
+    assert not config.is_allowed_origin("https://evil.example")
+
+    monkeypatch.setattr(config.settings, "ENVIRONMENT", "production")
+    assert not config.is_allowed_origin("http://192.168.1.20:5173")
+    assert config.is_allowed_origin("https://app.example")
+
+
+def test_local_network_regex_rejects_lookalike_hosts(monkeypatch):
+    from app import config
+
+    monkeypatch.setattr(config.settings, "CORS_ORIGINS", [])
+    monkeypatch.setattr(config.settings, "CORS_ALLOW_LOCAL_NETWORK", True)
+    monkeypatch.setattr(config.settings, "ENVIRONMENT", "development")
+    assert not config.is_allowed_origin("http://192.168.1.20.evil.example")
+    assert not config.is_allowed_origin("http://172.32.0.1")

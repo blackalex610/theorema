@@ -1,4 +1,6 @@
+import logging
 import sys
+import threading
 
 # Several modules print emoji/Cyrillic status lines (this file included). On
 # Windows, stdout defaults to the system codepage (cp1252) rather than UTF-8,
@@ -16,8 +18,13 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pathlib import Path
-from app.config import settings
-from app.database import engine, Base, ensure_user_usage_columns
+from app.config import (
+    LOCAL_NETWORK_ORIGIN_REGEX,
+    is_allowed_origin,
+    local_network_origins_enabled,
+    settings,
+)
+from app.services.schema_migrations import run_migrations
 from app.routers import health, curriculum, exercises, progress, ai_chat, nvo, mobile_uploads, auth, plan, error_logs
 from app.routers.bug_report import router as bug_report_router
 from app.routers.feedback import router as feedback_router
@@ -51,26 +58,38 @@ if settings.SENTRY_DSN:
         traces_sample_rate=settings.SENTRY_TRACES_SAMPLE_RATE,
     )
 
+logger = logging.getLogger(__name__)
+
 app = FastAPI(
     title="Math Learning Platform API",
     description="AI-powered math learning platform for Bulgarian 5th-7th grade students",
     version="1.0.0",
 )
 
-_db_initialized = False
+_schema_ready = False
+_schema_lock = threading.Lock()
 
-def _ensure_db_tables() -> None:
-    """Create all tables if they don't exist. Safe to call multiple times."""
-    global _db_initialized
-    if _db_initialized:
+
+def _ensure_schema() -> None:
+    """Migrate the database to Alembic head once per process.
+
+    Runs from the first request as well as from startup: a serverless runtime
+    is not guaranteed to deliver ASGI startup events, and this used to call
+    create_all() here — see schema_migrations.py for why that stopped being
+    good enough. On failure the next request tries again, same as before.
+    """
+    global _schema_ready
+    if _schema_ready or not settings.DB_AUTO_MIGRATE:
         return
-    try:
-        Base.metadata.create_all(bind=engine)
-        ensure_user_usage_columns()
-        _db_initialized = True
-        print("✅ DB tables verified/created")
-    except Exception as exc:
-        print(f"⚠️  DB create_all failed: {exc}")
+    with _schema_lock:
+        if _schema_ready:
+            return
+        try:
+            revision = run_migrations()
+            _schema_ready = True
+            logger.info("Database schema at revision %s", revision)
+        except Exception:
+            logger.exception("Database migration failed; retrying on the next request")
 
 # Unconditionally inject CORS headers on every response (including 500 errors).
 # SECURITY: previously stamped "*" on every response. Now we reflect only the
@@ -78,11 +97,10 @@ def _ensure_db_tables() -> None:
 # so untrusted sites cannot call the API with a victim's credentials.
 @app.middleware("http")
 async def add_cors_headers(request: Request, call_next):
-    _ensure_db_tables()
+    _ensure_schema()
     response = await call_next(request)
     origin = request.headers.get("origin")
-    allowed = settings.CORS_ORIGINS
-    if origin and origin in allowed:
+    if origin and is_allowed_origin(origin):
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
         response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type"
@@ -93,6 +111,7 @@ async def add_cors_headers(request: Request, call_next):
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
+    allow_origin_regex=LOCAL_NETWORK_ORIGIN_REGEX if local_network_origins_enabled() else None,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
@@ -147,7 +166,7 @@ async def startup_event():
     """Initialize services on startup"""
     print("🚀 Starting Math Learning Platform API...")
     print(f"📝 Environment: {settings.ENVIRONMENT}")
-    _ensure_db_tables()
+    _ensure_schema()
     print(f"🔗 Database: {settings.DATABASE_URL.split('@')[-1] if '@' in settings.DATABASE_URL else settings.DATABASE_URL}")
 
 @app.on_event("shutdown")

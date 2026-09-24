@@ -1,5 +1,8 @@
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
-from typing import List
+from typing import List, Union
+import json
+import re
 import secrets
 
 
@@ -15,8 +18,14 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./mathlearning.db"
     # For PostgreSQL: "postgresql://postgres:***@localhost:5432/mathlearning"
 
-    # CORS
-    CORS_ORIGINS: List[str] = [
+    # CORS. Accepts a comma-separated string ("https://a.app,https://b.app"),
+    # a single origin, or a JSON list. The Union matters: typed as a bare
+    # List[str], pydantic-settings insists on JSON and a plain
+    # `CORS_ORIGINS=https://a.app` — the form DEPLOYMENT.md documents —
+    # crashed the app at import with a SettingsError. With `str` in the Union
+    # the raw value is let through to _split_origins below, which always
+    # leaves a list behind.
+    CORS_ORIGINS: Union[List[str], str] = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "http://localhost:5174",
@@ -42,6 +51,12 @@ class Settings(BaseSettings):
     # trades an unrevokable-for-30-minutes token for an unrevokable-for-7-days
     # one, in exchange for eliminating a guaranteed data-loss bug.
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7
+
+    # Migrate the database to Alembic head on the first request of each
+    # process (app/services/schema_migrations.py). Set false to run
+    # `alembic upgrade head` yourself as a deploy step instead — the app then
+    # never touches the schema, and /health/ready reports when it is behind.
+    DB_AUTO_MIGRATE: bool = True
 
     # Google OAuth
     GOOGLE_CLIENT_ID: str = "845529160700-gp4b283t7n83s7kj147el2qq72quu3ie.apps.googleusercontent.com"
@@ -72,6 +87,19 @@ class Settings(BaseSettings):
     NVO_USE_DB_RETRIEVAL: bool = False
     NVO_USE_EMBEDDING_RETRIEVAL: bool = False
     OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def _split_origins(cls, value):
+        if isinstance(value, str):
+            raw = value.strip()
+            if raw.startswith("["):
+                value = json.loads(raw)
+            else:
+                value = raw.split(",")
+        # Browsers send Origin without a trailing slash, and the match in
+        # main.py is exact — "https://a.app/" would never match anything.
+        return [str(origin).strip().rstrip("/") for origin in value if str(origin).strip()]
 
     class Config:
         env_file = ".env"
@@ -155,3 +183,32 @@ def _resolve_database_url(cfg: "Settings") -> str:
 settings = Settings()
 settings.SECRET_KEY = _resolve_secret_key(settings)
 settings.DATABASE_URL = _resolve_database_url(settings)
+
+
+def is_production() -> bool:
+    return settings.ENVIRONMENT.lower() in {"production", "prod"}
+
+
+# Private-network origins (a phone on the same Wi-Fi opening the dev server by
+# LAN IP). CORS_ALLOW_LOCAL_NETWORK used to be declared here and read by
+# nothing; it is now honoured, but only outside production — nothing
+# legitimate reaches a deployed API from a 192.168.* origin, and the
+# realtime server's ALLOW_LOCAL_NETWORK makes the same call.
+LOCAL_NETWORK_ORIGIN_REGEX = (
+    r"^https?://("
+    r"localhost|127\.0\.0\.1"
+    r"|10\.\d{1,3}\.\d{1,3}\.\d{1,3}"
+    r"|192\.168\.\d{1,3}\.\d{1,3}"
+    r"|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}"
+    r")(:\d+)?$"
+)
+
+
+def local_network_origins_enabled() -> bool:
+    return settings.CORS_ALLOW_LOCAL_NETWORK and not is_production()
+
+
+def is_allowed_origin(origin: str) -> bool:
+    if origin in settings.CORS_ORIGINS:
+        return True
+    return local_network_origins_enabled() and re.fullmatch(LOCAL_NETWORK_ORIGIN_REGEX, origin) is not None
