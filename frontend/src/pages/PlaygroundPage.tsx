@@ -1,22 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { generateChannelId, isStrongChannelId } from '../utils/channelId';
 import { renderMathText } from '../components/MathRenderer';
 import { sendChatMessage } from '../services/ai';
 import { getLatestMobileUploads, setTaskContext, subscribeToMobileUploads, clearChannelHistory, type TaskGradeResult } from '../services/mobileCapture';
 import AppNavbar from '../components/AppNavbar';
 import { ParallelogramABCDDiagram, type ParallelogramABCDConfig } from '../components/NvoDiagrams';
 
-const createChannelId = (): string => {
-  const rand = Math.random().toString(36).slice(2, 12);
-  const ts = Date.now().toString(36);
-  return `ch_${ts}${rand}`.slice(0, 28);
-};
 
 const TASK_UPLOAD_CHANNEL_KEY = 'playground_task_upload_channel_v1';
 
 const getOrCreateTaskUploadChannelId = (): string => {
   const cached = localStorage.getItem(TASK_UPLOAD_CHANNEL_KEY)?.trim();
-  if (cached) return cached;
-  const created = createChannelId();
+  if (cached && isStrongChannelId(cached)) return cached;
+  const created = generateChannelId();
   localStorage.setItem(TASK_UPLOAD_CHANNEL_KEY, created);
   return created;
 };

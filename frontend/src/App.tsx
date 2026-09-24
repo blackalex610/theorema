@@ -62,12 +62,15 @@ function AppRoutes() {
               <Route path="register" element={<Navigate to="/" replace />} />
               <Route path="privacy" element={<PrivacyPage />} />
               <Route path="terms" element={<TermsPage />} />
-              {/* Phone-pairing pages are opened by QR code from a device that has
-                  no session of its own — they are scoped by channel id, not login. */}
-              <Route path="mobile-capture" element={<MobileCapturePage />} />
-
               {/* Everything below requires a signed-in user. */}
               <Route element={<RequireAuth />}>
+                {/* The QR-code photo page. It used to be public, "scoped by
+                    channel id, not login" — but uploading a photo spends a
+                    scan credit and has required a session since the auth
+                    hardening, so a signed-out phone saw the tasks and then
+                    failed at upload. Now it signs in first and RequireAuth
+                    brings it back to the same link, ?channel= included. */}
+                <Route path="mobile-capture" element={<MobileCapturePage />} />
                 <Route path="dashboard" element={<DashboardPage />} />
                 <Route path="progress" element={<ProgressSummaryPage />} />
                 <Route path="classrooms" element={<ClassroomsPage />} />

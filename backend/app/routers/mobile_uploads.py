@@ -384,7 +384,14 @@ async def upload_mobile_photo(
 async def get_latest_uploads(
     channel_id: str = Query(...),
     limit: int = 20,
+    _user=Depends(get_current_user),
 ):
+    """A channel's recent uploads — signed links to photos of a child's work.
+
+    SECURITY: was anonymous, so the channel id alone exposed every photo on
+    it. Both sides of the flow are signed in (the upload itself requires a
+    session), so this now does too; the id remains a 128-bit secret on top.
+    """
     channel_id = _validate_channel_id(channel_id)
     safe_limit = max(1, min(limit, 50))
     return [UploadEvent(**event) for event in channel_state_store.load_uploads(channel_id, safe_limit)]
@@ -414,7 +421,11 @@ async def set_task_context(payload: TaskContext, _user=Depends(get_current_user)
 
 
 @router.get("/tasks/contexts", response_model=list[TaskContext])
-async def get_task_contexts(channel_id: str = Query(...)):
+async def get_task_contexts(channel_id: str = Query(...), _user=Depends(get_current_user)):
+    """The problems (answer key included) registered on a channel.
+
+    SECURITY: was anonymous; see get_latest_uploads.
+    """
     channel_id = _validate_channel_id(channel_id)
     # Already ordered by problem number in the store's query.
     return [TaskContext(**item) for item in channel_state_store.load_task_contexts(channel_id)]
@@ -573,8 +584,11 @@ async def analyze_math_image(
 
 
 @router.delete("/channel/history")
-async def clear_channel_history(channel_id: str = Query(...)):
-    """Clear upload history and grade state for a channel (e.g. on page refresh)."""
+async def clear_channel_history(channel_id: str = Query(...), _user=Depends(get_current_user)):
+    """Clear upload history and grade state for a channel (e.g. on page refresh).
+
+    SECURITY: was anonymous — anyone holding a channel id could wipe it.
+    """
     channel_id = _validate_channel_id(channel_id)
     channel_state_store.clear_uploads(channel_id)
     return {"cleared": True}
@@ -582,6 +596,10 @@ async def clear_channel_history(channel_id: str = Query(...)):
 
 @router.get("/uploads/stream")
 async def stream_upload_events(channel_id: str = Query(...)):
+    # Deliberately no session check: EventSource cannot send an Authorization
+    # header, and putting the 7-day JWT in the URL would write it into every
+    # access log. The stream only mirrors what /uploads/latest returns, and
+    # the channel id is a 128-bit CSPRNG value (frontend utils/channelId.ts).
     channel_id = _validate_channel_id(channel_id)
     subscriber: asyncio.Queue[tuple[str, dict[str, Any]]] = asyncio.Queue(maxsize=10)
     stream_subscribers[channel_id].add(subscriber)

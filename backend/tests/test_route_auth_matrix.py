@@ -86,6 +86,11 @@ ADMIN_ROUTES = [
 # caller-supplied id.
 PERSONAL_DATA_ROUTES = [
     ("GET", "/nvo/attempts"),
+    # Signed photo links and answer keys for a pairing channel; the channel id
+    # alone used to be enough.
+    ("GET", "/mobile/uploads/latest"),
+    ("GET", "/mobile/tasks/contexts"),
+    ("DELETE", "/mobile/channel/history"),
 ]
 
 
