@@ -17,21 +17,49 @@ export const isHeicFile = (file: File): boolean => {
   return name.endsWith('.heic') || name.endsWith('.heif');
 };
 
+/**
+ * Longest edge, in pixels, of any photo we send anywhere.
+ *
+ * Phones capture at 12+ MP; re-encoded at full size that is a 3-5 MB JPEG,
+ * ~33% more as a base64 data URL. Several of those in one NVO submission
+ * blew straight through Vercel's 4.5 MB request-body limit (a 413 before the
+ * backend ever saw the exam), and a restored exam's saved state overran the
+ * ~5 MB localStorage quota. OpenAI vision never looks past ~2048 px anyway
+ * (then scales the short side to 768 px), so this loses the grader nothing.
+ */
+export const MAX_IMAGE_EDGE = 1600;
+export const JPEG_QUALITY = 0.85;
+
+export const scaledDimensions = (
+  width: number,
+  height: number,
+  maxEdge: number = MAX_IMAGE_EDGE
+): { width: number; height: number } => {
+  const longest = Math.max(width, height);
+  if (longest <= maxEdge || longest === 0) return { width, height };
+  const scale = maxEdge / longest;
+  return {
+    width: Math.max(1, Math.round(width * scale)),
+    height: Math.max(1, Math.round(height * scale)),
+  };
+};
+
 const canvasFromBlob = (blob: Blob): Promise<HTMLCanvasElement> =>
   new Promise((resolve, reject) => {
     const image = new Image();
     const blobUrl = URL.createObjectURL(blob);
     image.onload = () => {
       const canvas = document.createElement('canvas');
-      canvas.width = image.width;
-      canvas.height = image.height;
+      const { width, height } = scaledDimensions(image.width, image.height);
+      canvas.width = width;
+      canvas.height = height;
       const context = canvas.getContext('2d');
       URL.revokeObjectURL(blobUrl);
       if (!context) {
         reject(new Error('Could not get canvas context'));
         return;
       }
-      context.drawImage(image, 0, 0);
+      context.drawImage(image, 0, 0, width, height);
       resolve(canvas);
     };
     image.onerror = () => {
@@ -55,13 +83,7 @@ const toCanvas = async (file: File): Promise<HTMLCanvasElement> => {
   return canvasFromBlob(new Blob([file], { type: effectiveMime }));
 };
 
-/**
- * Normalise any camera capture to a JPEG data URL.
- *
- * Everything is re-encoded, not just HEIC: it is the only way to get a
- * predictable MIME type and size out of the range of formats phones produce.
- */
-export const fileToJpegDataUrl = async (file: File): Promise<string> => {
+const withTimeout = async <T>(file: File, work: (canvas: HTMLCanvasElement) => T | Promise<T>): Promise<T> => {
   if (!isImageFile(file)) throw new Error('Файлът не е изображение');
 
   const timeoutMs = isHeicFile(file) ? HEIC_TIMEOUT_MS : STANDARD_TIMEOUT_MS;
@@ -75,8 +97,38 @@ export const fileToJpegDataUrl = async (file: File): Promise<string> => {
 
   try {
     const canvas = await Promise.race([toCanvas(file), timeout]);
-    return canvas.toDataURL('image/jpeg', 0.95);
+    return await work(canvas);
   } finally {
     if (timer) clearTimeout(timer);
   }
 };
+
+/**
+ * Normalise any camera capture to a downscaled JPEG data URL.
+ *
+ * Everything is re-encoded, not just HEIC: it is the only way to get a
+ * predictable MIME type and size out of the range of formats phones produce.
+ */
+export const fileToJpegDataUrl = (file: File): Promise<string> =>
+  withTimeout(file, (canvas) => canvas.toDataURL('image/jpeg', JPEG_QUALITY));
+
+/** The same normalisation, as a File for multipart uploads. */
+export const fileToJpegFile = (file: File): Promise<File> =>
+  withTimeout(
+    file,
+    (canvas) =>
+      new Promise<File>((resolve, reject) => {
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error('Снимката не можа да бъде обработена'));
+              return;
+            }
+            const base = file.name.replace(/\.[^.]+$/, '') || 'photo';
+            resolve(new File([blob], `${base}.jpg`, { type: 'image/jpeg' }));
+          },
+          'image/jpeg',
+          JPEG_QUALITY
+        );
+      })
+  );

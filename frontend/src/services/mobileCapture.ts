@@ -1,3 +1,4 @@
+import { fileToJpegFile } from '../utils/imageCapture';
 import apiClient, { API_BASE_URL } from './api';
 
 export interface MobileUploadResponse {
@@ -45,8 +46,12 @@ export interface TaskGradeResult {
 }
 
 export const uploadMobilePhoto = async (file: File, channelId: string, problemNumber?: number): Promise<MobileUploadResponse> => {
+  // Raw camera files (12 MP, often HEIC) exceed the hosting platform's
+  // request-size limit and aren't readable by the grader; always send a
+  // downscaled JPEG.
+  const jpeg = await fileToJpegFile(file);
   const formData = new FormData();
-  formData.append('file', file);
+  formData.append('file', jpeg);
   formData.append('channel_id', channelId);
   if (problemNumber !== undefined) {
     formData.append('problem_number', String(problemNumber));

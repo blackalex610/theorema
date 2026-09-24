@@ -25,6 +25,7 @@ import NVOFormatSelector, { type NVOFormat } from '../components/NVOFormatSelect
 import NVOBlueprintSelector from '../components/NVOBlueprintSelector';
 import { getExamDurationSeconds, FULL_EXAM_DURATION_SECONDS } from '../utils/nvoFormat';
 import { mergeServerAttempts, canReview, type AttemptRecord } from '../utils/nvoHistory';
+import { fileToJpegDataUrl } from '../utils/imageCapture';
 import { useAuth } from '../context/AuthContext';
 
 type QuestionOption = {
@@ -1864,15 +1865,14 @@ const NVOPracticeExamPage: React.FC = () => {
                               className="hidden"
                               onChange={(e) => {
                                 const file = e.target.files?.[0];
-                                if (!file) return;
-                                const reader = new FileReader();
-                                reader.onload = () => {
-                                  if (typeof reader.result === 'string') {
-                                    setPartImages((prev) => ({ ...prev, [imgKey]: reader.result as string }));
-                                  }
-                                };
-                                reader.readAsDataURL(file);
                                 e.currentTarget.value = '';
+                                if (!file) return;
+                                // Downscaled like phone captures: a full-size
+                                // photo alone can overrun the saved-exam
+                                // localStorage quota.
+                                fileToJpegDataUrl(file)
+                                  .then((dataUrl) => setPartImages((prev) => ({ ...prev, [imgKey]: dataUrl })))
+                                  .catch(() => undefined);
                               }}
                             />
                           </label>
