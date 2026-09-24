@@ -24,7 +24,7 @@ function collectContext(route: string) {
     screen_size: `${window.screen.width}x${window.screen.height}`,
     language: navigator.language,
     user_id: localStorage.getItem('userId') ?? undefined,
-    console_errors: (window as any).__bugReportErrors ?? [],
+    console_errors: window.__bugReportErrors ?? [],
   };
 }
 
@@ -327,13 +327,19 @@ const BugReportButton: React.FC = () => {
 
 // ─── Error capture (call once in app root) ───────────────────────────────────
 
+declare global {
+  interface Window {
+    __bugReportErrors?: string[];
+  }
+}
+
 export function installBugReportErrorCapture() {
   if (typeof window === 'undefined') return;
-  (window as any).__bugReportErrors = [];
+  const store: string[] = [];
+  window.__bugReportErrors = store;
   const originalError = console.error.bind(console);
-  console.error = (...args: any[]) => {
+  console.error = (...args: unknown[]) => {
     const msg = args.map(String).join(' ').slice(0, 500);
-    const store: string[] = (window as any).__bugReportErrors;
     store.push(`[${new Date().toISOString()}] ${msg}`);
     if (store.length > 20) store.shift();
     originalError(...args);

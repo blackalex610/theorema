@@ -1465,9 +1465,8 @@ const NVOPracticeExamPage: React.FC = () => {
               </div>
               {(showDemoMetrics ? true : previousResults.length > 0) ? (
                 <div className="space-y-3">
-                  {(showDemoMetrics ? DEMO_METRICS.history : previousResults.slice(historyPage * ITEMS_PER_PAGE, (historyPage + 1) * ITEMS_PER_PAGE)).map((result: any, i: number) => {
-                    if (showDemoMetrics) {
-                      return (
+                  {showDemoMetrics
+                    ? DEMO_METRICS.history.map((result, i) => (
                         <div key={i} className="rounded-xl border border-gray-200 p-4 dark:border-slate-700/60 dark:bg-slate-900/40">
                           <div className="flex items-center justify-between mb-2 gap-2">
                             <p className="font-semibold text-gray-900 dark:text-slate-100">{result.date}</p>
@@ -1479,8 +1478,8 @@ const NVOPracticeExamPage: React.FC = () => {
                             <span>Време: {result.duration} мин</span>
                           </div>
                         </div>
-                      );
-                    }
+                      ))
+                    : previousResults.slice(historyPage * ITEMS_PER_PAGE, (historyPage + 1) * ITEMS_PER_PAGE).map((result) => {
                     const source = history.find((h) => h.id === result.id);
                     const isUnfinished = result.status === 'unfinished';
                     return (

@@ -16,7 +16,8 @@ export type DiagramType = 'triangle' | 'parallel_lines' | 'coordinate_plane' | '
 
 export interface DiagramData {
   type: DiagramType;
-  elements: Record<string, any>;
+  // Shape varies by `type`; DiagramRenderer normalises each field it reads.
+  elements: Record<string, unknown>;
 }
 
 interface DiagramResponse {

@@ -133,12 +133,11 @@ function RightAngleSymbol({ cx, cy, startDeg, endDeg }: {
 
 const PieChartSection: React.FC<{ slices: PieSlice[]; demo?: boolean }> = ({ slices, demo = false }) => {
   const cx = 140; const cy = 140; const r = 120;
-  let cursor = 0;
-  const paths = slices.map((s) => {
-    const start = cursor;
-    cursor += s.degrees;
-    return { ...s, start, end: cursor };
-  });
+  const paths = slices.reduce<Array<PieSlice & { start: number; end: number }>>((acc, s) => {
+    const start = acc.length > 0 ? acc[acc.length - 1].end : 0;
+    acc.push({ ...s, start, end: start + s.degrees });
+    return acc;
+  }, []);
 
   const LABEL_R = 75;
   // Legend entries: skip the 90° slice (it's conveyed by the symbol in the diagram)
@@ -3507,15 +3506,15 @@ const PlaygroundPage: React.FC = () => {
             <div className="flex flex-wrap gap-3 text-sm font-mono">
               {demoMode ? (
                 <>
-                  <span className="text-rose-400 font-semibold">A(<span className="bg-amber-100 text-amber-700 rounded px-0.5">？</span>, <span className="bg-amber-100 text-amber-700 rounded px-0.5">？</span>)</span>
-                  <span className="text-blue-400 font-semibold">B(<span className="bg-amber-100 text-amber-700 rounded px-0.5">？</span>, <span className="bg-amber-100 text-amber-700 rounded px-0.5">？</span>)</span>
-                  <span className="text-green-400 font-semibold">C(<span className="bg-amber-100 text-amber-700 rounded px-0.5">？</span>, <span className="bg-amber-100 text-amber-700 rounded px-0.5">？</span>)</span>
+                  <span className="text-rose-400 font-semibold">A(<span className="bg-amber-100 text-amber-700 rounded px-0.5">？</span>,{'\u00A0'}<span className="bg-amber-100 text-amber-700 rounded px-0.5">？</span>)</span>
+                  <span className="text-blue-400 font-semibold">B(<span className="bg-amber-100 text-amber-700 rounded px-0.5">？</span>,{'\u00A0'}<span className="bg-amber-100 text-amber-700 rounded px-0.5">？</span>)</span>
+                  <span className="text-green-400 font-semibold">C(<span className="bg-amber-100 text-amber-700 rounded px-0.5">？</span>,{'\u00A0'}<span className="bg-amber-100 text-amber-700 rounded px-0.5">？</span>)</span>
                 </>
               ) : (
                 <>
-                  <span className="text-rose-600 font-semibold">A({pts.A[0]}, {pts.A[1]})</span>
-                  <span className="text-blue-600 font-semibold">B({pts.B[0]}, {pts.B[1]})</span>
-                  <span className="text-green-600 font-semibold">C({pts.C[0]}, {pts.C[1]})</span>
+                  <span className="text-rose-600 font-semibold">A({pts.A[0]},{'\u00A0'}{pts.A[1]})</span>
+                  <span className="text-blue-600 font-semibold">B({pts.B[0]},{'\u00A0'}{pts.B[1]})</span>
+                  <span className="text-green-600 font-semibold">C({pts.C[0]},{'\u00A0'}{pts.C[1]})</span>
                 </>
               )}
             </div>
@@ -3533,16 +3532,16 @@ const PlaygroundPage: React.FC = () => {
             <div className="flex flex-wrap items-center gap-3 text-sm">
               {demoMode ? (
                 <>
-                  <span className="font-mono text-rose-400 font-semibold">A(<span className="bg-amber-100 text-amber-700 rounded px-0.5">？</span>, <span className="bg-amber-100 text-amber-700 rounded px-0.5">？</span>)</span>
-                  <span className="font-mono text-blue-400 font-semibold">B(<span className="bg-amber-100 text-amber-700 rounded px-0.5">？</span>, <span className="bg-amber-100 text-amber-700 rounded px-0.5">？</span>)</span>
+                  <span className="font-mono text-rose-400 font-semibold">A(<span className="bg-amber-100 text-amber-700 rounded px-0.5">？</span>,{'\u00A0'}<span className="bg-amber-100 text-amber-700 rounded px-0.5">？</span>)</span>
+                  <span className="font-mono text-blue-400 font-semibold">B(<span className="bg-amber-100 text-amber-700 rounded px-0.5">？</span>,{'\u00A0'}<span className="bg-amber-100 text-amber-700 rounded px-0.5">？</span>)</span>
                   <span className="text-xs text-gray-400">
                     C е симетрично на <span className="bg-amber-100 text-amber-700 rounded px-1 font-mono font-bold text-xs">？</span> спрямо <span className="bg-amber-100 text-amber-700 rounded px-1 font-mono font-bold text-xs">？</span>
                   </span>
                 </>
               ) : (
                 <>
-                  <span className="font-mono text-rose-600 font-semibold">A({symConfig.A[0]}, {symConfig.A[1]})</span>
-                  <span className="font-mono text-blue-600 font-semibold">B({symConfig.B[0]}, {symConfig.B[1]})</span>
+                  <span className="font-mono text-rose-600 font-semibold">A({symConfig.A[0]},{'\u00A0'}{symConfig.A[1]})</span>
+                  <span className="font-mono text-blue-600 font-semibold">B({symConfig.B[0]},{'\u00A0'}{symConfig.B[1]})</span>
                   <span className="text-xs text-gray-500">
                     C е симетрично на <strong className="text-violet-700">{symConfig.sourceLabel}</strong> спрямо <strong className="text-violet-700">{symConfig.axis}</strong>
                   </span>

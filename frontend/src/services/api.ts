@@ -65,15 +65,41 @@ apiClient.interceptors.response.use(
   }
 );
 
+type ApiErrorLike = { response?: { status?: number; data?: { detail?: unknown } } };
+
+const asApiError = (error: unknown): ApiErrorLike | undefined =>
+  typeof error === 'object' && error !== null ? (error as ApiErrorLike) : undefined;
+
+/** The `detail` field of an API error response, if the error has one. */
+export function apiErrorDetail(error: unknown): unknown {
+  return asApiError(error)?.response?.data?.detail;
+}
+
+/**
+ * A human-readable message for an API error: the server's `detail` when it is
+ * a string, its `detail.message` when it is an object (plan limits, rate
+ * limits), otherwise `fallback`. Rendering `detail` directly used to put an
+ * object into JSX whenever the server sent a structured error.
+ */
+export function apiErrorMessage(error: unknown, fallback: string): string {
+  const detail = apiErrorDetail(error);
+  if (typeof detail === 'string' && detail.trim()) return detail;
+  if (typeof detail === 'object' && detail !== null) {
+    const message = (detail as { message?: unknown }).message;
+    if (typeof message === 'string' && message.trim()) return message;
+  }
+  return fallback;
+}
+
 // Emit a custom event when a plan limit is hit so any component can react
 export function isLimitError(error: unknown): boolean {
-  const detail = (error as any)?.response?.data?.detail;
-  return (error as any)?.response?.status === 429 && detail?.code === 'LIMIT_REACHED';
+  const detail = apiErrorDetail(error) as { code?: unknown } | undefined;
+  return asApiError(error)?.response?.status === 429 && detail?.code === 'LIMIT_REACHED';
 }
 
 export function getLimitErrorDetail(error: unknown): { feature: string; message: string } | null {
   if (!isLimitError(error)) return null;
-  const detail = (error as any).response.data.detail;
+  const detail = apiErrorDetail(error) as { feature: string; message: string };
   return { feature: detail.feature, message: detail.message };
 }
 

@@ -1,10 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { sendChatMessage, type ChatMessage } from '../services/ai';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { type Components } from 'react-markdown';
+import { isBlockCode } from '../utils/markdown';
 import remarkGfm from 'remark-gfm';
 import UpgradePrompt from './UpgradePrompt';
-import { getLimitErrorDetail } from '../services/api';
+import { apiErrorDetail, getLimitErrorDetail } from '../services/api';
 import { usePlan } from '../hooks/usePlan';
 import { usePlanPrompt } from '../hooks/usePlanPrompt';
 
@@ -16,22 +17,22 @@ interface ChatSidebarProps {
   onClose: () => void;
 }
 
-const markdownComponents = {
-  p: ({ children }: any) => <p className="mb-1 last:mb-0">{children}</p>,
-  ul: ({ children }: any) => <ul className="list-disc pl-4 space-y-1">{children}</ul>,
-  ol: ({ children }: any) => <ol className="list-decimal pl-4 space-y-1">{children}</ol>,
-  li: ({ children }: any) => <li className="leading-relaxed">{children}</li>,
-  a: ({ children, href }: any) => (
+const markdownComponents: Components = {
+  p: ({ children }) => <p className="mb-1 last:mb-0">{children}</p>,
+  ul: ({ children }) => <ul className="list-disc pl-4 space-y-1">{children}</ul>,
+  ol: ({ children }) => <ol className="list-decimal pl-4 space-y-1">{children}</ol>,
+  li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+  a: ({ children, href }) => (
     <a href={href} target="_blank" rel="noreferrer" className="underline underline-offset-2">
       {children}
     </a>
   ),
-  code({ inline, children, ...props }: any) {
-    return inline ? (
-      <code className="rounded bg-black/10 px-1 py-0.5 text-[0.92em]" {...props}>{children}</code>
-    ) : (
-      <pre className="rounded-lg bg-black/10 p-2.5 overflow-x-auto text-xs"><code {...props}>{children}</code></pre>
-    );
+  pre: ({ children }) => <pre className="rounded-lg bg-black/10 p-2.5 overflow-x-auto text-xs">{children}</pre>,
+  code({ node: _node, className, children, ...props }) {
+    if (isBlockCode(className, children)) {
+      return <code className={className} {...props}>{children}</code>;
+    }
+    return <code className="rounded bg-black/10 px-1 py-0.5 text-[0.92em]" {...props}>{children}</code>;
   },
 };
 
@@ -69,8 +70,8 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({ isOpen, onOpen, onClose }) =>
     try {
       const reply = await sendChatMessage(nextMessages, lessonTitleContext);
       setMessages((prev) => [...prev, { role: 'assistant', content: reply }]);
-    } catch (err: any) {
-      const serverDetail = err?.response?.data?.detail;
+    } catch (err) {
+      const serverDetail = apiErrorDetail(err);
         const limitDetail = getLimitErrorDetail(err);
         if (limitDetail) {
           maybeShowUpgrade({

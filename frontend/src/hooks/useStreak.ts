@@ -18,7 +18,9 @@ function loadStreak(): StreakData {
   try {
     const raw = localStorage.getItem(streakKey);
     if (raw) return JSON.parse(raw) as StreakData;
-  } catch {}
+  } catch {
+    // Unreadable or corrupt storage: start a fresh streak.
+  }
   return { count: 0, lastActiveDate: null, longestStreak: 0 };
 }
 
@@ -35,16 +37,17 @@ function computeStreak(prev: StreakData): StreakData {
 }
 
 export function useStreak(): StreakData {
-  const [streak, setStreak] = useState<StreakData>(loadStreak);
+  // Today's visit is counted while computing the initial state rather than
+  // by a setState inside an effect, which rendered twice to show one value.
+  const [streak] = useState<StreakData>(() => computeStreak(loadStreak()));
 
   useEffect(() => {
-    const streakKey = withUserScope(STREAK_KEY);
-    setStreak((prev) => {
-      const next = computeStreak(prev);
-      if (next !== prev) localStorage.setItem(streakKey, JSON.stringify(next));
-      return next;
-    });
-  }, []);
+    try {
+      localStorage.setItem(withUserScope(STREAK_KEY), JSON.stringify(streak));
+    } catch {
+      // Storage full or blocked (private mode): the streak just isn't saved.
+    }
+  }, [streak]);
 
   return streak;
 }

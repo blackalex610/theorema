@@ -34,7 +34,7 @@ const GoogleAuthButton: React.FC<{
 }> = ({ label, loading, loadingLabel = 'Свързване', onSuccess, onError }) => {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(360);
-  const disabled = useMemo(isUnregisterableGoogleOrigin, []);
+  const disabled = useMemo(() => isUnregisterableGoogleOrigin(), []);
 
   useEffect(() => {
     const el = wrapRef.current;

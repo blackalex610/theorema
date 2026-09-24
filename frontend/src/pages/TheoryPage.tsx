@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
@@ -9,6 +9,8 @@ import { getGeneratedExamples, getGeneratedTheory, getLesson, getVideoSearchQuer
 import { searchYouTubeVideos, type YouTubeVideo } from '../services/youtube';
 import AppNavbar from '../components/AppNavbar';
 import { TheoryContentSkeleton, VideoGridSkeleton } from '../components/Skeleton';
+import { apiErrorMessage } from '../services/api';
+import { isBlockCode } from '../utils/markdown';
 
 const ASK_ASSISTANT_EVENT = 'ask-assistant-from-selection';
 
@@ -18,24 +20,26 @@ const TOC_ITEMS = [
   { id: 'primeri', label: 'Примерни задачи' },
 ];
 
-const markdownRenderers = {
-  code({ inline, children, ...props }: any) {
-    return inline ? (
-      <code className="bg-gray-100 dark:bg-slate-900 rounded px-1 py-0.5 text-sm" {...props}>{children}</code>
-    ) : (
-      <pre className="bg-gray-100 dark:bg-slate-900 rounded-lg p-3 overflow-x-auto text-sm"><code {...props}>{children}</code></pre>
-    );
+const markdownRenderers: Components = {
+  pre({ children }) {
+    return <pre className="bg-gray-100 dark:bg-slate-900 rounded-lg p-3 overflow-x-auto text-sm">{children}</pre>;
   },
-  table({ children }: any) {
+  code({ node: _node, className, children, ...props }) {
+    if (isBlockCode(className, children)) {
+      return <code className={className} {...props}>{children}</code>;
+    }
+    return <code className="bg-gray-100 dark:bg-slate-900 rounded px-1 py-0.5 text-sm" {...props}>{children}</code>;
+  },
+  table({ children }) {
     return <table className="border border-gray-200 dark:border-slate-700">{children}</table>;
   },
-  th({ children }: any) {
+  th({ children }) {
     return <th className="border border-gray-200 dark:border-slate-700 px-2 py-1 bg-gray-50 dark:bg-slate-900 font-semibold">{children}</th>;
   },
-  td({ children }: any) {
+  td({ children }) {
     return <td className="border border-gray-200 dark:border-slate-700 px-2 py-1">{children}</td>;
   },
-  blockquote({ children }: any) {
+  blockquote({ children }) {
     return <blockquote className="border-l-4 border-blue-300 dark:border-blue-400 pl-4 italic text-gray-600 dark:text-slate-300 my-2">{children}</blockquote>;
   },
 };
@@ -237,13 +241,9 @@ const TheoryPage: React.FC = () => {
         setTheoryContent(data.content);
         // Mark this level as cached now
         setCachedLevels(prev => new Set([...prev, detailLevel]));
-      } catch (err: any) {
+      } catch (err) {
         console.error('Theory generation error:', err);
-        const detail = err?.response?.data?.detail;
-        let message = 'Грешка при генериране на теорията';
-        if (typeof detail === 'string') message = detail;
-        else if (detail?.message) message = detail.message;
-        setTheoryError(message);
+        setTheoryError(apiErrorMessage(err, 'Грешка при генериране на теорията'));
       } finally {
         setTheoryLoading(false);
       }
@@ -262,10 +262,9 @@ const TheoryPage: React.FC = () => {
         const data = await getGeneratedExamples(parseInt(lessonId));
         setExamples(data.examples);
         setRevealedExamples({});
-      } catch (err: any) {
+      } catch (err) {
         console.error('Examples generation error:', err);
-        const message = err?.response?.data?.detail || 'Грешка при генериране на примерни задачи';
-        setExamplesError(message);
+        setExamplesError(apiErrorMessage(err, 'Грешка при генериране на примерни задачи'));
       } finally {
         setExamplesLoading(false);
       }

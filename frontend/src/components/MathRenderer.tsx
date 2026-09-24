@@ -81,7 +81,7 @@ function autoWrapInlineLatex(text: string): string {
 	// Wrap common exponent expressions that arrive without explicit math delimiters.
 	// Examples: x^2, m^3, cm^2, (x-4)^2, 20^\\circ, x^{-1}
 	result = result.replace(
-		/((?:\([^\)]+\)|[A-Za-zА-Яа-я0-9]+)\^(?:\{[^{}]+\}|[A-Za-zА-Яа-я0-9]+|\\[a-zA-Z]+))/g,
+		/((?:\([^)]+\)|[A-Za-zА-Яа-я0-9]+)\^(?:\{[^{}]+\}|[A-Za-zА-Яа-я0-9]+|\\[a-zA-Z]+))/g,
 		'$$1$'
 	);
 

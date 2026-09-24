@@ -70,7 +70,6 @@ function createPayload(error: unknown, context: ErrorContext = {}) {
 
   if (import.meta.env.DEV) {
     // Helpful local diagnostics; disabled in production build.
-    // eslint-disable-next-line no-console
     console.error('[client-error-log]', payload);
   }
 
