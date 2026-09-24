@@ -379,15 +379,14 @@ def parse_marks(raw: str, parts: Sequence[dict]) -> tuple[list[int], list[str], 
 def ai_mark(*, statement: str, marking: str | None, kind: str, parts: Sequence[dict],
             image_data_url: str | None = None) -> tuple[list[int], list[str], str]:
     """Ask the model to mark the given sub-parts like an НВО examiner."""
-    from openai import OpenAI
-
     from app.config import settings
+    from app.services.openai_client import openai_client
 
     if not settings.OPENAI_API_KEY:
         raise RuntimeError("OPENAI_API_KEY is not configured")
     system, user_text = build_examiner_request(statement=statement, marking=marking,
                                                kind=kind, parts=parts)
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    client = openai_client()
     if image_data_url:
         # vision requests take a content list and do not accept response_format
         resp = client.chat.completions.create(

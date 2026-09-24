@@ -1,3 +1,4 @@
+from fastapi.concurrency import run_in_threadpool
 from typing import Any, List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -71,7 +72,8 @@ async def chat_with_ai(
         check_chat_cooldown(_user, db)
 
     try:
-        reply = generate_chat_reply(
+        reply = await run_in_threadpool(
+            generate_chat_reply,
             messages=[m.model_dump() for m in payload.messages],
             lesson_title=payload.lesson_title,
         )
@@ -93,7 +95,7 @@ async def generate_diagram(
 ):
     """Generate structured diagram JSON for a Bulgarian math problem."""
     try:
-        diagram = generate_diagram_json(problem_text=payload.problem)
+        diagram = await run_in_threadpool(generate_diagram_json, problem_text=payload.problem)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except APIError as exc:

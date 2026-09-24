@@ -1,8 +1,13 @@
-from openai import OpenAI, RateLimitError, AuthenticationError
+from openai import RateLimitError, AuthenticationError
 from openai.types.chat import ChatCompletionMessageParam
 from app.config import settings
+from app.services.openai_client import openai_client
 import json
 from typing import Any
+
+# Theory, worked examples and exercise sets are long completions; everything
+# else here uses the shared client's default (OPENAI_TIMEOUT_SECONDS).
+LONG_GENERATION_TIMEOUT_SECONDS = 60.0
 
 
 class AIQuotaExceededError(RuntimeError):
@@ -162,7 +167,7 @@ def generate_theory_content(
     if not settings.OPENAI_API_KEY:
         raise ValueError("OPENAI_API_KEY is not configured")
 
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    client = openai_client(timeout=LONG_GENERATION_TIMEOUT_SECONDS)
 
     system_prompt = (
         "You are a Bulgarian math teacher for 5th-7th grade students. "
@@ -244,7 +249,7 @@ def generate_theory_from_standard(
     if not settings.OPENAI_API_KEY:
         raise ValueError("OPENAI_API_KEY is not configured")
 
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    client = openai_client(timeout=LONG_GENERATION_TIMEOUT_SECONDS)
 
     if detail_level == "concise":
         instruction = (
@@ -290,7 +295,7 @@ def generate_video_search_queries(*, lesson_title: str, topic_title: str, grade_
     if not settings.OPENAI_API_KEY:
         raise ValueError("OPENAI_API_KEY is not configured")
 
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    client = openai_client()
 
     system_prompt = (
         "You create short Bulgarian YouTube search phrases for school math topics. "
@@ -339,7 +344,7 @@ def generate_example_problems(*, lesson_title: str, topic_title: str, grade_numb
     if not settings.OPENAI_API_KEY:
         raise ValueError("OPENAI_API_KEY is not configured")
 
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    client = openai_client(timeout=LONG_GENERATION_TIMEOUT_SECONDS)
 
     system_prompt = (
         "You are a Bulgarian math teacher for 5th-7th grade students. "
@@ -405,7 +410,7 @@ def generate_exercises(*, lesson_title: str, topic_title: str, grade_number: int
     if not settings.OPENAI_API_KEY:
         raise ValueError("OPENAI_API_KEY is not configured")
 
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    client = openai_client(timeout=LONG_GENERATION_TIMEOUT_SECONDS)
 
     system_prompt = (
         "You are a Bulgarian math teacher for 5th-7th grade students. "
@@ -485,7 +490,7 @@ def generate_chat_reply(*, messages: list[dict], lesson_title: str | None = None
     if not settings.OPENAI_API_KEY:
         raise ValueError("OPENAI_API_KEY is not configured")
 
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    client = openai_client()
 
     context = f" The student is currently studying: {lesson_title}." if lesson_title else ""
 
@@ -525,7 +530,7 @@ def generate_diagram_json(*, problem_text: str) -> dict[str, Any]:
     if not settings.OPENAI_API_KEY:
         raise ValueError("OPENAI_API_KEY is not configured")
 
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    client = openai_client()
 
     system_prompt = """
 You are an AI that generates structured diagram data for math problems.

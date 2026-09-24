@@ -4,11 +4,12 @@ import re
 from typing import Optional, cast
 
 from fastapi import APIRouter, Depends, HTTPException
-from openai import OpenAI
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 from app.auth.dependencies import get_optional_user
 from app.database import get_db
 from app.config import settings
+from app.services.openai_client import openai_client
 from app.models.curriculum import Exercise as ExerciseModel, ExerciseAttempt as ExerciseAttemptModel
 from app.models.user import User
 from app.schemas.curriculum import ExerciseAttemptCreate, ExerciseSubmissionResponse
@@ -104,7 +105,7 @@ def _ai_equivalence_check(question: str, submitted_answer: str, correct_answer: 
     if not settings.OPENAI_API_KEY:
         return False
 
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    client = openai_client()
     system_prompt = (
         "You are a strict Bulgarian math answer checker. "
         "Decide whether student's answer is mathematically equivalent to the reference answer. "
@@ -165,7 +166,10 @@ async def submit_exercise(
     canonical_answer = str(exercise.answer)
     is_correct = _local_equivalence_check(submission.answer, canonical_answer)
     if not is_correct:
-        is_correct = _ai_equivalence_check(
+        # Off the event loop: a blocking completion here stalled every other
+        # request the process was serving until it returned.
+        is_correct = await run_in_threadpool(
+            _ai_equivalence_check,
             question=str(exercise.question),
             submitted_answer=submission.answer,
             correct_answer=canonical_answer,

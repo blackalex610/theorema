@@ -12,10 +12,10 @@ from __future__ import annotations
 import json
 import logging
 
-from openai import OpenAI
 from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.services.openai_client import openai_client
 from app.database import SessionLocal
 from app.models.nvo_content import NvoProblem, NvoProblemEmbedding
 
@@ -43,7 +43,7 @@ def problems_needing_embeddings(db: Session, model: str) -> list[NvoProblem]:
 def embed_texts(texts: list[str], model: str) -> list[list[float]]:
     if not settings.OPENAI_API_KEY:
         raise ValueError("OPENAI_API_KEY is not configured")
-    client = OpenAI(api_key=settings.OPENAI_API_KEY, timeout=30.0)
+    client = openai_client()
     response = client.embeddings.create(model=model, input=texts)
     return [item.embedding for item in response.data]
 

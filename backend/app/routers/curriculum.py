@@ -1,5 +1,6 @@
 import logging
 
+from fastapi.concurrency import run_in_threadpool
 from fastapi import APIRouter, Depends, HTTPException, Query, Header
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy import text as sa_text
@@ -366,20 +367,23 @@ async def get_generated_theory(
                 GeneratedLessonContentModel.detail_level == "standard",
             ).first()
             if standard_cached:
-                content = generate_theory_from_standard(
+                content = await run_in_threadpool(
+                    generate_theory_from_standard,
                     standard_content=cast(str, standard_cached.content),
                     lesson_title=lesson_title,
                     detail_level=detail_level,
                 )
             else:
-                content = generate_theory_content(
+                content = await run_in_threadpool(
+                    generate_theory_content,
                     lesson_title=lesson_title,
                     topic_title=topic_title,
                     grade_number=grade_number,
                     detail_level=detail_level,
                 )
         else:
-            content = generate_theory_content(
+            content = await run_in_threadpool(
+                generate_theory_content,
                 lesson_title=lesson_title,
                 topic_title=topic_title,
                 grade_number=grade_number,
@@ -436,7 +440,8 @@ async def get_video_search_queries(
     grade_number = cast(int, grade.grade_number)
 
     try:
-        queries = generate_video_search_queries(
+        queries = await run_in_threadpool(
+            generate_video_search_queries,
             lesson_title=lesson_title,
             topic_title=topic_title,
             grade_number=grade_number,
@@ -514,7 +519,8 @@ async def get_generated_examples(
     grade_number = cast(int, grade.grade_number)
 
     try:
-        examples = generate_example_problems(
+        examples = await run_in_threadpool(
+            generate_example_problems,
             lesson_title=lesson_title,
             topic_title=topic_title,
             grade_number=grade_number,
@@ -599,7 +605,8 @@ async def get_ai_exercises(
         raise HTTPException(status_code=404, detail="Grade not found")
 
     try:
-        raw_exercises = generate_exercises(
+        raw_exercises = await run_in_threadpool(
+            generate_exercises,
             lesson_title=cast(str, lesson.title),
             topic_title=cast(str, topic.title),
             grade_number=cast(int, grade.grade_number),

@@ -99,7 +99,7 @@ def test_short_format_keeps_its_open_question_last():
 # every short exam silently came from the catalog fallback.
 
 def _fake_openai(monkeypatch, captured: dict, response_text: str):
-    """Replace nvo.OpenAI with a stub that records the request it was given."""
+    """Replace nvo's OpenAI client with a stub that records the request it was given."""
     from types import SimpleNamespace
 
     from app.routers import nvo as nvo_module
@@ -116,7 +116,7 @@ def _fake_openai(monkeypatch, captured: dict, response_text: str):
             self.chat = SimpleNamespace(completions=_Completions())
 
     monkeypatch.setattr(nvo_module.settings, "OPENAI_API_KEY", "test-key")
-    monkeypatch.setattr(nvo_module, "OpenAI", _FakeClient)
+    monkeypatch.setattr(nvo_module, "openai_client", lambda **kwargs: _FakeClient())
 
 
 def _exam_payload(total: int, mcq: int) -> str:

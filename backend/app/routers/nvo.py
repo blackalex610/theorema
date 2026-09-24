@@ -1,5 +1,8 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from typing import Callable, List, Union, cast
+import asyncio
+import functools
 import json
 import logging
 import os
@@ -8,10 +11,11 @@ from pathlib import Path
 import random
 import uuid
 from pydantic import BaseModel
-from openai import APIError, OpenAI
+from openai import APIError
 from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.services.openai_client import openai_client
 from app.database import get_db, SessionLocal
 from app.services.playground_problems import select_playground_problems
 from app.services.nvo_grading import ai_mark as _ai_mark
@@ -689,7 +693,7 @@ def _generate_via_openai(
     # Diagram slots are Q10-Q15 plus the final open question, whatever the length.
     diagram_slots = f"Q10-Q15 and Q{total_count}"
 
-    client = OpenAI(api_key=settings.OPENAI_API_KEY, timeout=75.0)
+    client = openai_client(timeout=75.0)
     difficulty_instructions = _get_difficulty_instructions(difficulty)
 
     system_prompt = (
@@ -839,6 +843,17 @@ def _run_generation_job_and_charge(job_id: str, difficulty: str | None, format: 
         db.close()
 
 
+def _generate_with_fallbacks(blueprint, difficulty, format) -> NVOExam:
+    try:
+        return _generate_via_blueprint(blueprint, difficulty, format)
+    except Exception:
+        logger.exception("blueprint generation failed; falling back")
+        try:
+            return _generate_via_openai(difficulty, format)
+        except (ValueError, APIError, HTTPException):
+            return _fallback_generate_from_pool(format, difficulty=difficulty)
+
+
 @router.post("/generate")
 async def generate_nvo_exam(
     request: NVOGenerationRequest | None = None,
@@ -856,14 +871,8 @@ async def generate_nvo_exam(
     difficulty = request.difficulty if request else None
     format = request.format if request else None
     blueprint = request.blueprint if request else None
-    try:
-        exam = _generate_via_blueprint(blueprint, difficulty, format)
-    except Exception:
-        logger.exception("blueprint generation failed; falling back")
-        try:
-            exam = _generate_via_openai(difficulty, format)
-        except (ValueError, APIError, HTTPException):
-            exam = _fallback_generate_from_pool(format, difficulty=difficulty)
+    # Off the event loop: the OpenAI fallback alone can take over a minute.
+    exam = await run_in_threadpool(_generate_with_fallbacks, blueprint, difficulty, format)
     # Store it so /nvo/submit can grade against the server's own copy of the
     # answers instead of trusting whatever the client posts back.
     _store_exam(exam)
@@ -995,7 +1004,8 @@ async def submit_nvo_exam(
         raise HTTPException(status_code=404, detail="Generated NVO exam not found")
 
     image_by_problem = {item.problemId: item.image for item in payload.open_answer_images}
-    open_results: list[NVOOpenGradeResult] = []
+    open_results: list[NVOOpenGradeResult | None] = []
+    pending_grades: list[tuple[int, NVOQuestion, int, Callable[[], object]]] = []
     # Every score below is in NVO points, not questions: a full paper is out of
     # 100 (65 + 35), a 3-point item earns 3, and a written item earns its
     # points sub-part by sub-part the way the official key awards them. Items
@@ -1049,8 +1059,15 @@ async def submit_nvo_exam(
             )
             continue
 
-        try:
-            grade = grade_written(
+        # Graded below, all at once: each written answer can be a model call,
+        # and they used to run one after another on the event loop.
+        open_results.append(None)
+        pending_grades.append((
+            len(open_results) - 1,
+            question,
+            part,
+            functools.partial(
+                grade_written,
                 statement=question.question,
                 parts=question.open_parts,
                 correct=question.correct_answer,
@@ -1062,23 +1079,28 @@ async def submit_nvo_exam(
                 partial_credit=question.partial_credit,
                 # looked up at call time so tests can stub the module's _ai_mark
                 ai_mark=_ai_mark,
-            )
-        except HTTPException:
-            raise
-        except Exception as exc:
-            raise HTTPException(status_code=502, detail="Failed to grade open-ended response") from exc
+            ),
+        ))
+
+    grades = await asyncio.gather(
+        *(run_in_threadpool(job) for _, _, _, job in pending_grades),
+        return_exceptions=True,
+    )
+    for (slot, question, part, _), grade in zip(pending_grades, grades):
+        if isinstance(grade, HTTPException):
+            raise grade
+        if isinstance(grade, BaseException):
+            raise HTTPException(status_code=502, detail="Failed to grade open-ended response") from grade
 
         total_open_score += grade.score
         part_score[part] += grade.score
-        open_results.append(
-            NVOOpenGradeResult(
-                problemId=question.number,
-                score=grade.score,
-                max_score=grade.max_score,
-                is_correct=grade.is_correct,
-                extracted_answer=grade.extracted,
-                feedback=grade.feedback,
-            )
+        open_results[slot] = NVOOpenGradeResult(
+            problemId=question.number,
+            score=grade.score,
+            max_score=grade.max_score,
+            is_correct=grade.is_correct,
+            extracted_answer=grade.extracted,
+            feedback=grade.feedback,
         )
 
     total_score = mcq_score + total_open_score

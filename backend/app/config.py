@@ -62,10 +62,19 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_ID: str = "845529160700-gp4b283t7n83s7kj147el2qq72quu3ie.apps.googleusercontent.com"
     GOOGLE_CLIENT_SECRET: str = ""
     
-    # OpenAI (for future implementation)
+    # OpenAI (app/services/openai_client.py)
     OPENAI_API_KEY: str = ""
     OPENAI_MODEL: str = "gpt-4o-mini"
     OPENAI_NVO_MODEL: str = "gpt-4.1"
+    # Photo-to-text extraction (/mobile/analyze-math). Was a hard-coded literal.
+    OPENAI_VISION_MODEL: str = "gpt-4o"
+    # Optional OpenAI-compatible endpoint (e.g. https://openrouter.ai/api/v1).
+    # Empty means api.openai.com.
+    OPENAI_BASE_URL: str = ""
+    # Per attempt. The SDK default was 600s with 2 retries — far past any
+    # serverless function limit. Long generations pass their own timeout.
+    OPENAI_TIMEOUT_SECONDS: float = 30.0
+    OPENAI_MAX_RETRIES: int = 1
 
     # How long an uploaded homework photo is kept before the retention sweep
     # deletes it (app/services/media_retention.py). Only has to outlive the

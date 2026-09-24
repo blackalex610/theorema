@@ -11,10 +11,11 @@ from uuid import uuid4
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, Request, UploadFile, Depends
 from fastapi.concurrency import run_in_threadpool
-from openai import OpenAI
 from pydantic import BaseModel
 from starlette.responses import StreamingResponse
 from app.config import settings
+from app.services.openai_client import openai_client
+from openai import APIError
 from app.auth.dependencies import get_current_user, require_admin, require_image_scan
 from app.services.media_tokens import build_media_url
 from app.services.media_retention import purge_expired_uploads
@@ -207,7 +208,7 @@ def _ai_grade(
         f"Ученическо решение/отговор: {student_work}"
     )
 
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    client = openai_client()
 
     if image_data_url:
         # Vision requests: content must be a list; response_format not supported with images
@@ -433,7 +434,8 @@ async def grade_task_submission(payload: TaskGradeRequest, _user=Depends(get_cur
     problem_number = _validate_problem_number(payload.problem_number)
     stored_context = channel_state_store.load_task_context(channel_id, problem_number)
     context = TaskContext(**stored_context) if stored_context else None
-    response = _build_task_grade(
+    response = await run_in_threadpool(
+        _build_task_grade,
         channel_id=channel_id,
         problem_number=problem_number,
         correct_xy=payload.correct_xy,
@@ -533,21 +535,25 @@ async def analyze_math_image(
         '{\"extracted_text\": \"<пълно извлечено съдържание>\", \"confidence\": \"high|medium|low\"}'
     )
 
-    client = OpenAI(api_key=settings.OPENAI_API_KEY, timeout=30.0)
-    resp = client.chat.completions.create(
-        model="gpt-4o",
-        temperature=0,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": "Извлечи всичко написано на тази снимка:"},
-                    {"type": "image_url", "image_url": {"url": payload.image_data_url, "detail": "high"}},
-                ],
-            },
-        ],
-    )
+    try:
+        resp = await run_in_threadpool(
+            openai_client().chat.completions.create,
+            model=settings.OPENAI_VISION_MODEL,
+            temperature=0,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "Извлечи всичко написано на тази снимка:"},
+                        {"type": "image_url", "image_url": {"url": payload.image_data_url, "detail": "high"}},
+                    ],
+                },
+            ],
+        )
+    except APIError as exc:
+        logger.warning("Math photo extraction failed: %s", exc)
+        raise HTTPException(status_code=502, detail="Разпознаването на снимката не успя. Опитай отново.") from exc
 
     raw = (resp.choices[0].message.content or "").strip()
     # Strip markdown code fences if present
