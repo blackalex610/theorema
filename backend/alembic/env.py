@@ -18,8 +18,14 @@ load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file_
 # access to the values within the .ini file in use.
 config = context.config
 
-# Interpret the config file for Python logging.
-if config.config_file_name is not None:
+# Set by app/services/schema_migrations.py when the app migrates itself: run
+# on that connection, inside its transaction and advisory lock.
+external_connection = config.attributes.get("connection")
+
+# Interpret the config file for Python logging — CLI only. fileConfig()
+# disables every logger that already exists, which inside the running app
+# would silence the app's own logging from the first migration onwards.
+if config.config_file_name is not None and external_connection is None:
     fileConfig(config.config_file_name)
 
 # Override sqlalchemy.url from DATABASE_URL env var
@@ -68,6 +74,12 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
+    if external_connection is not None:
+        context.configure(connection=external_connection, target_metadata=target_metadata)
+        with context.begin_transaction():
+            context.run_migrations()
+        return
+
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",

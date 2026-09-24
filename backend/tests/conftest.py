@@ -17,6 +17,10 @@ os.environ["DATABASE_URL"] = f"sqlite:///{_TMP_DB.as_posix()}"
 os.environ["ENVIRONMENT"] = "test"
 os.environ["SECRET_KEY"] = "pytest-secret-key-not-used-in-any-real-deploy"
 os.environ["OPENAI_API_KEY"] = ""
+# The suite builds its schema with create_all below; the app must not also try
+# to migrate the shared test database from its request middleware.
+# test_schema_migrations.py exercises run_migrations() on databases of its own.
+os.environ["DB_AUTO_MIGRATE"] = "false"
 
 import pytest  # noqa: E402
 

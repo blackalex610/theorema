@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 from sqlalchemy.pool import NullPool
 import logging
@@ -83,20 +83,43 @@ def _is_duplicate_column_error(exc: Exception) -> bool:
     )
 
 
-def ensure_user_usage_columns() -> None:
+def _add_missing_user_columns(conn) -> None:
+    existing = {column["name"] for column in inspect(conn).get_columns("users")}
+    for stmt in _USER_USAGE_COLUMN_MIGRATIONS:
+        column = stmt.split("ADD COLUMN ", 1)[1].split()[0]
+        if column in existing:
+            continue
+        try:
+            conn.execute(text(stmt))
+        except Exception as exc:
+            # Only reachable when another process added the column between
+            # the inspect above and this ALTER.
+            if _is_duplicate_column_error(exc):
+                continue
+            logger.error("User usage column migration failed: %s", stmt, exc_info=True)
+            raise
+
+
+def ensure_user_usage_columns(conn=None) -> None:
     """Add newer usage columns on existing databases (idempotent).
 
     Only an "column already exists" error is benign. Every other failure used
     to be swallowed by a bare `except Exception: pass`, so a genuinely broken
     migration looked identical to a no-op and the app booted against a schema
     missing the usage columns — which then 500s on every limit check.
+
+    Columns are checked with the inspector before each ALTER rather than by
+    catching the duplicate-column error, because on PostgreSQL any failed
+    statement aborts the whole enclosing transaction — and this now runs
+    inside the single locked transaction schema_migrations uses to adopt a
+    pre-Alembic database. Pass `conn` to run on that connection.
     """
-    for stmt in _USER_USAGE_COLUMN_MIGRATIONS:
-        try:
-            with engine.begin() as conn:
-                conn.execute(text(stmt))
-        except Exception as exc:
-            if _is_duplicate_column_error(exc):
-                continue
-            logger.error("User usage column migration failed: %s", stmt, exc_info=True)
-            raise
+    if conn is not None:
+        _add_missing_user_columns(conn)
+        return
+    try:
+        with engine.begin() as own_conn:
+            _add_missing_user_columns(own_conn)
+    except Exception:
+        logger.error("User usage column migration failed", exc_info=True)
+        raise

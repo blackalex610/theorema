@@ -6,16 +6,22 @@ python -m app.scripts.seed_curriculum
 """
 
 from sqlalchemy.orm import Session
-from app.database import engine, SessionLocal, Base
+from app.database import SessionLocal
+from app.services.schema_migrations import run_migrations
 from app.models.curriculum import Grade, Topic, Lesson, Exercise
 from app.models.progress import UserProgress, LessonProgress
 
 
 def create_tables():
-    """Create all database tables"""
-    print("Creating database tables...")
-    Base.metadata.create_all(bind=engine)
-    print("✓ Tables created successfully")
+    """Bring the schema to Alembic head.
+
+    Used to call create_all(), which writes no alembic_version row: seeding a
+    fresh production database that way left it looking "pre-Alembic" to every
+    later migration.
+    """
+    print("Migrating database schema...")
+    revision = run_migrations()
+    print(f"Schema at revision {revision}")
 
 
 CURRICULUM_DATA = {
