@@ -317,6 +317,25 @@ def require_image_scan(
     return _require_auth_and_limit(authorization, db, "image_scans")
 
 
+def require_image_scan_capacity(
+    authorization: Optional[str] = Header(default=None),
+    db: Session = Depends(get_db),
+) -> User:
+    """Like require_image_scan, but only verifies the daily limit.
+
+    The free plan gets two scans a day. Charging up front meant a photo the
+    server then refused (not an image, storage down) or a model call that
+    failed still cost one of them; the endpoints charge via increment_usage
+    once the scan has actually happened, as NVO generation does.
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required to use this feature.",
+        )
+    return _check_capacity_only(get_current_user(authorization=authorization, db=db), "image_scans")
+
+
 def enforce_ai_theory_generation(
     authorization: Optional[str],
     db: Session,

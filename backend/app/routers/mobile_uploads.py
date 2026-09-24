@@ -16,7 +16,12 @@ from starlette.responses import StreamingResponse
 from app.config import settings
 from app.services.openai_client import openai_client
 from openai import APIError
-from app.auth.dependencies import get_current_user, require_admin, require_image_scan
+from app.auth.dependencies import (
+    get_current_user,
+    increment_usage,
+    require_admin,
+    require_image_scan_capacity,
+)
 from app.services.media_tokens import build_media_url
 from app.services.media_retention import purge_expired_uploads
 from app.services.media_storage import (
@@ -55,6 +60,15 @@ def _detect_image_type(data: bytes) -> tuple[str, str] | None:
     if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
         return ".webp", "image/webp"
     return None
+
+
+def _charge_scan(user, db: Session) -> None:
+    try:
+        increment_usage(user, db, "image_scans")
+    except HTTPException:
+        # Another request spent the last credit between the capacity check
+        # and now. The scan already happened; log it rather than fail it.
+        logger.warning("image_scans credit already exhausted for user %s at charge time", user.id)
 
 
 def _media_storage_or_503():
@@ -326,7 +340,7 @@ async def upload_mobile_photo(
     channel_id: str = Form(...),
     file: UploadFile = File(...),
     problem_number: int | None = Form(None),
-    _user=Depends(require_image_scan),
+    current_user=Depends(require_image_scan_capacity),
     db: Session = Depends(get_db),
 ):
     channel_id = _validate_channel_id(channel_id)
@@ -355,6 +369,9 @@ async def upload_mobile_photo(
     except MediaStorageError:
         logger.exception("Storing an uploaded photo failed")
         raise HTTPException(status_code=503, detail=STORAGE_UNAVAILABLE_MESSAGE)
+
+    # Charged only now that the photo is stored.
+    _charge_scan(current_user, db)
 
     base_url = str(request.base_url).rstrip("/")
     # Signed + expiring: /media refuses unsigned reads (see media_tokens.py).
@@ -523,7 +540,8 @@ class MathAnalysisResponse(BaseModel):
 @router.post("/analyze-math", response_model=MathAnalysisResponse)
 async def analyze_math_image(
     payload: MathAnalysisRequest,
-    _user=Depends(require_image_scan),
+    current_user=Depends(require_image_scan_capacity),
+    db: Session = Depends(get_db),
 ):
     """Extract all mathematical content from an image using OpenAI vision."""
     if not settings.OPENAI_API_KEY:
@@ -580,6 +598,7 @@ async def analyze_math_image(
         extracted = raw
         confidence = "low"
 
+    _charge_scan(current_user, db)
     return MathAnalysisResponse(extracted_text=extracted, confidence=confidence)
 
 

@@ -333,3 +333,52 @@ def test_grade_photo_only_accepts_a_photo_uploaded_to_that_channel(local_storage
     )
     assert res.status_code == 404
     channel_state_store.clear_uploads("channel_grade_01")
+
+
+# ─── The scan credit is charged only for a scan that happened ────────────────
+
+def _session_with_id() -> tuple[int, dict]:
+    res = client.post("/auth/guest", headers={"X-Forwarded-For": f"198.51.100.{next(_ip) % 254 + 1}"})
+    assert res.status_code == 200, res.text
+    body = res.json()
+    return body["user"]["id"], {"Authorization": f"Bearer {body['access_token']}"}
+
+
+def _scans_used(db, user_id: int) -> int:
+    from app.models.user import User
+
+    db.expire_all()
+    return db.query(User).filter(User.id == user_id).one().image_scans_today
+
+
+def test_a_stored_upload_costs_one_scan(local_storage, db):
+    user_id, headers = _session_with_id()
+    assert _upload(headers).status_code == 200
+    assert _scans_used(db, user_id) == 1
+
+
+def test_a_refused_file_costs_nothing(local_storage, db):
+    """The free plan has two scans a day; a file the server refuses must not spend one."""
+    user_id, headers = _session_with_id()
+    assert _upload(headers, data=HEIC).status_code == 415
+    assert _scans_used(db, user_id) == 0
+
+
+def test_a_storage_failure_costs_nothing(monkeypatch, db):
+    class Broken(LocalMediaStorage):
+        def save(self, key, data, content_type):
+            raise MediaStorageError("bucket down")
+
+    monkeypatch.setattr(media_storage, "_storage", Broken(media_storage.DEFAULT_LOCAL_DIR))
+    user_id, headers = _session_with_id()
+    assert _upload(headers).status_code == 503
+    assert _scans_used(db, user_id) == 0
+
+
+def test_the_daily_limit_still_applies(local_storage, db):
+    user_id, headers = _session_with_id()
+    assert _upload(headers).status_code == 200
+    assert _upload(headers).status_code == 200
+    res = _upload(headers)
+    assert res.status_code == 429, "the free plan's two scans a day"
+    assert _scans_used(db, user_id) == 2

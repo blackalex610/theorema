@@ -17,6 +17,7 @@ from app.auth.dependencies import (
     require_admin,
     require_ai_chat,
     require_image_scan,
+    require_image_scan_capacity,
     require_nvo_exam,
     require_nvo_exam_capacity,
 )
@@ -33,6 +34,9 @@ AUTH_DEPENDENCIES = {
     # after generation succeeds (see nvo.py's create_nvo_generation_job) —
     # same auth guarantee as require_nvo_exam, different charging moment.
     require_nvo_exam_capacity,
+    # Same auth guarantee for the photo routes; the scan credit is charged
+    # after the photo is stored / read (see mobile_uploads._charge_scan).
+    require_image_scan_capacity,
 }
 
 # Routes that reach OpenAI with caller-influenced text or images.
