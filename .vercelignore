@@ -26,6 +26,9 @@ Thumbs.db
 .env
 .env.local
 
+# Locally stored homework photos must never ship inside a deployment bundle.
+backend/app/uploads
+
 # IDE
 .vscode
 .idea

@@ -36,6 +36,10 @@ realtime-server/node_modules/
 *.tmp
 *.temp
 
+# Uploaded homework photos (children's handwriting) — local-disk media storage
+# only; production stores them in a private bucket. Never commit.
+backend/app/uploads/
+
 # Local SQLite database (contains real student data — never commit)
 mathlearning.db
 *.db
