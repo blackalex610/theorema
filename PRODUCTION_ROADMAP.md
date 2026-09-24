@@ -185,6 +185,17 @@ Legend: ✅ Production-ready · ⚠️ Works but needs hardening · ❌ Missing 
 
 > **Re-verified 2026-09-19** by reading current source (not by trusting prior doc text). Status legend: ✅ confirmed fixed with file:line evidence · ⚠️ still open · ❓ not reverified this pass.
 
+> **2026-09-24 production-readiness pass** — fixed on branch `feature/production-readiness`, each with tests:
+>
+> - **Photo uploads work on Vercel** (#10) — `app/services/media_storage.py`: private Supabase Storage bucket in production, local disk in dev; `/media` redirects to a 10-minute signed bucket URL. Upload type is sniffed from the bytes (JPEG/PNG/WEBP). On Vercel with no bucket configured, uploads return a clear 503 instead of writing to a read-only disk.
+> - **Committed photos removed** — the 60 files (~126 MB) in `backend/app/uploads/` are untracked and ignored by git and Vercel. ⚠️ They are **still in git history** until it is rewritten (owner decision: `git filter-repo --path backend/app/uploads --invert-paths` + force-push; everyone re-clones).
+> - **`CORS_ORIGINS` crash** — a plain or comma-separated value (the documented form) crashed startup; both now work.
+> - **Alembic owns the schema** (#12) — runtime `create_all()` replaced by `run_migrations()` under a PostgreSQL advisory lock; pre-Alembic databases are adopted and stamped. New `/health/ready`.
+> - **OpenAI calls** — one shared client with a 30 s timeout and 1 retry (was 600 s × 3); every call runs off the event loop; `/nvo/submit` grades written answers concurrently.
+> - **Photo size** — every photo is downscaled to 1600 px before upload; full-size photos overran Vercel's 4.5 MB request limit on `/nvo/submit`.
+> - **Pairing channel** — `/mobile/uploads/latest`, `/tasks/contexts`, `/channel/history` require a session; channel ids are 128-bit CSPRNG; `grade-photo` only grades photos on its own channel.
+> - **CI** — `.github/workflows/ci.yml` (backend on Python 3.12 + PostgreSQL 16, frontend lint/build/test, realtime). Frontend lint went from 62 errors to 0.
+
 These items block a safe, reliable public launch. Fix before marketing to real schools.
 
 ### P0 — Security & data integrity
@@ -203,7 +214,7 @@ These items block a safe, reliable public launch. Fix before marketing to real s
 9. **Persist mobile upload/SSE state** — ✅ Fixed (2026-09-19). `upload_history` and `task_contexts` were still module-level dicts, and this was the worst instance of the class: both halves of the pairing flow are requests *from different devices*, so on serverless they were always read from an instance that had never seen the write. The desktop registered an answer key via `POST /mobile/tasks/context`; the phone's `POST /mobile/tasks/grade-photo` landed elsewhere and returned `404 Task context not found`. The phone uploaded a photo; the desktop polled `GET /mobile/uploads/latest` and saw nothing. Phone grading could not have worked in production at all. Both now persist through `app/services/channel_state_store.py` (`record_upload:97`, `save_task_context:194`) into `mobile_upload_records` / `mobile_task_contexts` (migration `b8c9d0e1f2a3`), on the same TTL clock as media retention, with `nvo_exam_store`'s failure policy: reads fall back to the in-process cache, writes log at ERROR rather than throwing away an upload the student already paid a scan credit for. 18 tests in `backend/tests/test_channel_state_store.py` drop the cache between write and read to reproduce the cross-instance case.
 
    ⚠️ **Still open: SSE fanout across instances.** `stream_subscribers` (`mobile_uploads.py:103`) deliberately stays in memory — an `asyncio.Queue` cannot be serialised and each SSE connection belongs to the one process holding it open. An event published on instance A still never reaches a subscriber on instance B. Correct fanout needs a broker (Redis pub/sub, or the existing realtime server). The clients' `/mobile/uploads/latest` polling is now durable, so the stream is a same-instance fast path rather than the only delivery route — the feature degrades instead of failing.
-10. **External file storage** — ❓ Not reverified this pass.
+10. **External file storage** — ✅ Fixed 2026-09-24 (`app/services/media_storage.py`, Supabase Storage). Needs the bucket + `SUPABASE_*` env vars set on Vercel — see DEPLOYMENT.md → "Photo storage".
 11. **Rate limiter path mismatch** — ✅ Fixed. `ip_rate_limiter.py:20-27` `_GUARDED_PREFIXES` now matches real mount points (`/ai/`, `/nvo/`, `/mobile/`, `/curriculum/lessons/`, `/exercises/`).
 
 ### P0 — Database
@@ -491,7 +502,7 @@ than the `gpt-4o` currently doing our vision work.
 
 ## 10. Testing Strategy
 
-**Current state:** No automated tests.
+**Current state (2026-09-24):** ~1,925 backend tests (pytest, incl. PostgreSQL migration tests), 60+ frontend tests (Vitest), 39 realtime-server tests, all run by GitHub Actions on every PR. Still missing: end-to-end (Playwright) coverage of the login → exam → XP flow.
 
 ### Recommended minimum before production
 

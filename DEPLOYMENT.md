@@ -45,7 +45,19 @@ SECRET_KEY=your-jwt-signing-key
 CORS_ORIGINS=https://your-deployment-url
 GOOGLE_CLIENT_ID=your-google-oauth-client-id
 ENVIRONMENT=production
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ```
+
+`CORS_ORIGINS` takes one origin or a comma-separated list, with no trailing
+slash. The frontend and backend share one origin on Vercel (`/_/backend` is a
+path, not a host), so list only *other* origins that call the API, e.g. a
+custom domain. Before 2026-09-24 only a JSON list worked, and the plain form
+shown here crashed the backend at startup.
+
+`SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` are required for photo uploads —
+see [Photo storage](#photo-storage-supabase) below. Without them the app runs,
+but photo uploads return 503.
 
 <!-- These are the names the code actually reads (app/config.py) — a deploy
      that follows outdated names like JWT_SECRET or ALLOWED_ORIGINS silently
@@ -58,6 +70,43 @@ Click "Deploy" and Vercel will:
 2. Build the frontend (Vite)
 3. Set up the backend as serverless functions
 4. Deploy everything together
+
+## Photo storage (Supabase)
+
+Students photograph their written answers. Vercel's function disk is
+read-only and not shared between instances, so photos go to a private
+Supabase Storage bucket (`backend/app/services/media_storage.py`):
+
+1. Supabase dashboard → **Storage** → **New bucket**, named `homework-photos`
+   (or set `SUPABASE_STORAGE_BUCKET` to your name). **Leave "Public bucket"
+   off.** The backend reads it with the service-role key and hands browsers
+   10-minute signed links; nothing else should be able to list it.
+2. Project Settings → API: copy the project URL into `SUPABASE_URL` and the
+   `service_role` key into `SUPABASE_SERVICE_ROLE_KEY`. This key bypasses
+   row-level security, so set it on the backend only, never as a `VITE_`
+   variable.
+3. Redeploy. Photos are deleted after `MEDIA_RETENTION_HOURS` (default 24) by
+   a sweep that runs on upload; `POST /_/backend/mobile/admin/purge-expired-uploads`
+   (admin) runs it on demand.
+
+Local development needs none of this: with no Supabase settings, photos are
+stored in `backend/app/uploads/` (git-ignored).
+
+## Database migrations
+
+Alembic owns the schema. On its first request after a cold start the backend
+runs `alembic upgrade head` itself, inside one transaction holding a
+PostgreSQL advisory lock, so instances starting together don't race. A
+database created by older versions of the app (tables but no
+`alembic_version`) is detected, brought up to date and stamped automatically.
+
+- To run migrations yourself instead, set `DB_AUTO_MIGRATE=false` and run
+  `cd backend && DATABASE_URL=... alembic upgrade head` as a deploy step.
+- `POST /_/backend/admin/migrate` (admin only) runs the same migration on demand.
+- `GET /_/backend/health/ready` returns 503 while the database is unreachable or
+  behind the latest migration. Point your uptime monitor here, not at `/health`.
+- New schema changes: `cd backend && alembic revision --autogenerate -m "..."`,
+  review the generated file, commit it. Never change the schema any other way.
 
 ## Architecture
 
@@ -82,6 +131,8 @@ After successful deployment:
 2. **Test the Backend API**
    - Visit https://your-deployment-url/_/backend/docs
    - Should show FastAPI Swagger documentation
+   - Visit https://your-deployment-url/_/backend/health/ready — expect
+     `"status": "ready"` (database reachable, schema at head)
 
 3. **Configure Real-time Server**
    - The real-time server (WebSocket) needs separate hosting
@@ -101,6 +152,20 @@ After successful deployment:
 ### Issue: Database connection fails
 
 **Solution**: Verify `DATABASE_URL` is correct and your database is accessible from Vercel (may need to whitelist Vercel IPs or use Vercel Postgres).
+
+### Issue: Photo uploads return 503
+
+**Solution**: Photo storage isn't configured. Set `SUPABASE_URL` and
+`SUPABASE_SERVICE_ROLE_KEY` (see "Photo storage") and redeploy. The function
+log says `Photo upload attempted with no usable media storage` when this is
+the cause; a bucket that exists but rejects the key logs `Storing an uploaded
+photo failed`.
+
+### Issue: `/health/ready` reports `schema_behind`
+
+**Solution**: The migration on first request failed; the function log has
+`Database migration failed` with the reason. Fix it, then call
+`POST /_/backend/admin/migrate` as an admin or redeploy.
 
 ### Issue: Missing dependencies
 
@@ -138,14 +203,29 @@ SECRET_KEY=your-secret-key-change-in-production
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=10080
 
-# API Configuration (comma-separated origins)
+# API Configuration: one origin or a comma-separated list, no trailing slash
 CORS_ORIGINS=https://your-deployment-url,http://localhost:3000
+
+# Schema: migrate to Alembic head on first request (default true)
+DB_AUTO_MIGRATE=true
+
+# Homework photo storage — required on Vercel (see "Photo storage" above)
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+SUPABASE_STORAGE_BUCKET=homework-photos
+MEDIA_RETENTION_HOURS=24
 
 # Google OAuth (token verification)
 GOOGLE_CLIENT_ID=your-google-oauth-client-id
 
 # AI Service
 OPENAI_API_KEY=your-openai-api-key
+# Per-attempt timeout and retries for every model call (defaults shown)
+OPENAI_TIMEOUT_SECONDS=30
+OPENAI_MAX_RETRIES=1
+# Optional OpenAI-compatible endpoint, e.g. https://openrouter.ai/api/v1
+OPENAI_BASE_URL=
+OPENAI_VISION_MODEL=gpt-4o
 
 # Error monitoring (optional — omit to leave Sentry disabled entirely)
 SENTRY_DSN=
@@ -237,6 +317,12 @@ git subtree push --prefix realtime-server heroku main
 3. Click on the latest deployment
 4. View build logs and runtime logs
 
+### Health checks
+
+- `/_/backend/health` — liveness only (the process answers).
+- `/_/backend/health/ready` — database reachable and schema at head; 503
+  otherwise. Use this one for uptime alerts.
+
 ### View Backend Errors
 
 - Check CloudWatch or Vercel's function logs
@@ -254,7 +340,10 @@ git subtree push --prefix realtime-server heroku main
 - **Function Timeout**: Vercel serverless functions timeout after 10-60 seconds (depending on plan)
 - **WebSockets**: Must use separate Node.js hosting for real-time features
 - **Database**: Use Vercel Postgres or external PostgreSQL service
-- **File Storage**: Use cloud storage (AWS S3, etc.) for file uploads
+- **File Storage**: Photos go to Supabase Storage (see "Photo storage"); the
+  function disk is read-only
+- **Request size**: Vercel rejects request bodies over 4.5 MB. The frontend
+  downscales every photo to 1600 px (~300–500 KB) before sending it
 
 ## Support
 

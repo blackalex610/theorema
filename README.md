@@ -16,16 +16,18 @@ An AI-powered math learning platform for Bulgarian 5th–7th grade students, wit
 ## 🛠️ Tech Stack
 
 ### Frontend
-- **Framework**: React 18+ with TypeScript
-- **Build Tool**: Vite
-- **Styling**: CSS with theme support
-- **Real-time**: WebSocket integration for live features
+- **Framework**: React 19 with TypeScript, React Router 7
+- **Build Tool**: Vite 7
+- **Styling**: Tailwind CSS 4, dark mode
+- **Math**: KaTeX
+- **Real-time**: Socket.IO client for phone pairing
 
 ### Backend
-- **Framework**: FastAPI (Python)
-- **Database**: PostgreSQL
-- **AI Integration**: OpenAI API for content generation
-- **Server**: Uvicorn
+- **Framework**: FastAPI (Python 3.12), SQLAlchemy 2, Pydantic 2
+- **Database**: PostgreSQL in production (SQLite for local development), schema managed by Alembic
+- **AI Integration**: OpenAI API (theory, exercises, chat, grading, photo reading)
+- **File storage**: Supabase Storage for homework photos (local disk in development)
+- **Server**: Uvicorn locally; Vercel serverless in production
 
 ### Real-time Server
 - **Framework**: Node.js/Express
@@ -153,11 +155,11 @@ Or use the provided VS Code tasks:
 
 ## 🔐 Authentication
 
-The platform uses JWT-based authentication with support for:
-- Email/password registration and login
-- Google OAuth integration (optional)
-- Mobile app authentication
-- Session management
+JWT sessions (7 days, HS256), created by either:
+- **Google Sign-In**
+- **Guest accounts** — a real, durable account that can later be linked to Google
+
+There is no email/password login.
 
 ## 📊 Database Models
 
@@ -167,6 +169,23 @@ Key entities:
 - **Progress**: User exercise completion and performance
 - **Exercise**: Individual practice problems
 - **Upload**: Mobile submission tracking
+
+## 🧪 Tests and CI
+
+```bash
+cd backend && python -m pytest -q          # ~1,900 tests; TEST_POSTGRES_URL=... adds the PostgreSQL migration tests
+cd frontend && npm run lint && npm test && npm run build
+cd realtime-server && npm test
+```
+
+GitHub Actions (`.github/workflows/ci.yml`) runs all three on every pull request,
+the backend against a real PostgreSQL 16.
+
+## 🗄️ Database migrations
+
+Alembic owns the schema; the app migrates to head on its first request. To
+change a model: `cd backend && alembic revision --autogenerate -m "describe it"`,
+review the file, commit it. See `DEPLOYMENT.md` → "Database migrations".
 
 ## 🛡️ API Documentation
 

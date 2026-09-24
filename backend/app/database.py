@@ -63,10 +63,9 @@ _USER_USAGE_COLUMN_MIGRATIONS = (
     "ALTER TABLE users ADD COLUMN upgraded_at TIMESTAMP",
     # NOTE: this cannot relax the pre-existing NOT NULL on google_sub/email for
     # a database that predates guest accounts (SQLite can't ALTER a column's
-    # nullability; Postgres needs a separate ALTER COLUMN ... DROP NOT NULL,
-    # done in the Alembic guest-users migration). A stale local SQLite file
-    # created before this change should be deleted and let create_all rebuild
-    # it; Postgres deployments must run the Alembic migration.
+    # nullability). On PostgreSQL, schema_migrations' legacy adoption does
+    # that; a local SQLite file that old should just be deleted — the app
+    # rebuilds it through the migrations on the next start.
 )
 
 
