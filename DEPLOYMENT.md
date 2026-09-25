@@ -383,6 +383,25 @@ git subtree push --prefix realtime-server heroku main
   function disk is read-only
 - **Request size**: Vercel rejects request bodies over 4.5 MB. The frontend
   downscales every photo to 1600 px (~300–500 KB) before sending it
+- **Rate limits**: per-IP limits are counted in the database
+  (`rate_limit_counters`), so they hold across function instances and cold
+  starts. The client address comes from `X-Forwarded-For`, which Vercel sets
+  itself; behind any other proxy, make sure it does the same
+- **Phone → desktop photos**: the desktop polls for new photos every 4 seconds
+  (there is no server push), so a photo can take a few seconds to appear
+
+## Before launch
+
+- [ ] `SECRET_KEY`, `DATABASE_URL`, `CORS_ORIGINS` set (the app refuses to
+      start in production without the first two)
+- [ ] Supabase bucket and `SUPABASE_*` variables set — or photo uploads 503
+- [ ] Stripe in live mode: product + monthly price, webhook endpoint, and the
+      three `STRIPE_*` variables (test mode first)
+- [ ] `/_/backend/health/ready` returns 200 and is wired to an uptime alert
+- [ ] Privacy policy and terms (`/privacy`, `/terms`) reviewed by a lawyer;
+      if they change materially, bump `CONSENT_VERSION` in
+      `backend/app/services/consent.py` so every account is asked again
+- [ ] Google OAuth consent screen published, production origin authorised
 
 ## Support
 

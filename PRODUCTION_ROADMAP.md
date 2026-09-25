@@ -170,14 +170,14 @@ Legend: ✅ Production-ready · ⚠️ Works but needs hardening · ❌ Missing 
 
 | Area | Status |
 |------|--------|
-| Automated tests | ❌ None (FE or BE) |
-| DB migrations (Alembic) | ❌ Scaffold only; `create_all()` at runtime |
-| CI/CD pipeline | ❌ Not configured |
-| Error monitoring (Sentry etc.) | ❌ File logs only |
+| Automated tests | ✅ pytest, Vitest, node --test, Playwright E2E |
+| DB migrations (Alembic) | ✅ Alembic owns the schema; applied under an advisory lock |
+| CI/CD pipeline | ✅ GitHub Actions on every PR; Vercel preview deploys |
+| Error monitoring (Sentry etc.) | ⚠️ Backend Sentry, opt-in via `SENTRY_DSN`; frontend not wired |
 | Admin panel | ❌ Dev endpoints only |
 | Email notifications | ❌ |
-| GDPR / privacy policy pages | ❌ |
-| Terms of service (linked from login) | ⚠️ Text only, no dedicated page |
+| GDPR / privacy policy pages | ✅ `/privacy`, age check + recorded consent, data export and account deletion in Settings |
+| Terms of service (linked from login) | ✅ `/terms`, linked from sign-in and consent |
 
 ---
 
@@ -195,6 +195,17 @@ Legend: ✅ Production-ready · ⚠️ Works but needs hardening · ❌ Missing 
 > - **Photo size** — every photo is downscaled to 1600 px before upload; full-size photos overran Vercel's 4.5 MB request limit on `/nvo/submit`.
 > - **Pairing channel** — `/mobile/uploads/latest`, `/tasks/contexts`, `/channel/history` require a session; channel ids are 128-bit CSPRNG; `grade-photo` only grades photos on its own channel.
 > - **CI** — `.github/workflows/ci.yml` (backend on Python 3.12 + PostgreSQL 16, frontend lint/build/test, realtime). Frontend lint went from 62 errors to 0.
+>
+> **2026-09-25, same branch:**
+>
+> - **Licence** — proprietary (`LICENSE`, `"license": "UNLICENSED"` in both `package.json`s).
+> - **Age check + recorded consent** — every account answers once, after sign-in, before anything else (`/consent`, `RequireAuth`). 14 or older (Bulgaria's digital age of consent, GDPR Art. 8) confirms the terms themselves; under 14 needs a parent or guardian to confirm. Stored on the user (`age_group`, `parental_consent`, `consent_version`, `consent_recorded_at`) plus an audit log entry; bumping `CONSENT_VERSION` (`app/services/consent.py`) asks everyone again. Privacy policy and terms updated to match. ⚠️ Have a lawyer read both texts before launch.
+> - **Stripe monthly subscription** (#15) — `app/services/billing.py`, `/plan/upgrade` (Checkout), `/plan/portal`, `/plan/webhook`. The plan only changes on a signature-verified webhook, which re-reads the subscription from Stripe; `premium_until` + a 3-day grace means a missed cancellation cannot leave Premium on forever. Off (402) until the three `STRIPE_*` variables are set — DEPLOYMENT.md → "Premium subscriptions".
+> - **Rate limits shared across instances** (#11) — the per-IP limiter counted in each process's memory, so N warm instances allowed N× the limit and a cold start reset it. Counters now live in `rate_limit_counters` (one atomic upsert per request), with the in-memory counter as a fallback if the database is down.
+> - **Phone → desktop without SSE** (#9) — the SSE stream could only reach a subscriber on the instance that received the upload. Removed; the desktop polls the durable `/mobile/uploads/latest` every 4 s (paused in background tabs), and a grade from the phone now reaches the desktop the same way.
+> - **Entry bundle 1,130 KB → 478 KB** — Settings, the Markdown renderer and the landing page load on demand.
+> - **End-to-end tests** — Playwright (`frontend/e2e/`, `npm run test:e2e`, own CI job): the production build against a production-mode backend on PostgreSQL, desktop and phone — guest sign-in, consent, dashboard, deep links, settings, the sign-in limit.
+> - Bugs found on the way: chat shortcut buttons sent a stale history and then overwrote the conversation; the sign-in page showed axios' English "Request failed with status code 429".
 
 These items block a safe, reliable public launch. Fix before marketing to real schools.
 
@@ -213,9 +224,11 @@ These items block a safe, reliable public launch. Fix before marketing to real s
 8. **Persist NVO generation state** — ✅ Fixed. `nvo.py` now calls `nvo_exam_store.save_job/load_job/save_exam/load_exam`; no more in-memory `GENERATION_JOBS`/`GENERATED_EXAMS` dicts.
 9. **Persist mobile upload/SSE state** — ✅ Fixed (2026-09-19). `upload_history` and `task_contexts` were still module-level dicts, and this was the worst instance of the class: both halves of the pairing flow are requests *from different devices*, so on serverless they were always read from an instance that had never seen the write. The desktop registered an answer key via `POST /mobile/tasks/context`; the phone's `POST /mobile/tasks/grade-photo` landed elsewhere and returned `404 Task context not found`. The phone uploaded a photo; the desktop polled `GET /mobile/uploads/latest` and saw nothing. Phone grading could not have worked in production at all. Both now persist through `app/services/channel_state_store.py` (`record_upload:97`, `save_task_context:194`) into `mobile_upload_records` / `mobile_task_contexts` (migration `b8c9d0e1f2a3`), on the same TTL clock as media retention, with `nvo_exam_store`'s failure policy: reads fall back to the in-process cache, writes log at ERROR rather than throwing away an upload the student already paid a scan credit for. 18 tests in `backend/tests/test_channel_state_store.py` drop the cache between write and read to reproduce the cross-instance case.
 
-   ⚠️ **Still open: SSE fanout across instances.** `stream_subscribers` (`mobile_uploads.py:103`) deliberately stays in memory — an `asyncio.Queue` cannot be serialised and each SSE connection belongs to the one process holding it open. An event published on instance A still never reaches a subscriber on instance B. Correct fanout needs a broker (Redis pub/sub, or the existing realtime server). The clients' `/mobile/uploads/latest` polling is now durable, so the stream is a same-instance fast path rather than the only delivery route — the feature degrades instead of failing.
+   ✅ **SSE fanout across instances — resolved 2026-09-25 by removing the stream.** The desktop now polls the durable `/mobile/uploads/latest` and `/mobile/tasks/contexts` (`watchMobileChannel` in `frontend/src/services/mobileCapture.ts`), which works whichever instance answers. The note below is kept for history.
+
+   ~~Still open: SSE fanout across instances.~~ `stream_subscribers` (`mobile_uploads.py:103`) deliberately stays in memory — an `asyncio.Queue` cannot be serialised and each SSE connection belongs to the one process holding it open. An event published on instance A still never reaches a subscriber on instance B. Correct fanout needs a broker (Redis pub/sub, or the existing realtime server). The clients' `/mobile/uploads/latest` polling is now durable, so the stream is a same-instance fast path rather than the only delivery route — the feature degrades instead of failing.
 10. **External file storage** — ✅ Fixed 2026-09-24 (`app/services/media_storage.py`, Supabase Storage). Needs the bucket + `SUPABASE_*` env vars set on Vercel — see DEPLOYMENT.md → "Photo storage".
-11. **Rate limiter path mismatch** — ✅ Fixed. `ip_rate_limiter.py:20-27` `_GUARDED_PREFIXES` now matches real mount points (`/ai/`, `/nvo/`, `/mobile/`, `/curriculum/lessons/`, `/exercises/`).
+11. **Rate limiter path mismatch** — ✅ Fixed. `ip_rate_limiter.py:20-27` `_GUARDED_PREFIXES` now matches real mount points (`/ai/`, `/nvo/`, `/mobile/`, `/curriculum/lessons/`, `/exercises/`). Since 2026-09-25 the counters are shared through the database (`rate_limit_counters`) instead of per process.
 
 ### P0 — Database
 
@@ -225,7 +238,7 @@ These items block a safe, reliable public launch. Fix before marketing to real s
 
 ### P1 — Payments & accounts
 
-15. **Stripe integration** — ⚠️ Still open (by design). `backend/app/routers/plan.py:42-58` `POST /plan/upgrade` now deliberately returns `402` with a Bulgarian "not yet active" message instead of granting premium — safe, but Stripe still needs to be built.
+15. **Stripe integration** — ✅ Built 2026-09-25 (monthly subscription via Stripe Checkout; see the update block above). `POST /plan/upgrade` still answers `402` until `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` and `STRIPE_PRICE_ID` are set.
 16. **Decide on email auth** — ❓ Not reverified this pass.
 
 ### P1 — Deployment wiring
@@ -350,10 +363,10 @@ they return they should return on the cheap tier with caching.
 **Goal:** Multiple schools, teacher visibility, reliability under load.
 
 - [ ] Teacher/admin dashboard (class progress, assign missions)
-- [ ] Redis for rate limiting + NVO job queue (replace in-memory)
-- [ ] CDN/object storage for uploads
-- [ ] Comprehensive test suite (pytest + Playwright)
-- [ ] CI: lint, test, preview deploys on PR
+- [x] Shared rate limiting (database counters, 2026-09-25 — Redis not needed at this scale); NVO jobs already persist in the database
+- [x] Object storage for uploads (Supabase Storage, 2026-09-24)
+- [x] Comprehensive test suite (pytest + Vitest + Playwright)
+- [x] CI: lint, test, preview deploys on PR
 - [ ] Performance: dashboard cache invalidation strategy, API pagination
 - [ ] Accessibility audit (WCAG basics for student UI)
 - [ ] Offline / PWA consideration for rural/low-bandwidth students
@@ -502,7 +515,7 @@ than the `gpt-4o` currently doing our vision work.
 
 ## 10. Testing Strategy
 
-**Current state (2026-09-24):** ~1,925 backend tests (pytest, incl. PostgreSQL migration tests), 60+ frontend tests (Vitest), 39 realtime-server tests, all run by GitHub Actions on every PR. Still missing: end-to-end (Playwright) coverage of the login → exam → XP flow.
+**Current state (2026-09-25):** ~1,975 backend tests (pytest, incl. PostgreSQL migration, billing-webhook and rate-limiter tests), 80+ frontend tests (Vitest), 39 realtime-server tests, and a Playwright end-to-end suite (guest sign-in → consent → dashboard, on desktop and phone, production build against PostgreSQL) — all run by GitHub Actions on every PR. Still missing from E2E: the exercise → XP and NVO exam flows, which need the OpenAI calls stubbed.
 
 ### Recommended minimum before production
 
@@ -551,15 +564,15 @@ than the `gpt-4o` currently doing our vision work.
 ### Beta launch (Phase 1 complete)
 
 - [ ] 10+ pilot students complete full NVO practice exam without data loss
-- [ ] No unauthenticated access to admin endpoints
-- [ ] All secrets in environment variables
+- [x] No unauthenticated access to admin endpoints
+- [x] All secrets in environment variables
 - [ ] PostgreSQL is single source of truth for users, progress, curriculum
 - [ ] Error rate < 5% on core flows (login, exercise submit, NVO generate)
-- [ ] Privacy policy and terms linked from login
+- [x] Privacy policy and terms linked from login
 
 ### Public launch (Phase 2 complete)
 
-- [ ] Stripe payments working; free tier limits enforced server-side
+- [ ] Stripe payments working (built; needs live keys, a price and the webhook — DEPLOYMENT.md); free tier limits enforced server-side ✅
 - [ ] NVO history persisted server-side
 - [ ] Realtime pairing available in production
 - [ ] Monitoring alerts on API 5xx errors
@@ -570,8 +583,8 @@ than the `gpt-4o` currently doing our vision work.
 
 - [ ] Teacher can view class aggregate progress
 - [ ] 99% uptime over 30 days
-- [ ] Automated test suite runs on every PR
-- [ ] GDPR-compliant data export/delete for student accounts
+- [x] Automated test suite runs on every PR
+- [x] GDPR-compliant data export/delete for student accounts (Settings → "Моите данни")
 
 ---
 

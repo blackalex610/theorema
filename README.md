@@ -161,6 +161,16 @@ JWT sessions (7 days, HS256), created by either:
 
 There is no email/password login.
 
+After the first sign-in every account answers one question before anything
+else: 14 or older confirms the terms themselves, under 14 needs a parent or
+guardian to confirm (`/consent`). The answer is stored with the account.
+
+## 💳 Premium
+
+A monthly Stripe subscription (Checkout + customer portal). The plan changes
+only on Stripe's signed webhook. Billing stays off until the `STRIPE_*`
+variables are set — see `DEPLOYMENT.md` → "Premium subscriptions".
+
 ## 📊 Database Models
 
 Key entities:
@@ -175,11 +185,16 @@ Key entities:
 ```bash
 cd backend && python -m pytest -q          # ~1,900 tests; TEST_POSTGRES_URL=... adds the PostgreSQL migration tests
 cd frontend && npm run lint && npm test && npm run build
+cd frontend && npm run test:e2e                # Playwright; starts the backend and the production build itself
 cd realtime-server && npm test
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) runs all three on every pull request,
-the backend against a real PostgreSQL 16.
+`test:e2e` needs Python with `backend/requirements.txt` installed (point
+`E2E_PYTHON` at it if that isn't `python3`) and a Chromium from
+`npx playwright install chromium`.
+
+GitHub Actions (`.github/workflows/ci.yml`) runs all four on every pull request,
+the backend and the end-to-end suite against a real PostgreSQL 16.
 
 ## 🗄️ Database migrations
 
