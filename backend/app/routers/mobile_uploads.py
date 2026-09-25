@@ -22,8 +22,7 @@ from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/mobile", tags=["Mobile Uploads"])
 
-UPLOAD_DIR = Path(__file__).resolve().parent.parent / "uploads"
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+from app.services.upload_storage import UPLOAD_DIR, ensure_upload_dir
 
 MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
 # Simplified: all uploads are treated as JPG since frontend converts everything
@@ -324,6 +323,7 @@ async def upload_mobile_photo(
     purge_expired_uploads()
 
     filename = f"{uuid4().hex}{ext}"
+    ensure_upload_dir()
     target_path = UPLOAD_DIR / filename
     target_path.write_bytes(data)
 

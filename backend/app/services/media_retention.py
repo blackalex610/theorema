@@ -26,7 +26,7 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 # Same directory mobile_uploads.py writes to and main.py serves from.
-UPLOAD_DIR = Path(__file__).resolve().parent.parent / "uploads"
+from app.services.upload_storage import UPLOAD_DIR
 
 
 def purge_expired_uploads(max_age_hours: int | None = None) -> int:
