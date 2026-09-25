@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useEffectEvent, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import 'katex/dist/katex.min.css';
 import { getAIExercises, submitAnswer, type Exercise, type ExerciseSubmissionResponse } from '../services/curriculum';
@@ -74,8 +74,14 @@ const ExercisesPage: React.FC = () => {
     }
   };
 
+  // Load once per lesson — not again whenever the plan status (which
+  // loadExercises reads for the upgrade prompt) arrives or changes.
+  const loadLessonExercises = useEffectEvent(() => {
+    void loadExercises();
+  });
+
   useEffect(() => {
-    loadExercises();
+    loadLessonExercises();
   }, [lessonId]);
 
   const latexToPlainAnswer = (input: string): string => {
