@@ -1,18 +1,25 @@
 """
-Per-IP sliding-window rate limiter for AI-heavy endpoints.
+Per-IP rate limiter for AI-heavy endpoints.
 
 Strategy:
-- In-memory dict: ip -> deque of UTC timestamps
-- Sliding window per bucket
+- Counts live in the database (rate_limit_counters), one row per bucket per
+  fixed window, bumped with a single atomic upsert. They used to live in a
+  dict in each process, and on Vercel every serverless instance has its own
+  process, so a burst spread over instances was never limited at all.
+- If the database can't be reached, the old in-process sliding window takes
+  over for that request: a limiter outage must not become an API outage.
 - Applied to routes that cost money (AI, NVO, uploads, theory generation)
-- Trusted proxies: reads X-Forwarded-For if set
-- No Redis required — resets on server restart (acceptable for MVP)
+- Trusted proxies: reads X-Forwarded-For if set (Vercel overwrites it)
 """
+import logging
+import random
 import time
 from collections import defaultdict, deque
 from typing import Deque, Dict
 
 from fastapi import Request, Response
+from fastapi.concurrency import run_in_threadpool
+from sqlalchemy import text
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -53,8 +60,51 @@ MAX_REQUESTS_PER_WINDOW = 60
 STRICT_WINDOW_SECONDS = 60
 STRICT_MAX_REQUESTS_PER_WINDOW = 15
 
-# Global in-memory store  {bucket_key: deque[timestamp_float]}
+# Fallback store when the database is unreachable {bucket_key: deque[timestamp]}
 _buckets: Dict[str, Deque[float]] = defaultdict(deque)
+
+logger = logging.getLogger(__name__)
+
+# One statement on both PostgreSQL and SQLite (3.35+): create the window's
+# row or bump it, and read the new count back atomically.
+_UPSERT = text(
+    "INSERT INTO rate_limit_counters (bucket, window_start, hits) "
+    "VALUES (:bucket, :window_start, 1) "
+    "ON CONFLICT (bucket, window_start) DO UPDATE "
+    "SET hits = rate_limit_counters.hits + 1 "
+    "RETURNING hits"
+)
+_PRUNE = text("DELETE FROM rate_limit_counters WHERE window_start < :cutoff")
+# Rows only matter for their own window; clear old ones now and then.
+_PRUNE_PROBABILITY = 0.01
+_PRUNE_AGE_SECONDS = 3600
+
+
+def _epoch() -> int:
+    return int(time.time())
+
+
+def _hit_shared(bucket: str, window_seconds: int) -> tuple[int, int]:
+    """Count one hit in the current window. Returns (hits, seconds left)."""
+    from app.database import engine
+
+    now = _epoch()
+    window_start = now - now % window_seconds
+    with engine.begin() as conn:
+        hits = conn.execute(_UPSERT, {"bucket": bucket, "window_start": window_start}).scalar_one()
+        if random.random() < _PRUNE_PROBABILITY:
+            conn.execute(_PRUNE, {"cutoff": now - _PRUNE_AGE_SECONDS})
+    return int(hits), max(1, window_start + window_seconds - now)
+
+
+def _hit_local(bucket: str, window_seconds: int) -> tuple[int, int]:
+    """In-process sliding window: the fallback when the database is down."""
+    now = time.monotonic()
+    queue = _buckets[bucket]
+    while queue and queue[0] < now - window_seconds:
+        queue.popleft()
+    queue.append(now)
+    return len(queue), int(window_seconds - (now - queue[0])) + 1
 
 
 def _get_client_ip(request: Request) -> str:
@@ -93,7 +143,9 @@ class IPRateLimiterMiddleware(BaseHTTPMiddleware):
         if not _is_guarded(path):
             return await call_next(request)
 
-        ip = _get_client_ip(request)
+        # Capped: the header is caller-supplied wherever a proxy doesn't
+        # overwrite it, and this becomes part of a database key.
+        ip = _get_client_ip(request)[:64]
         if path in _EXACT_PATH_TIERS:
             window_seconds, max_requests = _EXACT_PATH_TIERS[path]
             bucket_key = f"{ip}:{path}"
@@ -106,18 +158,13 @@ class IPRateLimiterMiddleware(BaseHTTPMiddleware):
             window_seconds = WINDOW_SECONDS
             max_requests = MAX_REQUESTS_PER_WINDOW
 
-        now = time.monotonic()
-        window_start = now - window_seconds
+        try:
+            hits, retry_after = await run_in_threadpool(_hit_shared, bucket_key, window_seconds)
+        except Exception:
+            logger.warning("Shared rate limiter unavailable; using this process's counts", exc_info=True)
+            hits, retry_after = _hit_local(bucket_key, window_seconds)
 
-        bucket = _buckets[bucket_key]
-
-        while bucket and bucket[0] < window_start:
-            bucket.popleft()
-
-        if len(bucket) >= max_requests:
-            oldest = bucket[0]
-            retry_after = int(window_seconds - (now - oldest)) + 1
+        if hits > max_requests:
             return _rate_limit_response(retry_after)
 
-        bucket.append(now)
         return await call_next(request)
