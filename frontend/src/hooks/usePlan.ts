@@ -7,10 +7,27 @@ export interface UsageCounter {
   remaining: number;
 }
 
+export interface BillingPrice {
+  /** In the currency's minor unit (cents), as Stripe reports it. */
+  amount: number | null;
+  currency: string | null;
+  interval: string | null;
+}
+
+export interface BillingInfo {
+  enabled: boolean;
+  can_subscribe: boolean;
+  can_manage: boolean;
+  price: BillingPrice | null;
+  premium_until: string | null;
+  status: string | null;
+}
+
 export interface PlanStatus {
   plan: 'free' | 'premium';
   is_premium: boolean;
   days_since_signup: number;
+  billing?: BillingInfo;
   usage: {
     ai_exercises: UsageCounter;
     ai_chat: UsageCounter;
@@ -19,6 +36,8 @@ export interface PlanStatus {
     image_scans: UsageCounter;
   };
 }
+
+export const PLAN_CHANGED_EVENT = 'plan:changed';
 
 const DEFAULT_STATUS: PlanStatus = {
   plan: 'free',
@@ -53,12 +72,25 @@ export function usePlan() {
 
   useEffect(() => {
     refresh();
+    // Several components each hold their own copy; when one learns the plan
+    // changed (e.g. returning from Stripe Checkout) they all re-read it.
+    const onChanged = () => void refresh();
+    window.addEventListener(PLAN_CHANGED_EVENT, onChanged);
+    return () => window.removeEventListener(PLAN_CHANGED_EVENT, onChanged);
   }, [refresh]);
 
+  /** Opens Stripe Checkout. The plan changes only once Stripe's webhook
+   *  confirms payment; the browser then returns to /dashboard?upgrade=success. */
   const upgrade = async () => {
-    await apiClient.post('/plan/upgrade');
-    await refresh();
+    const { data } = await apiClient.post<{ checkout_url: string }>('/plan/upgrade');
+    window.location.assign(data.checkout_url);
   };
 
-  return { status, loading, refresh, upgrade };
+  /** Stripe's customer portal: card, invoices, cancellation. */
+  const manageSubscription = async () => {
+    const { data } = await apiClient.post<{ portal_url: string }>('/plan/portal');
+    window.location.assign(data.portal_url);
+  };
+
+  return { status, loading, refresh, upgrade, manageSubscription };
 }

@@ -92,6 +92,39 @@ Supabase Storage bucket (`backend/app/services/media_storage.py`):
 Local development needs none of this: with no Supabase settings, photos are
 stored in `backend/app/uploads/` (git-ignored).
 
+## Premium subscriptions (Stripe)
+
+Premium is a monthly Stripe subscription (`backend/app/services/billing.py`).
+Until all three `STRIPE_*` variables are set, the upgrade button explains that
+payments aren't switched on and `/plan/upgrade` answers 402.
+
+1. **Price.** Stripe dashboard → Product catalogue → add a product ("Smart NVO
+   Premium") with a **recurring, monthly** price in EUR. Copy its `price_…` id
+   into `STRIPE_PRICE_ID`. The upgrade card reads the amount from Stripe, so
+   changing the price there changes it in the app.
+2. **Secret key.** Developers → API keys → the secret key into
+   `STRIPE_SECRET_KEY`. Start with the test-mode key (`sk_test_…`).
+3. **Webhook.** Developers → Webhooks → add endpoint
+   `https://<your-domain>/_/backend/plan/webhook` with the events
+   `checkout.session.completed`, `customer.subscription.created`,
+   `customer.subscription.updated` and `customer.subscription.deleted`. Copy
+   its signing secret (`whsec_…`) into `STRIPE_WEBHOOK_SECRET`. The plan only
+   ever changes here, after the signature checks out.
+4. **Customer portal.** Settings → Billing → Customer portal: activate it and
+   allow cancelling and updating the payment method. "Управление на
+   абонамента" in the app opens it.
+5. **`APP_URL`** = the site's public address (e.g. `https://smartnvo.vercel.app`),
+   where Stripe sends the browser back after paying.
+6. Redeploy, then buy Premium with test card `4242 4242 4242 4242` (any future
+   date, any CVC). The dashboard should say "Premium е активен" within a few
+   seconds. When that works, repeat steps 2–3 with the live-mode key and a
+   live webhook.
+
+Guests can't subscribe (they are asked to sign in with Google first), so a
+subscription is never tied to a session that can be lost. A failed renewal
+keeps Premium while Stripe retries; `premium_until` plus a 3-day grace period
+switches it off even if a cancellation webhook were missed.
+
 ## Database migrations
 
 Alembic owns the schema. On its first request after a cold start the backend
@@ -226,6 +259,12 @@ OPENAI_MAX_RETRIES=1
 # Optional OpenAI-compatible endpoint, e.g. https://openrouter.ai/api/v1
 OPENAI_BASE_URL=
 OPENAI_VISION_MODEL=gpt-4o
+
+# Premium subscriptions — see "Premium subscriptions (Stripe)" above
+STRIPE_SECRET_KEY=sk_live_or_test_key
+STRIPE_WEBHOOK_SECRET=whsec_signing_secret
+STRIPE_PRICE_ID=price_monthly_id
+APP_URL=https://your-deployment-url
 
 # Error monitoring (optional — omit to leave Sentry disabled entirely)
 SENTRY_DSN=

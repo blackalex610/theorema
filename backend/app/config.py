@@ -97,6 +97,17 @@ class Settings(BaseSettings):
     SUPABASE_SERVICE_ROLE_KEY: str = ""
     SUPABASE_STORAGE_BUCKET: str = "homework-photos"
 
+    # Premium subscriptions (app/services/billing.py). Billing stays off —
+    # /plan/upgrade answers 402 — until all three Stripe values are set.
+    STRIPE_SECRET_KEY: str = ""
+    STRIPE_WEBHOOK_SECRET: str = ""
+    # The monthly recurring Price in the Stripe dashboard (price_...).
+    STRIPE_PRICE_ID: str = ""
+    # Public origin of the frontend, for Stripe's return links, e.g.
+    # https://smartnvo.vercel.app. Empty: the caller's own origin is used
+    # when it is this site or an allowed CORS origin.
+    APP_URL: str = ""
+
     # Error monitoring (Sentry). Empty by default: analytics/bug-report/
     # feedback/error-log storage works independently via event_logs (see
     # app/services/event_log_store.py) — Sentry adds real-time alerting and

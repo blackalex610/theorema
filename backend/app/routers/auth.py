@@ -17,6 +17,7 @@ from app.config import settings
 from app.database import get_db
 from app.models.user import User
 from app.auth.dependencies import get_current_user, get_optional_user, require_admin, FREE_LIMITS
+from app.services.billing import is_premium
 from app.services.consent import CONSENT_VERSION, consent_required
 from app.services.event_log_store import append_log
 from app.services.guest_cleanup import purge_stale_guests
@@ -92,7 +93,7 @@ def _user_payload(user: User) -> dict:
         "email": user.email,
         "name": user.name,
         "picture": user.picture,
-        "plan": user.plan,
+        "plan": "premium" if is_premium(user) else "free",
         "is_guest": user.is_guest,
         **_consent_fields(user),
     }
@@ -274,13 +275,13 @@ async def link_google(
 @router.get("/me")
 async def get_me(current_user: User = Depends(get_current_user)):
     """Return current user info + plan status."""
-    limits = FREE_LIMITS if current_user.plan == "free" else {k: 999_999 for k in FREE_LIMITS}
+    limits = {k: 999_999 for k in FREE_LIMITS} if is_premium(current_user) else FREE_LIMITS
     return {
         "id": current_user.id,
         "email": current_user.email,
         "name": current_user.name,
         "picture": current_user.picture,
-        "plan": current_user.plan,
+        "plan": "premium" if is_premium(current_user) else "free",
         "is_guest": current_user.is_guest,
         **_consent_fields(current_user),
         "usage": {

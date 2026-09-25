@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import CheckoutReturnBanner from '../components/CheckoutReturnBanner';
 import { useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import {
@@ -159,6 +160,7 @@ const DashboardPage: React.FC = () => {
       <AppNavbar showBack={false} />
 
       <PageShell>
+        <CheckoutReturnBanner />
         <PageHeader
           title={`Здравей, ${firstName}`}
           description={

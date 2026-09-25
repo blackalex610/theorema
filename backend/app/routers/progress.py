@@ -464,8 +464,11 @@ async def get_user_limits(
     
     from app.auth.dependencies import FREE_LIMITS, PREMIUM_LIMITS
     
-    plan_value = str(cast(str | None, user.plan) or "free")
-    limits = PREMIUM_LIMITS if plan_value == "premium" else FREE_LIMITS
+    from app.services.billing import is_premium
+
+    premium = is_premium(user)
+    plan_value = "premium" if premium else "free"
+    limits = PREMIUM_LIMITS if premium else FREE_LIMITS
     ai_exercises_used = int(cast(int | None, user.ai_exercises_today) or 0)
     ai_chat_used = int(cast(int | None, user.ai_chat_today) or 0)
     nvo_exams_used = int(cast(int | None, user.nvo_exams_today) or 0)
@@ -500,8 +503,8 @@ async def get_user_limits(
         image_scans_used_today=image_scans_used,
 
         # Premium info
-        is_premium=plan_value == "premium",
-        can_upgrade=plan_value == "free",
+        is_premium=premium,
+        can_upgrade=not premium,
         days_until_reset=days_until_reset,
     )
 

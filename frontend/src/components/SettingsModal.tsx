@@ -5,11 +5,13 @@ import SettingsConnectionPanel from './SettingsConnectionPanel';
 import MyDataSection from './MyDataSection';
 import ThemeSwitch from './ThemeSwitch';
 import { usePlan } from '../hooks/usePlan';
+import { apiErrorMessage } from '../services/api';
+import { formatPrice } from '../utils/price';
 import { useDeveloperMode, DevOnly } from '../context/DeveloperModeContext';
 
 const SettingsModal: React.FC = () => {
   const { isSettingsOpen, closeSettings } = useSettings();
-  const { status: planStatus, upgrade, refresh } = usePlan();
+  const { status: planStatus, upgrade, manageSubscription, refresh } = usePlan();
   const [isUpgrading, setIsUpgrading] = React.useState(false);
   const [upgradeError, setUpgradeError] = React.useState<string | null>(null);
   const premiumSectionRef = React.useRef<HTMLDivElement | null>(null);
@@ -42,26 +44,27 @@ const SettingsModal: React.FC = () => {
     premiumSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [isSettingsOpen]);
 
-  const handleUpgrade = async () => {
+  const billing = planStatus.billing;
+  const priceLabel = formatPrice(billing?.price);
+  const premiumUntilLabel = billing?.premium_until
+    ? new Date(billing.premium_until).toLocaleDateString('bg-BG')
+    : null;
+
+  const runBillingAction = async (action: () => Promise<void>) => {
     setIsUpgrading(true);
     setUpgradeError(null);
     try {
-      await upgrade();
-      await refresh();
+      // Navigates away to Stripe on success, so there is nothing after this.
+      await action();
     } catch (error) {
-      // /plan/upgrade no longer grants premium without a verified payment, so
-      // it answers 402 until a provider is wired up. Show that instead of
-      // letting the rejection escape and leaving the button silently dead.
-      const detail = (error as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
-      setUpgradeError(
-        typeof detail === 'string'
-          ? detail
-          : 'Премиум ъпгрейдът все още не е активен.'
-      );
-    } finally {
+      setUpgradeError(apiErrorMessage(error, 'Плащането временно не е достъпно. Опитай пак след малко.'));
+      await refresh();
       setIsUpgrading(false);
     }
   };
+
+  const handleUpgrade = () => runBillingAction(upgrade);
+  const handleManage = () => runBillingAction(manageSubscription);
 
   if (!isSettingsOpen) return null;
 
@@ -163,41 +166,49 @@ const SettingsModal: React.FC = () => {
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
-                    <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Monthly</p>
-                    <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">$4.99<span className="text-sm font-medium text-slate-500">/month</span></p>
-                    <ul className="mt-3 space-y-1 text-xs text-slate-600 dark:text-slate-300">
-                      <li>• Unlimited AI tasks</li>
-                      <li>• Unlimited AI chat</li>
-                      <li>• Unlimited NVO exams</li>
-                      <li>• Unlimited image scans</li>
-                    </ul>
-                  </div>
-                  <div className="rounded-2xl border border-blue-300 bg-blue-50 p-4 dark:border-blue-700 dark:bg-blue-900/20">
-                    <p className="text-xs font-bold uppercase tracking-widest text-blue-600">Yearly</p>
-                    <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">$39.99<span className="text-sm font-medium text-slate-500">/year</span></p>
-                    <p className="mt-2 inline-block rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-bold text-white">Save 33%</p>
-                    <ul className="mt-3 space-y-1 text-xs text-slate-600 dark:text-slate-300">
-                      <li>• Everything in monthly</li>
-                      <li>• Best value for exam prep</li>
-                    </ul>
-                  </div>
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
+                  <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Месечен абонамент</p>
+                  {priceLabel && (
+                    <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">{priceLabel}</p>
+                  )}
+                  <ul className="mt-3 space-y-1 text-xs text-slate-600 dark:text-slate-300">
+                    <li>• Неограничени AI задачи и чат</li>
+                    <li>• Неограничени пробни НВО изпити</li>
+                    <li>• Неограничена проверка на снимки</li>
+                    <li>• Спираш по всяко време</li>
+                  </ul>
                 </div>
 
-                {!planStatus.is_premium ? (
+                {billing?.can_manage && (
+                  <button
+                    type="button"
+                    onClick={handleManage}
+                    disabled={isUpgrading}
+                    className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-70 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                  >
+                    Управление на абонамента
+                  </button>
+                )}
+
+                {planStatus.is_premium ? (
+                  <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300">
+                    Premium е активен{premiumUntilLabel ? ` до ${premiumUntilLabel}` : ''}.
+                  </div>
+                ) : billing?.can_subscribe ? (
                   <button
                     type="button"
                     onClick={handleUpgrade}
                     disabled={isUpgrading}
                     className="w-full rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-3 text-sm font-bold text-white shadow-sm transition-all hover:from-amber-600 hover:to-orange-600 disabled:cursor-not-allowed disabled:opacity-70"
                   >
-                    {isUpgrading ? 'Upgrading...' : '⚡ Buy Premium'}
+                    {isUpgrading ? 'Момент…' : '⚡ Купи Premium'}
                   </button>
                 ) : (
-                  <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300">
-                    Premium is active. Enjoy unlimited access.
-                  </div>
+                  <p className="rounded-xl border border-slate-200 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:text-slate-300">
+                    {billing?.enabled
+                      ? 'Влез с Google, за да купиш Premium — така абонаментът остава към твоя профил.'
+                      : 'Плащанията все още не са включени.'}
+                  </p>
                 )}
 
                 {upgradeError && (
@@ -206,9 +217,11 @@ const SettingsModal: React.FC = () => {
                   </p>
                 )}
 
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Payment provider is not connected yet, so upgrading is disabled. The endpoint no longer grants premium without a verified payment.
-                </p>
+                {billing?.enabled && (
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Плащането се обработва от Stripe. Не пазим данни за картата ти.
+                  </p>
+                )}
               </div>
             </SettingsSection>
           </div>

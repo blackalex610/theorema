@@ -143,7 +143,7 @@ def test_self_service_upgrade_cannot_grant_premium(db, make_user):
 
     user = make_user()
     with pytest.raises(HTTPException) as exc:
-        asyncio.run(upgrade_plan(current_user=user, db=db))
+        asyncio.run(upgrade_plan(request=None, current_user=user, db=db))
 
     assert exc.value.status_code == 402
     db.refresh(user)

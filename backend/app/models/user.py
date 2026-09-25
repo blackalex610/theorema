@@ -43,4 +43,11 @@ class User(Base):
     consent_version = Column(String(32), nullable=True)     # documents' version consented to
     consent_recorded_at = Column(DateTime, nullable=True)
 
+    # Stripe subscription (app/services/billing.py). Written only from
+    # verified webhooks; premium_until is the paid-through date.
+    stripe_customer_id = Column(String(64), unique=True, index=True, nullable=True)
+    stripe_subscription_id = Column(String(64), nullable=True)
+    subscription_status = Column(String(32), nullable=True)
+    premium_until = Column(DateTime, nullable=True)
+
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
