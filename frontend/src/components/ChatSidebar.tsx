@@ -1,10 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { Suspense, lazy, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { sendChatMessage, type ChatMessage } from '../services/ai';
-import ReactMarkdown, { type Components } from 'react-markdown';
-import { isBlockCode } from '../utils/markdown';
-import remarkGfm from 'remark-gfm';
 import UpgradePrompt from './UpgradePrompt';
+
+// react-markdown and its parser are ~350 KB before minification; loaded only
+// once a message is on screen instead of in every page's entry bundle.
+const ChatMarkdown = lazy(() => import('./ChatMarkdown'));
 import { apiErrorDetail, getLimitErrorDetail } from '../services/api';
 import { usePlan } from '../hooks/usePlan';
 import { usePlanPrompt } from '../hooks/usePlanPrompt';
@@ -17,24 +18,6 @@ interface ChatSidebarProps {
   onClose: () => void;
 }
 
-const markdownComponents: Components = {
-  p: ({ children }) => <p className="mb-1 last:mb-0">{children}</p>,
-  ul: ({ children }) => <ul className="list-disc pl-4 space-y-1">{children}</ul>,
-  ol: ({ children }) => <ol className="list-decimal pl-4 space-y-1">{children}</ol>,
-  li: ({ children }) => <li className="leading-relaxed">{children}</li>,
-  a: ({ children, href }) => (
-    <a href={href} target="_blank" rel="noreferrer" className="underline underline-offset-2">
-      {children}
-    </a>
-  ),
-  pre: ({ children }) => <pre className="rounded-lg bg-black/10 p-2.5 overflow-x-auto text-xs">{children}</pre>,
-  code({ node: _node, className, children, ...props }) {
-    if (isBlockCode(className, children)) {
-      return <code className={className} {...props}>{children}</code>;
-    }
-    return <code className="rounded bg-black/10 px-1 py-0.5 text-[0.92em]" {...props}>{children}</code>;
-  },
-};
 
 const ChatSidebar: React.FC<ChatSidebarProps> = ({ isOpen, onOpen, onClose }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -315,9 +298,9 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({ isOpen, onOpen, onClose }) =>
                         : 'bg-blue-600 text-white ml-8'
                     }`}
                   >
-                    <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-                      {msg.content}
-                    </ReactMarkdown>
+                    <Suspense fallback={msg.content}>
+                      <ChatMarkdown content={msg.content} />
+                    </Suspense>
                   </div>
                 </div>
               ))}
@@ -449,9 +432,9 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({ isOpen, onOpen, onClose }) =>
                     : 'bg-blue-600 text-white ml-8'
                 }`}
               >
-                <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-                  {msg.content}
-                </ReactMarkdown>
+                <Suspense fallback={msg.content}>
+                  <ChatMarkdown content={msg.content} />
+                </Suspense>
               </div>
             </div>
           ))}
