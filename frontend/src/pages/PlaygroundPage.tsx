@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { generateChannelId, isStrongChannelId } from '../utils/channelId';
 import { renderMathText } from '../components/MathRenderer';
 import { sendChatMessage } from '../services/ai';
-import { getLatestMobileUploads, setTaskContext, subscribeToMobileUploads, clearChannelHistory, type TaskGradeResult } from '../services/mobileCapture';
+import { getLatestMobileUploads, setTaskContext, watchMobileChannel, clearChannelHistory, type TaskGradeResult } from '../services/mobileCapture';
 import AppNavbar from '../components/AppNavbar';
 import { ParallelogramABCDDiagram, type ParallelogramABCDConfig } from '../components/NvoDiagrams';
 
@@ -3266,14 +3266,12 @@ const PlaygroundPage: React.FC = () => {
   };
 
   useEffect(() => {
-    const source = subscribeToMobileUploads(
-      taskUploadChannelId,
-      (upload) => {
+    const stop = watchMobileChannel(taskUploadChannelId, {
+      onUpload: (upload) => {
         if (upload.problem_number === 34) setTask34LastUploadUrl(upload.file_url);
         else if (upload.problem_number === 35) setTask35LastUploadUrl(upload.file_url);
       },
-      undefined,
-      (grade) => {
+      onGrade: (grade) => {
         if (grade.problem_number === 34) {
           if (grade.file_url) setTask34LastUploadUrl(grade.file_url);
           setTask34PhoneGrade(grade);
@@ -3292,12 +3290,10 @@ const PlaygroundPage: React.FC = () => {
             message: `${grade.feedback}\n\nОценка: ${grade.score}/100 (от телефон).`,
           });
         }
-      }
-    );
+      },
+    });
 
-    return () => {
-      source.close();
-    };
+    return stop;
   }, [taskUploadChannelId]);
 
   useEffect(() => {

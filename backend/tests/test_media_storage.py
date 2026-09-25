@@ -382,3 +382,45 @@ def test_the_daily_limit_still_applies(local_storage, db):
     res = _upload(headers)
     assert res.status_code == 429, "the free plan's two scans a day"
     assert _scans_used(db, user_id) == 2
+
+
+# ─── The desktop polls; grades are stored where it will find them ────────────
+
+def test_a_photo_grade_is_kept_on_the_task_for_the_desktop_to_poll(local_storage, monkeypatch):
+    """Grades used to exist only as SSE events, held in one process's memory:
+    on serverless a desktop on another instance never saw them."""
+    from app.routers import mobile_uploads
+
+    monkeypatch.setattr(mobile_uploads, "_grade_photo_with_ai", lambda *a: (True, "x=1", "Вярно!"))
+    headers = _session()
+    channel = "channel_poll_grade_01"
+    context = {"channel_id": channel, "problem_number": 34, "a": 1, "b": 2, "correct_xy": "x=1", "updated_at": "now"}
+    assert client.post("/mobile/tasks/context", headers=headers, json=context).status_code == 200
+    uploaded = _upload(headers, channel=channel).json()
+
+    graded = client.post(
+        "/mobile/tasks/grade-photo",
+        headers=headers,
+        json={"channel_id": channel, "problem_number": 34, "file_name": uploaded["file_name"]},
+    )
+    assert graded.status_code == 200, graded.text
+
+    contexts = client.get("/mobile/tasks/contexts", headers=headers, params={"channel_id": channel}).json()
+    assert contexts[0]["last_grade"]["is_correct"] is True
+    assert contexts[0]["last_grade"]["feedback"] == "Вярно!"
+    channel_state_store.clear_uploads(channel)
+
+
+def test_registering_a_task_again_clears_its_old_grade(local_storage):
+    headers = _session()
+    context = {"channel_id": "channel_poll_grade_02", "problem_number": 35, "a": 1, "b": 2,
+               "correct_xy": "x=2", "updated_at": "now"}
+    client.post("/mobile/tasks/context", headers=headers, json=context)
+    contexts = client.get("/mobile/tasks/contexts", headers=headers,
+                          params={"channel_id": "channel_poll_grade_02"}).json()
+    assert contexts[0]["last_grade"] is None
+
+
+def test_the_sse_stream_is_gone():
+    """It was the last channel route that needed nothing but the channel id."""
+    assert client.get("/mobile/uploads/stream", params={"channel_id": "channel_test_01"}).status_code == 404

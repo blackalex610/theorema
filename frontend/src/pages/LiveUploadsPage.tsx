@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { generateChannelId, isStrongChannelId } from '../utils/channelId';
-import { getLatestMobileUploads, subscribeToMobileUploads, type UploadEvent } from '../services/mobileCapture';
+import { getLatestMobileUploads, watchMobileChannel, type UploadEvent } from '../services/mobileCapture';
 import { SkeletonCard, Bone } from '../components/Skeleton';
 
 const CHANNEL_STORAGE_KEY = 'mobile_upload_channel_v1';
@@ -54,25 +54,19 @@ const LiveUploadsPage: React.FC = () => {
 
     void init();
 
-    const source = subscribeToMobileUploads(
-      channelId,
-      (event) => {
-        setStatus('live');
+    const stop = watchMobileChannel(channelId, {
+      onUpload: (event) => {
         setUploads((prev) => {
           if (prev.some((u) => u.file_name === event.file_name)) return prev;
           return [event, ...prev].slice(0, 50);
         });
       },
-      () => {
-        setStatus('error');
-      }
-    );
-
-    source.onopen = () => setStatus('live');
+      onStatus: setStatus,
+    });
 
     return () => {
       mounted = false;
-      source.close();
+      stop();
     };
   }, [channelId]);
 

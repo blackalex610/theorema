@@ -1,10 +1,8 @@
-import asyncio
 import base64
 import json
 import logging
 import re
 from datetime import datetime, timezone
-from collections import defaultdict
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -12,7 +10,6 @@ from uuid import uuid4
 from fastapi import APIRouter, File, Form, HTTPException, Query, Request, UploadFile, Depends
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
-from starlette.responses import StreamingResponse
 from app.config import settings
 from app.services.openai_client import openai_client
 from openai import APIError
@@ -107,16 +104,6 @@ class TaskGradeRequest(BaseModel):
     photo_url: str | None = None
 
 
-class TaskContext(BaseModel):
-    channel_id: str
-    problem_number: int
-    a: int
-    b: int
-    correct_xy: str
-    updated_at: str
-    statement: str | None = None
-
-
 class TaskGradeResponse(BaseModel):
     channel_id: str
     problem_number: int
@@ -126,6 +113,19 @@ class TaskGradeResponse(BaseModel):
     feedback: str
     graded_at: str
     file_url: str | None = None
+
+
+class TaskContext(BaseModel):
+    channel_id: str
+    problem_number: int
+    a: int
+    b: int
+    correct_xy: str
+    updated_at: str
+    statement: str | None = None
+    # The latest grade for this problem, so the desktop can pick it up by
+    # polling /tasks/contexts (see _store_grade).
+    last_grade: TaskGradeResponse | None = None
 
 
 class TaskPhotoGradeRequest(BaseModel):
@@ -143,14 +143,12 @@ UPLOAD_HISTORY_LIMIT = 100
 # from an instance that had never seen the write, and both halves of the
 # pairing flow silently failed. They now live in channel_state_store.
 #
-# `stream_subscribers` deliberately stays in memory: an asyncio.Queue cannot be
-# serialised, and each SSE connection belongs to the single process holding it
-# open. That means an event published on instance A still does not reach a
-# subscriber on instance B — the SSE fanout needs a broker (Redis pub/sub, or
-# the existing realtime server) to be correct across instances. Until then the
-# clients poll /mobile/uploads/latest, which is now durable, and the stream is
-# a same-instance fast path rather than the only delivery route.
-stream_subscribers: dict[str, set[asyncio.Queue[tuple[str, dict[str, Any]]]]] = defaultdict(set)
+# Both halves are polled: the desktop reads /uploads/latest and
+# /tasks/contexts every few seconds. There used to be an SSE stream as well,
+# but its subscribers lived in one process's memory, so on serverless an
+# event only reached a desktop that happened to be connected to the same
+# instance — and each open stream held a function running for as long as
+# the page stayed open.
 
 CHANNEL_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{8,64}$")
 SUPPORTED_PROBLEM_NUMBERS = {34, 35}
@@ -169,22 +167,19 @@ def _validate_problem_number(problem_number: int) -> int:
     return problem_number
 
 
-def _broadcast_stream_event(channel_id: str, event_name: str, payload: dict[str, Any]):
-    stale_subscribers: list[asyncio.Queue[tuple[str, dict[str, Any]]]] = []
-    for queue in stream_subscribers[channel_id]:
-        try:
-            queue.put_nowait((event_name, payload))
-        except asyncio.QueueFull:
-            stale_subscribers.append(queue)
-
-    for queue in stale_subscribers:
-        stream_subscribers[channel_id].discard(queue)
-
-
 def _record_upload_event(event: UploadEvent, channel_id: str):
     payload = event.model_dump()
     channel_state_store.record_upload(channel_id, payload, UPLOAD_HISTORY_LIMIT)
-    _broadcast_stream_event(channel_id, "upload", payload)
+
+
+def _store_grade(context: TaskContext | None, grade: TaskGradeResponse) -> None:
+    """Keep the grade with its task, where the desktop's poll will find it."""
+    if context is None:
+        return
+    updated = context.model_copy(update={"last_grade": grade})
+    channel_state_store.save_task_context(
+        context.channel_id, context.problem_number, updated.model_dump()
+    )
 
 
 def _ai_grade(
@@ -470,7 +465,7 @@ async def grade_task_submission(payload: TaskGradeRequest, _user=Depends(get_cur
         submitted_answer=payload.student_answer,
         statement=context.statement if context else None,
     )
-    _broadcast_stream_event(channel_id, "grade", response.model_dump())
+    _store_grade(context, response)
     return response
 
 
@@ -524,7 +519,7 @@ async def grade_task_from_photo(payload: TaskPhotoGradeRequest, _user=Depends(ge
     )
     # Attach a signed, site-relative media URL the desktop can render directly.
     response.file_url = build_media_url(file_name)
-    _broadcast_stream_event(channel_id, "grade", response.model_dump())
+    _store_grade(context, response)
     return response
 
 
@@ -611,43 +606,6 @@ async def clear_channel_history(channel_id: str = Query(...), _user=Depends(get_
     channel_id = _validate_channel_id(channel_id)
     channel_state_store.clear_uploads(channel_id)
     return {"cleared": True}
-
-
-@router.get("/uploads/stream")
-async def stream_upload_events(channel_id: str = Query(...)):
-    # Deliberately no session check: EventSource cannot send an Authorization
-    # header, and putting the 7-day JWT in the URL would write it into every
-    # access log. The stream only mirrors what /uploads/latest returns, and
-    # the channel id is a 128-bit CSPRNG value (frontend utils/channelId.ts).
-    channel_id = _validate_channel_id(channel_id)
-    subscriber: asyncio.Queue[tuple[str, dict[str, Any]]] = asyncio.Queue(maxsize=10)
-    stream_subscribers[channel_id].add(subscriber)
-
-    async def event_generator():
-        try:
-            # Initial ping so clients know the connection is alive.
-            yield ": connected\n\n"
-            while True:
-                try:
-                    event_name, event_payload = await asyncio.wait_for(subscriber.get(), timeout=15.0)
-                    payload = json.dumps(event_payload, ensure_ascii=True)
-                    yield f"event: {event_name}\ndata: {payload}\n\n"
-                except asyncio.TimeoutError:
-                    # Send a keepalive comment so the connection is not silently dropped.
-                    yield ": keepalive\n\n"
-        except asyncio.CancelledError:
-            raise
-        finally:
-            stream_subscribers[channel_id].discard(subscriber)
-
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-        },
-    )
 
 
 @router.post("/admin/purge-expired-uploads")
