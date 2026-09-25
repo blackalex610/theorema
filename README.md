@@ -201,7 +201,7 @@ The backend API is documented with FastAPI's Swagger UI:
 
 ## 📝 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+Proprietary — all rights reserved. See [LICENSE](LICENSE). The code may not be used, copied or redistributed without written permission.
 
 ## 👥 Team
 
