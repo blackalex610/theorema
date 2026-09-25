@@ -152,16 +152,16 @@ const SettingsModal: React.FC = () => {
           <div ref={premiumSectionRef}>
             <SettingsSection
               title="Premium"
-              description="Unlock unlimited AI learning features."
+              description="Без дневни лимити за AI задачите, чата, изпитите и проверката на снимки."
             >
               <div className="space-y-3">
                 <div className={`rounded-2xl border p-4 ${planStatus.is_premium ? 'border-emerald-300 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-900/20' : 'border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-900/20'}`}>
                   <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-                    Current plan: {planStatus.is_premium ? 'Premium ⚡' : 'Free'}
+                    Текущ план: {planStatus.is_premium ? 'Premium ⚡' : 'Безплатен'}
                   </p>
                   {!planStatus.is_premium && (
                     <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
-                      Free limits: {planStatus.usage.ai_exercises.used}/{planStatus.usage.ai_exercises.limit} AI tasks, {planStatus.usage.ai_chat.used}/{planStatus.usage.ai_chat.limit} chat, {planStatus.usage.nvo_exams.used}/{planStatus.usage.nvo_exams.limit} NVO, {planStatus.usage.image_scans.used}/{planStatus.usage.image_scans.limit} scans today.
+                      Използвано днес: {planStatus.usage.ai_exercises.used}/{planStatus.usage.ai_exercises.limit} AI задачи, {planStatus.usage.ai_chat.used}/{planStatus.usage.ai_chat.limit} въпроса в чата, {planStatus.usage.nvo_exams.used}/{planStatus.usage.nvo_exams.limit} НВО изпита, {planStatus.usage.image_scans.used}/{planStatus.usage.image_scans.limit} снимки.
                     </p>
                   )}
                 </div>

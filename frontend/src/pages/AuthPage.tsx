@@ -6,7 +6,21 @@ import { WarningCircleIcon } from '@phosphor-icons/react';
 import GoogleAuthButton from '../components/auth/GoogleAuthButton';
 import { useAuth } from '../context/AuthContext';
 import { trackEvent } from '../services/analytics';
+import { apiErrorDetail } from '../services/api';
 import { safeRedirectTarget } from '../utils/redirect';
+
+/**
+ * What to tell the student when signing in fails: the server's own message
+ * when it sends one ({code, message} — those are written in Bulgarian, e.g.
+ * the rate limiter's), otherwise the fallback. Never the Error's own
+ * message: for a failed request that is axios' English "Request failed with
+ * status code 429".
+ */
+function signInErrorMessage(error: unknown, fallback: string): string {
+  const detail = apiErrorDetail(error);
+  const message = typeof detail === 'object' && detail !== null ? (detail as { message?: unknown }).message : null;
+  return typeof message === 'string' && message.trim() ? message : fallback;
+}
 
 /**
  * The entire signed-out experience: two buttons, both real.
@@ -38,7 +52,7 @@ const AuthPage: React.FC = () => {
       trackEvent('login', { method: 'guest' });
       navigate(next, { replace: true });
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Опитай пак след малко.');
+      setError(signInErrorMessage(e, 'Влизането като гост не успя. Опитай пак след малко.'));
     } finally {
       setBusy(null);
     }
@@ -63,7 +77,7 @@ const AuthPage: React.FC = () => {
         setError('Вече има профил с този Google акаунт — влязохте в него. Прогресът като гост не се пренесе.');
         navigate(next, { replace: true });
       } else {
-        setError(e instanceof Error ? e.message : 'Входът не мина. Опитай отново след малко.');
+        setError(signInErrorMessage(e, 'Входът не мина. Опитай отново след малко.'));
       }
     } finally {
       setBusy(null);
