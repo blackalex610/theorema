@@ -1,6 +1,8 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
+const CONSENT_PATH = '/consent';
+
 /**
  * Route guard for everything behind login.
  *
@@ -11,10 +13,17 @@ import { useAuth } from '../context/AuthContext';
  */
 export default function RequireAuth() {
   const location = useLocation();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+  const here = location.pathname + location.search;
 
   if (!isAuthenticated) {
-    return <Navigate to="/" replace state={{ from: location.pathname + location.search }} />;
+    return <Navigate to="/" replace state={{ from: here }} />;
+  }
+
+  // Signed in but the age / consent step is still owed: nothing else until
+  // it is answered, then back to where they were going.
+  if (user?.consentRequired && location.pathname !== CONSENT_PATH) {
+    return <Navigate to={CONSENT_PATH} replace state={{ from: here }} />;
   }
 
   return <Outlet />;

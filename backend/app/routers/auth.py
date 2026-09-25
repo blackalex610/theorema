@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from jose import jwt
@@ -16,6 +17,8 @@ from app.config import settings
 from app.database import get_db
 from app.models.user import User
 from app.auth.dependencies import get_current_user, get_optional_user, require_admin, FREE_LIMITS
+from app.services.consent import CONSENT_VERSION, consent_required
+from app.services.event_log_store import append_log
 from app.services.guest_cleanup import purge_stale_guests
 from app.services.user_data import delete_user_account, export_user_data
 
@@ -76,6 +79,13 @@ def _verify_google_token(raw_token: str) -> dict:
     return info
 
 
+def _consent_fields(user: User) -> dict:
+    return {
+        "consent_required": consent_required(user),
+        "age_group": user.age_group,
+    }
+
+
 def _user_payload(user: User) -> dict:
     return {
         "id": user.id,
@@ -84,6 +94,7 @@ def _user_payload(user: User) -> dict:
         "picture": user.picture,
         "plan": user.plan,
         "is_guest": user.is_guest,
+        **_consent_fields(user),
     }
 
 
@@ -271,6 +282,7 @@ async def get_me(current_user: User = Depends(get_current_user)):
         "picture": current_user.picture,
         "plan": current_user.plan,
         "is_guest": current_user.is_guest,
+        **_consent_fields(current_user),
         "usage": {
             "ai_exercises": {"used": current_user.ai_exercises_today, "limit": limits["ai_exercises"]},
             "ai_chat": {"used": current_user.ai_chat_today, "limit": limits["ai_chat"]},
@@ -278,6 +290,60 @@ async def get_me(current_user: User = Depends(get_current_user)):
             "nvo_exams": {"used": current_user.nvo_exams_today, "limit": limits["nvo_exams"]},
         },
     }
+
+
+class ConsentRequest(BaseModel):
+    age_group: Literal["14_plus", "under_14"]
+    # The checkbox for this age group: the student accepting the documents
+    # (14+), or a parent or guardian consenting on their behalf (under 14).
+    confirmed: bool
+
+
+@router.post("/consent")
+async def record_consent(
+    body: ConsentRequest,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Record the account's age group and consent (see services/consent.py)."""
+    if not body.confirmed:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "CONSENT_NOT_CONFIRMED",
+                "message": (
+                    "Нужно е съгласие от родител или настойник."
+                    if body.age_group == "under_14"
+                    else "Нужно е да приемеш условията, за да продължиш."
+                ),
+            },
+        )
+
+    recorded_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    current_user.age_group = body.age_group
+    current_user.parental_consent = body.age_group == "under_14"
+    current_user.consent_version = CONSENT_VERSION
+    current_user.consent_recorded_at = recorded_at
+    try:
+        db.commit()
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(status_code=503, detail="Database unavailable") from exc
+    db.refresh(current_user)
+
+    # Audit trail: the user row holds the current answer; this keeps every
+    # answer given, including under earlier document versions. Keyed by
+    # user_id so it is exported and deleted with the account.
+    append_log("consent", {
+        "user_id": current_user.id,
+        "age_group": body.age_group,
+        "parental_consent": current_user.parental_consent,
+        "consent_version": CONSENT_VERSION,
+        "recorded_at": recorded_at.isoformat(),
+        "ip": _client_ip(request),
+    })
+    return {"user": _user_payload(current_user)}
 
 
 @router.get("/me/export")

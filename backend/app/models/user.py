@@ -35,4 +35,12 @@ class User(Base):
     # Security / abuse tracking
     last_login_ip = Column(String(45), nullable=True)   # IPv4 or IPv6
 
+    # Consent record (app/services/consent.py). Bulgaria's digital age of
+    # consent is 14: an under-14 account needs a parent's or guardian's
+    # consent, and the controller has to be able to show it was given.
+    age_group = Column(String(16), nullable=True)          # "14_plus" | "under_14"
+    parental_consent = Column(Boolean, default=False, nullable=False, server_default=sql.false())
+    consent_version = Column(String(32), nullable=True)     # documents' version consented to
+    consent_recorded_at = Column(DateTime, nullable=True)
+
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

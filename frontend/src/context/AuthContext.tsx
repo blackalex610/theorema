@@ -17,7 +17,13 @@ export type AuthUser = {
   picture: string | null;
   plan: string;
   isGuest: boolean;
+  /** The account has not yet answered the age / consent step for the
+   *  current version of the privacy policy and terms (see /consent). */
+  consentRequired: boolean;
+  ageGroup: AgeGroup | null;
 };
+
+export type AgeGroup = '14_plus' | 'under_14';
 
 type RawUser = {
   id: number;
@@ -26,6 +32,8 @@ type RawUser = {
   picture?: string | null;
   plan?: string | null;
   is_guest?: boolean;
+  consent_required?: boolean;
+  age_group?: AgeGroup | null;
 };
 
 type SessionPayload = { access_token: string; user: RawUser };
@@ -55,6 +63,9 @@ type AuthContextValue = {
   continueAsGuest: () => Promise<void>;
   signOut: () => void;
   refreshUser: () => Promise<void>;
+  /** Records the age group and the matching consent (the student's own at
+   *  14+, a parent's or guardian's under 14). */
+  recordConsent: (ageGroup: AgeGroup, confirmed: boolean) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -67,6 +78,10 @@ function normalizeUser(raw: RawUser): AuthUser {
     picture: raw.picture ?? null,
     plan: raw.plan || 'free',
     isGuest: Boolean(raw.is_guest),
+    // A user cached before this field existed reads as "not required" until
+    // refreshUser() fetches /auth/me on mount, which then asks if needed.
+    consentRequired: Boolean(raw.consent_required),
+    ageGroup: raw.age_group ?? null,
   };
 }
 
@@ -169,6 +184,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(persistSession(data));
   }, []);
 
+  const recordConsent = useCallback(async (ageGroup: AgeGroup, confirmed: boolean) => {
+    const { data } = await apiClient.post<{ user: RawUser }>('/auth/consent', {
+      age_group: ageGroup,
+      confirmed,
+    });
+    localStorage.setItem('user', JSON.stringify(data.user));
+    setUser(normalizeUser(data.user));
+  }, []);
+
   const signOut = useCallback(() => {
     clearStoredSession();
     setUser(null);
@@ -186,8 +210,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       continueAsGuest,
       signOut,
       refreshUser,
+      recordConsent,
     }),
-    [user, signInWithGoogle, linkGoogle, continueAsGuest, signOut, refreshUser]
+    [user, signInWithGoogle, linkGoogle, continueAsGuest, signOut, refreshUser, recordConsent]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

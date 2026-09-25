@@ -32,6 +32,7 @@ const ClassroomDetailPage = lazy(() => import('./pages/ClassroomDetailPage'));
 // Public legal documents: reachable signed-out, and linked from the footer
 // and the sign-in screen, because a privacy policy nobody can open is not one.
 const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
+const ConsentPage = lazy(() => import('./pages/ConsentPage'));
 const TermsPage = lazy(() => import('./pages/TermsPage'));
 import SettingsModal from './components/SettingsModal';
 import { AuthProvider } from './context/AuthContext';
@@ -64,6 +65,9 @@ function AppRoutes() {
               <Route path="terms" element={<TermsPage />} />
               {/* Everything below requires a signed-in user. */}
               <Route element={<RequireAuth />}>
+                {/* The one-time age / consent step RequireAuth sends every
+                    account to until it has answered. */}
+                <Route path="consent" element={<ConsentPage />} />
                 {/* The QR-code photo page. It used to be public, "scoped by
                     channel id, not login" — but uploading a photo spends a
                     scan credit and has required a session since the auth
