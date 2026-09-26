@@ -1,6 +1,6 @@
 """Lightweight retrieval benchmark for the NVO content pipeline (Phase 4 wrap-up).
 
-Not a metrics dashboard (out of scope — see NVO_CONTENT_ARCHITECTURE_PLAN.md's
+Not a metrics dashboard (out of scope — see docs/nvo-content-architecture.md's
 minimal-implementation-checklist item 6, deferred until there's an operator
 who needs one). Gives a single JSON-able report an operator can run before
 flipping NVO_USE_DB_RETRIEVAL / NVO_USE_EMBEDDING_RETRIEVAL on in production.

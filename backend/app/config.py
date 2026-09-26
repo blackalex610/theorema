@@ -65,7 +65,7 @@ class Settings(BaseSettings):
     SENTRY_DSN: str = ""
     SENTRY_TRACES_SAMPLE_RATE: float = 0.0
 
-    # NVO content architecture (see NVO_CONTENT_ARCHITECTURE_PLAN.md).
+    # NVO content architecture (see docs/nvo-content-architecture.md).
     # Both default off: the DB tables may be empty (no backfill run yet) and
     # generation must keep working from the file catalog until an operator
     # opts in deliberately after running the backfill.

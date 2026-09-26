@@ -11,7 +11,7 @@ import { safeRedirectTarget } from '../utils/redirect';
 /**
  * The entire signed-out experience: two buttons, both real.
  *
- * Styling is deliberately absent — see PRODUCTION_ROADMAP.md — this page's
+ * Styling is deliberately minimal: this page's
  * job right now is correctness (real sessions, real redirects), not looks.
  */
 const AuthPage: React.FC = () => {

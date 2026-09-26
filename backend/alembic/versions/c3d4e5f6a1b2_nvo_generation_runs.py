@@ -1,6 +1,6 @@
 """nvo generation runs
 
-Audit trail for NVO_CONTENT_ARCHITECTURE_PLAN.md Phase 3: one row per
+Audit trail for docs/nvo-content-architecture.md Phase 3: one row per
 generation call recording whether it was served from the DB corpus or the
 file catalog fallback.
 

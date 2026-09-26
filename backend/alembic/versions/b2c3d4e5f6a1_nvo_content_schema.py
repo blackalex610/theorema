@@ -1,7 +1,7 @@
 """nvo content schema
 
 Adds the structured NVO problem corpus described in
-NVO_CONTENT_ARCHITECTURE_PLAN.md Phase 0: source exams, topic taxonomy,
+docs/nvo-content-architecture.md Phase 0: source exams, topic taxonomy,
 skills taxonomy, the problems table itself, and their join table.
 
 Prefixed `nvo_` — `topics` already names the practice-curriculum table in

@@ -1,6 +1,6 @@
 """Structured NVO problem corpus — source exams, taxonomy, and problem rows.
 
-Implements NVO_CONTENT_ARCHITECTURE_PLAN.md Phase 0. Prefixed `nvo_` because
+Implements docs/nvo-content-architecture.md Phase 0. Prefixed `nvo_` because
 `topics`/`grades` already name the practice-curriculum tables in
 app.models.curriculum; this is a separate taxonomy for the NVO
 exam-generation corpus, not the same rows.

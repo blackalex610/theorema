@@ -1,6 +1,6 @@
 """Deterministic metadata-filter retrieval over the NVO problem corpus.
 
-Implements NVO_CONTENT_ARCHITECTURE_PLAN.md Phase 1/3: the DB-backed read
+Implements docs/nvo-content-architecture.md Phase 1/3: the DB-backed read
 path is used when `settings.NVO_USE_DB_RETRIEVAL` is on and the corpus has
 content for every slot the caller needs; otherwise the caller falls back to
 the file-based catalog (app.routers.nvo.load_nvo_catalog). This module never

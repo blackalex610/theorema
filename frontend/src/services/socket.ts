@@ -6,9 +6,8 @@ export type PairingSocket = Socket;
 /**
  * A photo pushed from the phone for ad-hoc math recognition.
  *
- * Nothing currently emits this — see "Known dead path" in
- * docs/superpowers/specs/2026-09-21-phone-connect-rehaul-design.md. The type
- * and listener are retained so MathVisionPanel keeps its prop.
+ * Nothing currently emits this. The type and listener are retained so
+ * MathVisionPanel keeps its prop.
  */
 export type PairingImagePayload = {
   dataUrl: string;

@@ -1,6 +1,6 @@
 """QA report over the NVO problem corpus: coverage, balance, and integrity checks.
 
-Implements NVO_CONTENT_ARCHITECTURE_PLAN.md Phase 2's "run QA report and fix
+Implements docs/nvo-content-architecture.md Phase 2's "run QA report and fix
 low-confidence records". Read-only — flags problems for a human to review,
 never mutates or deactivates anything automatically.
 """

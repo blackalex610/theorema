@@ -1,6 +1,6 @@
 """Backfill NvoTopic/NvoSourceExam/NvoProblem rows from nvo_question_catalog.json.
 
-Implements NVO_CONTENT_ARCHITECTURE_PLAN.md Phase 2. Idempotent: re-running
+Implements docs/nvo-content-architecture.md Phase 2. Idempotent: re-running
 upserts by (slot_number, external_ref) instead of duplicating rows, so it is
 safe to run again after every catalog edit.
 
