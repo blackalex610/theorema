@@ -118,7 +118,7 @@ def test_generate_endpoint_strips_the_answer_key(monkeypatch, db, make_user):
     """POST /nvo/generate must never hand out correct_answer."""
     import app.routers.nvo as nvo_module
 
-    monkeypatch.setattr(nvo_module.settings, "OPENAI_API_KEY", "")  # forces the pool fallback
+    monkeypatch.setattr(nvo_module.settings, "OPENROUTER_API_KEY", "")  # forces the pool fallback
     user = make_user()
 
     exam = asyncio.run(generate_nvo_exam(request=None, current_user=user, db=db))
@@ -134,7 +134,7 @@ def test_generate_endpoint_charges_the_credit_only_after_success(monkeypatch, db
     """
     import app.routers.nvo as nvo_module
 
-    monkeypatch.setattr(nvo_module.settings, "OPENAI_API_KEY", "")  # forces the pool fallback
+    monkeypatch.setattr(nvo_module.settings, "OPENROUTER_API_KEY", "")  # forces the pool fallback
     user = make_user()
     before = user.nvo_exams_today
 

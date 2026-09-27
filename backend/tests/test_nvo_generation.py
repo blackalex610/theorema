@@ -115,7 +115,7 @@ def _fake_openai(monkeypatch, captured: dict, response_text: str):
         def __init__(self, *args, **kwargs):
             self.chat = SimpleNamespace(completions=_Completions())
 
-    monkeypatch.setattr(nvo_module.settings, "OPENAI_API_KEY", "test-key")
+    monkeypatch.setattr(nvo_module.settings, "OPENROUTER_API_KEY", "test-key")
     monkeypatch.setattr(nvo_module, "OpenAI", _FakeClient)
 
 
@@ -312,7 +312,7 @@ def test_generate_job_charges_the_credit_once_the_background_task_succeeds(monke
     from app.routers.nvo import create_nvo_generation_job, get_nvo_generation_job
     import app.routers.nvo as nvo_module
 
-    monkeypatch.setattr(nvo_module.settings, "OPENAI_API_KEY", "")  # forces the pool fallback
+    monkeypatch.setattr(nvo_module.settings, "OPENROUTER_API_KEY", "")  # forces the pool fallback
     user = make_user()
     before = user.nvo_exams_today
     background_tasks = BackgroundTasks()

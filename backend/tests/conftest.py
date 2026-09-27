@@ -17,6 +17,7 @@ os.environ["DATABASE_URL"] = f"sqlite:///{_TMP_DB.as_posix()}"
 os.environ["ENVIRONMENT"] = "test"
 os.environ["SECRET_KEY"] = "pytest-secret-key-not-used-in-any-real-deploy"
 os.environ["OPENAI_API_KEY"] = ""
+os.environ["OPENROUTER_API_KEY"] = ""
 
 import pytest  # noqa: E402
 

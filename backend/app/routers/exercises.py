@@ -101,10 +101,10 @@ def _local_equivalence_check(submitted_answer: str, correct_answer: str) -> bool
 
 
 def _ai_equivalence_check(question: str, submitted_answer: str, correct_answer: str, solution: str | None) -> bool:
-    if not settings.OPENAI_API_KEY:
+    if not settings.OPENROUTER_API_KEY:
         return False
 
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    client = OpenAI(api_key=settings.OPENROUTER_API_KEY, base_url=settings.OPENROUTER_BASE_URL)
     system_prompt = (
         "You are a strict Bulgarian math answer checker. "
         "Decide whether student's answer is mathematically equivalent to the reference answer. "
