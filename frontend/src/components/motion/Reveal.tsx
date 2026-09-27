@@ -2,6 +2,7 @@ import * as React from 'react';
 import { motion, useReducedMotion, type Variants } from 'framer-motion';
 
 import { cn } from '@/lib/utils';
+import { PLAIN_UI } from '@/config/plainMode';
 
 /**
  * The one scroll-reveal in the system.
@@ -33,7 +34,7 @@ export const Reveal: React.FC<BaseProps & { delay?: number }> = ({
   id,
   delay = 0,
 }) => {
-  const reduced = useReducedMotion();
+  const reduced = useReducedMotion() || PLAIN_UI;
 
   if (reduced) {
     return (
@@ -64,7 +65,7 @@ export const RevealGroup: React.FC<BaseProps & { step?: number }> = ({
   id,
   step = 0.06,
 }) => {
-  const reduced = useReducedMotion();
+  const reduced = useReducedMotion() || PLAIN_UI;
 
   if (reduced) {
     return (
@@ -89,7 +90,7 @@ export const RevealGroup: React.FC<BaseProps & { step?: number }> = ({
 };
 
 export const RevealItem: React.FC<BaseProps> = ({ children, className, id }) => {
-  const reduced = useReducedMotion();
+  const reduced = useReducedMotion() || PLAIN_UI;
 
   if (reduced) {
     return (
@@ -112,7 +113,7 @@ export const RevealItem: React.FC<BaseProps> = ({ children, className, id }) => 
  * cursor, not that it jumps off the page.
  */
 export function useSpringHover() {
-  const reduced = useReducedMotion();
+  const reduced = useReducedMotion() || PLAIN_UI;
   if (reduced) return {};
   return {
     whileHover: { y: -2, scale: 1.015 },

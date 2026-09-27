@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import Lenis from 'lenis';
+import { PLAIN_UI } from '../config/plainMode';
 
 /**
  * Global smooth scrolling.
@@ -34,6 +35,11 @@ const SmoothScroll: React.FC<React.PropsWithChildren> = ({ children }) => {
   const { pathname } = useLocation();
 
   useEffect(() => {
+    // Plain mode is for reading screens, not gliding between them. Skipping
+    // Lenis leaves the native scrollbar, which is easier to work against.
+    // `scrollToSection` already falls back to scrollIntoView without it.
+    if (PLAIN_UI) return;
+
     // Anyone who asked their OS for less motion gets the browser's native
     // scroll, untouched. Instantiating Lenis at all would override it.
     const query = window.matchMedia('(prefers-reduced-motion: reduce)');

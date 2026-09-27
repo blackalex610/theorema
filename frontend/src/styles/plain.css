@@ -1,0 +1,181 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   PLAIN MODE — a temporary "no design" layer for working on screens.
+
+   Turn it on/off with PLAIN_UI in src/config/plainMode.ts. Nothing here edits
+   a single page or component: every rule is scoped to `html.plain-ui`, so with
+   the class off this file is inert, and clearing the flag restores the real
+   design exactly.
+
+   What it removes: colour, gradients, shadows, rounding, blur, the graph-paper
+   substrate, transitions and CSS animations.
+   What it keeps: flex/grid layout, spacing, heading sizes, focus rings, KaTeX
+   math, and SVG diagrams — the things you need in order to read a screen.
+
+   ── Specificity convention ──────────────────────────────────────────────────
+   index.css ships a stack of `html.dark .bg-white { ... !important }` overrides
+   at specificity (0,2,1), so the blanket reset below doubles `.plain-ui` to sit
+   at (0,2,3) and win. Targeted rules that must survive the blanket reset triple
+   it instead, landing at (0,3,x). Keep to those two tiers when adding rules.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── The blanket reset ──────────────────────────────────────────────────────
+   Everything except SVG internals. Diagrams paint with fill/stroke and their
+   own colour logic; flattening them would make DiagramRenderer, NvoDiagrams
+   and SceneRenderer unreadable rather than plain. */
+
+html.plain-ui.plain-ui *:not(svg, svg *),
+html.plain-ui.plain-ui *:not(svg, svg *)::before,
+html.plain-ui.plain-ui *:not(svg, svg *)::after {
+	color: inherit !important;
+	background-color: transparent !important;
+	background-image: none !important;
+	border-color: #d4d4d4 !important;
+	border-radius: 0 !important;
+	box-shadow: none !important;
+	text-shadow: none !important;
+	filter: none !important;
+	backdrop-filter: none !important;
+	-webkit-backdrop-filter: none !important;
+	mask-image: none !important;
+	-webkit-mask-image: none !important;
+	transition: none !important;
+	animation: none !important;
+}
+
+/* ── The page itself ────────────────────────────────────────────────────── */
+
+html.plain-ui.plain-ui.plain-ui,
+html.plain-ui.plain-ui.plain-ui body {
+	background: #ffffff !important;
+	color: #111111 !important;
+	font-family: system-ui, "Segoe UI", sans-serif !important;
+	scroll-behavior: auto !important;
+}
+
+/* The one display face left in play is the body face. `font-mono` keeps its
+   own stack, because monospace is information here, not decoration. */
+html.plain-ui.plain-ui.plain-ui [class*="font-display"],
+html.plain-ui.plain-ui.plain-ui [class*="font-sans"] {
+	font-family: inherit !important;
+}
+
+/* ── Text that the reset would otherwise erase ──────────────────────────────
+   `text-transparent` + `bg-clip-text` gradient headings lose their gradient
+   above, so without this they would render as invisible text. */
+
+html.plain-ui.plain-ui.plain-ui [class*="text-transparent"] {
+	color: #111111 !important;
+	-webkit-text-fill-color: #111111 !important;
+	-webkit-background-clip: border-box !important;
+	background-clip: border-box !important;
+}
+
+/* With every colour gone, underline is the only thing left that says "link". */
+html.plain-ui.plain-ui.plain-ui a {
+	text-decoration: underline !important;
+	text-underline-offset: 2px !important;
+}
+
+/* ── Controls stay identifiable as controls ─────────────────────────────── */
+
+html.plain-ui.plain-ui.plain-ui button,
+html.plain-ui.plain-ui.plain-ui input,
+html.plain-ui.plain-ui.plain-ui select,
+html.plain-ui.plain-ui.plain-ui textarea,
+html.plain-ui.plain-ui.plain-ui [role="button"] {
+	background-color: #ffffff !important;
+	border: 1px solid #888888 !important;
+	color: #111111 !important;
+}
+
+html.plain-ui.plain-ui.plain-ui button:disabled,
+html.plain-ui.plain-ui.plain-ui input:disabled,
+html.plain-ui.plain-ui.plain-ui [aria-disabled="true"] {
+	border-style: dashed !important;
+	color: #777777 !important;
+}
+
+/* Selected / checked state is the one signal worth keeping in colour's place. */
+html.plain-ui.plain-ui.plain-ui [aria-selected="true"],
+html.plain-ui.plain-ui.plain-ui [aria-checked="true"],
+html.plain-ui.plain-ui.plain-ui [aria-current="page"],
+html.plain-ui.plain-ui.plain-ui [data-state="active"],
+html.plain-ui.plain-ui.plain-ui [data-state="checked"] {
+	border: 2px solid #111111 !important;
+	font-weight: 700 !important;
+}
+
+/* Focus must survive a design strip; keyboard users still need to see it. */
+html.plain-ui.plain-ui.plain-ui :focus-visible {
+	outline: 2px solid #111111 !important;
+	outline-offset: 2px !important;
+}
+
+/* ── Surfaces that float above the page ─────────────────────────────────────
+   Dialogs, menus, tooltips, sticky bars and the settings FAB all relied on an
+   opaque background. Transparent, they become text piled on top of the page,
+   so they get an explicit sheet and edge back. */
+
+html.plain-ui.plain-ui.plain-ui [role="dialog"],
+html.plain-ui.plain-ui.plain-ui [role="alertdialog"],
+html.plain-ui.plain-ui.plain-ui [role="menu"],
+html.plain-ui.plain-ui.plain-ui [role="listbox"],
+html.plain-ui.plain-ui.plain-ui [role="tooltip"],
+html.plain-ui.plain-ui.plain-ui [data-radix-popper-content-wrapper] > *,
+html.plain-ui.plain-ui.plain-ui [class~="fixed"],
+html.plain-ui.plain-ui.plain-ui [class~="sticky"],
+html.plain-ui.plain-ui.plain-ui .settings-fab {
+	background-color: #ffffff !important;
+	border: 1px solid #999999 !important;
+}
+
+/* ── Card edges ─────────────────────────────────────────────────────────────
+   Shadow was what separated a card from the page. `outline` replaces it
+   without occupying a single pixel of layout, so nothing reflows. */
+
+html.plain-ui.plain-ui.plain-ui [class*="shadow-"] {
+	outline: 1px solid #dddddd !important;
+	outline-offset: -1px !important;
+}
+
+/* ── Motion ─────────────────────────────────────────────────────────────────
+   Transitions and CSS animations are already off above; these are the hover
+   transforms from index.css, which would otherwise still jump, just instantly.
+   Global `transform` is deliberately left alone — Radix centres dialogs and
+   popovers with it. */
+
+html.plain-ui.plain-ui.plain-ui .motion-card,
+html.plain-ui.plain-ui.plain-ui .motion-card:hover,
+html.plain-ui.plain-ui.plain-ui .motion-pill,
+html.plain-ui.plain-ui.plain-ui .motion-pill:hover,
+html.plain-ui.plain-ui.plain-ui .motion-icon,
+html.plain-ui.plain-ui.plain-ui .group:hover .motion-icon,
+html.plain-ui.plain-ui.plain-ui .dashboard-jump-rail,
+html.plain-ui.plain-ui.plain-ui .dashboard-jump-shell:hover .dashboard-jump-rail {
+	transform: none !important;
+}
+
+/* ── Things the reset must not touch ────────────────────────────────────── */
+
+/* Fraction bars, radicals and rules are borders. At #d4d4d4 they all but
+   vanish, so maths gets its borders back in the current text colour. */
+html.plain-ui.plain-ui.plain-ui .katex,
+html.plain-ui.plain-ui.plain-ui .katex * {
+	border-color: currentColor !important;
+}
+
+/* Progress fills carry a value; without a background they read as empty. */
+html.plain-ui.plain-ui.plain-ui [role="progressbar"] {
+	outline: 1px solid #888888 !important;
+	outline-offset: -1px !important;
+}
+
+html.plain-ui.plain-ui.plain-ui [role="progressbar"] > * {
+	background-color: #888888 !important;
+}
+
+/* Decorative blobs and glow layers are empty and aria-hidden by construction.
+   With their gradients gone they are invisible boxes still taking up space. */
+html.plain-ui.plain-ui.plain-ui [aria-hidden="true"]:empty {
+	display: none !important;
+}
